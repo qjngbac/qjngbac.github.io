@@ -1,0 +1,207 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Wait - 记录学习与成长</title><meta name="author" content="qjngbac"><meta name="copyright" content="qjngbac"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta property="og:type" content="website">
+<meta property="og:title" content="Wait">
+<meta property="og:url" content="https://qjngbac.github.io/index.html">
+<meta property="og:site_name" content="Wait">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://qjngbac.github.io/img/butterfly-icon.png">
+<meta property="article:author" content="qjngbac">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://qjngbac.github.io/img/butterfly-icon.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "Wait",
+  "alternateName": [
+    "记录学习与成长",
+    "qjngbac.github.io"
+  ],
+  "url": "https://qjngbac.github.io/"
+}</script><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://qjngbac.github.io/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.5.5"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        if (!ttl) return
+        const expiry = Date.now() + ttl * 86400000
+        localStorage.setItem(key, JSON.stringify({ value, expiry }))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return undefined
+        const { value, expiry } = JSON.parse(itemStr)
+        if (Date.now() > expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return value
+      }
+    }
+
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+        script.onload = script.onreadystatechange = () => {
+          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      }),
+      getCSS: (url, id) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onload = link.onreadystatechange = () => {
+          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+        }
+        link.onerror = reject
+        document.head.appendChild(link)
+      }),
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: true
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Wait',
+  isHighlightShrink: false,
+  isToc: false,
+  pageType: 'home'
+}</script><meta name="generator" content="Hexo 7.3.0"></head><body><div id="loading-box"><div class="loading-left-bg"></div><div class="loading-right-bg"></div><div class="spinner-box"><div class="configure-border-1"><div class="configure-core"></div></div><div class="configure-border-2"><div class="configure-core"></div></div><div class="loading-word">加载中...</div></div></div><script>(()=>{
+  const $loadingBox = document.getElementById('loading-box')
+  const $body = document.body
+  const preloader = {
+    endLoading: () => {
+      if ($loadingBox.classList.contains('loaded')) return
+      $body.style.overflow = ''
+      $loadingBox.classList.add('loaded')
+    },
+    initLoading: () => {
+      $body.style.overflow = 'hidden'
+      $loadingBox.classList.remove('loaded')
+    }
+  }
+
+  preloader.initLoading()
+
+  if (document.readyState === 'complete') {
+    preloader.endLoading()
+  } else {
+    window.addEventListener('load', preloader.endLoading)
+    document.addEventListener('DOMContentLoaded', preloader.endLoading)
+    // Add timeout protection: force end after 7 seconds
+    setTimeout(preloader.endLoading, 7000)
+  }
+
+  if (false) {
+    btf.addGlobalFn('pjaxSend', preloader.initLoading, 'preloader_init')
+    btf.addGlobalFn('pjaxComplete', preloader.endLoading, 'preloader_end')
+  }
+})()</script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">8</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">31</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">3</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div></div></div><div class="page" id="body-wrap"><header class="full_page" id="page-header" style="background-image: url(https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1920&amp;q=80);"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">Wait</span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="site-info"><h1 id="site-title">Wait</h1><div id="site_social_icons"><a class="social-icon" href="https://github.com/qjngbac" target="_blank" title="Github"><i class="fab fa-github"></i></a></div></div><div id="scroll-down"><i class="fas fa-angle-down scroll-down-effects"></i></div></header><main class="layout" id="content-inner"><div class="recent-posts nc" id="recent-posts"><div class="recent-post-items"><div class="recent-post-item"><div class="post_cover left"><a href="/2026/07/08/aqs-reentrantlock-guide/" title="AQS 源码分析：ReentrantLock 背后的秘密"><img class="post-bg" src="/img/java-series-05-aqs.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="AQS 源码分析：ReentrantLock 背后的秘密"></a></div><div class="recent-post-info"><a class="article-title" href="/2026/07/08/aqs-reentrantlock-guide/" title="AQS 源码分析：ReentrantLock 背后的秘密">AQS 源码分析：ReentrantLock 背后的秘密</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2026-07-08T07:00:00.000Z" title="发表于 2026-07-08 15:00:00">2026-07-08</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/Java-%E6%B7%B1%E5%BA%A6/">Java 深度</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Java/">Java</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B/">并发编程</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/AQS/">AQS</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/ReentrantLock/">ReentrantLock</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E6%BA%90%E7%A0%81/">源码</a></span></div><div class="content">前言写 Java 并发代码，ReentrantLock 几乎是开发者最常用的显式锁：它支持公平&#x2F;非公平切换、可重入、可中断获取，比 synchronized 灵活得多。但很多人用了很久，却不知道它的底层完全建立在 AQS 之上。 面试中 AQS 更是并发模块的必考题：state 变量有什么用？CLH 队列怎么工作？公平锁和非公平锁到底差在哪？这些问题看似是八股，实则是理解整个 JUC 并发工具包的钥匙。 ReentrantLock 本身几乎没有复杂逻辑，它的全部锁能力，都委托给了内部的 AQS 实现类。今天我们就从 ReentrantLock 切入，逐层拆解 AQS 的核心设计：state 同步状态、CLH 等待队列、公平与非公平实现，彻底搞懂显式锁的底层原理。  一、AQS 是什么？JUC 并发的基石AQS 全称 AbstractQueuedSynchronizer，抽象队列同步器，是 java.util.concurrent 包的核心骨架。 它本质上是一个抽象框架：用一个共享变量维护同步状态，再用一个 FIFO 的等待队列管理所有抢不到锁而阻塞的线程。基于这套框架，...</div></div></div><div class="recent-post-item"><div class="post_cover right"><a href="/2026/07/08/2026-07-08-class-loading-mechanism/" title="类加载机制：为什么你的代码会报 ClassNotFoundException"><img class="post-bg" src="/img/java-series-03-classloading.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="类加载机制：为什么你的代码会报 ClassNotFoundException"></a></div><div class="recent-post-info"><a class="article-title" href="/2026/07/08/2026-07-08-class-loading-mechanism/" title="类加载机制：为什么你的代码会报 ClassNotFoundException">类加载机制：为什么你的代码会报 ClassNotFoundException</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2026-07-08T06:00:00.000Z" title="发表于 2026-07-08 14:00:00">2026-07-08</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/Java-%E6%B7%B1%E5%BA%A6/">Java 深度</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Java/">Java</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/JVM/">JVM</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E7%B1%BB%E5%8A%A0%E8%BD%BD/">类加载</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/ClassLoader/">ClassLoader</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/ClassNotFoundException/">ClassNotFoundException</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%90%8E%E7%AB%AF/">后端</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a></span></div><div class="content">前言刚改完的代码本地跑得好好的，一上测试环境就抛出 java.lang.ClassNotFoundException；Maven 依赖明明已经引入，打包也没报错，翻遍 lib 目录也能找到对应 jar 包，可 JVM 就是说找不到类。 很多人遇到这类问题，第一反应都是”缺包了””依赖没打进去”。这当然是最常见原因，但并不是全部。真实线上场景里，类明明存在却依然加载失败，往往和类加载器隔离、双亲委派模型、线程上下文类加载器、容器自定义加载规则有关。 类加载是 Java 最核心的基础机制之一，也是面试高频考点，更是我们排查依赖冲突、容器隔离、插件化、热部署问题的底层依据。本文就从 ClassNotFoundException 切入，把类加载流程、双亲委派模型、自定义类加载器，以及打破双亲委派的典型场景一次讲透。  一、前置认知：一个类从源码到执行要走几步Java 源码会先被编译成 .class 字节码文件。JVM 运行时不会直接执行 .java 文件，而是通过类加载机制把描述类的数据从 Class 文件、jar 包、网络或其他来源加载到内存中，再完成校验、转换、解析和初始化，最终形成...</div></div></div><div class="recent-post-item"><div class="post_cover left"><a href="/2026/07/08/thread-pool-guide/" title="线程池原理：面试必问的 ThreadPoolExecutor 你真的懂吗？"><img class="post-bg" src="/img/java-series-04-thread-pool.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="线程池原理：面试必问的 ThreadPoolExecutor 你真的懂吗？"></a></div><div class="recent-post-info"><a class="article-title" href="/2026/07/08/thread-pool-guide/" title="线程池原理：面试必问的 ThreadPoolExecutor 你真的懂吗？">线程池原理：面试必问的 ThreadPoolExecutor 你真的懂吗？</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2026-07-08T06:00:00.000Z" title="发表于 2026-07-08 14:00:00">2026-07-08</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/Java-%E6%B7%B1%E5%BA%A6/">Java 深度</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Java/">Java</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B/">并发编程</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E7%BA%BF%E7%A8%8B%E6%B1%A0/">线程池</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/ThreadPoolExecutor/">ThreadPoolExecutor</a></span></div><div class="content">前言做 Java 开发的人，几乎天天都在跟线程池打交道：业务异步解耦用线程池，接口并行聚合用线程池，定时任务也离不开线程池。很多人随手一个 Executors.newFixedThreadPool() 就用起来了，可一旦被面试官追问：  核心线程和非核心线程有什么区别？ 任务提交后线程池的完整执行流程是什么？ execute 和 submit 有什么本质区别？ 四种拒绝策略分别适用什么场景？  能完整答上来的人并不多。线程池不是简单的”一堆线程凑个池子”，它是一套完整的资源管控与任务调度机制，ThreadPoolExecutor 就是这套机制的核心实现。 它既是面试高频考点，也是线上最容易出问题的地方：无界队列导致 OOM、线程数失控打满 CPU、任务异常静默丢失…… 这些问题的根因，往往都是对线程池原理理解不到位。 今天我们就从底层源码视角出发，把 ThreadPoolExecutor 的核心参数、执行流程、拒绝策略、方法对比一次性讲透。  一、为什么我们需要线程池？在讲原理之前，先想清楚一个最基础的问题：为什么不直接 new Thread() 跑任务，非要用线程池？ 1234...</div></div></div><div class="recent-post-item"><div class="post_cover right"><a href="/2026/07/07/git-docker-linux-interview/" title="Git、Docker、Linux 面试高频问答：后端开发必会的三大基本功"><img class="post-bg" src="/img/git-docker-linux-cover.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Git、Docker、Linux 面试高频问答：后端开发必会的三大基本功"></a></div><div class="recent-post-info"><a class="article-title" href="/2026/07/07/git-docker-linux-interview/" title="Git、Docker、Linux 面试高频问答：后端开发必会的三大基本功">Git、Docker、Linux 面试高频问答：后端开发必会的三大基本功</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2026-07-07T07:00:00.000Z" title="发表于 2026-07-07 15:00:00">2026-07-07</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/%E5%90%8E%E7%AB%AF%E5%9F%BA%E7%A1%80/">后端基础</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%90%8E%E7%AB%AF/">后端</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Git/">Git</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Docker/">Docker</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Linux/">Linux</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E8%BF%90%E7%BB%B4/">运维</a></span></div><div class="content">前言面试中，Git、Docker、Linux 这三个工具几乎每场都会被问到。很多人觉得”会用就行”，但面试官问的不是”你会不会敲命令”，而是”你理不理解背后的原理”。 本文整理了这三个方向的高频面试题，每个问题都给出简洁但有深度的回答。不是命令手册，而是帮你建立知识框架。  一、Git 篇Q1：Git 的工作区域有哪些？Git 本地有三个核心区域，配合一个远程仓库： 1234567工作区（Working Directory）    ↓ git add暂存区（Stage / Index）    ↓ git commit本地仓库（Local Repository）    ↓ git push远程仓库（Remote Repository）   工作区：你正在编辑的文件目录 暂存区：git add 后文件的临时存储区，准备提交 本地仓库：git commit 后文件存储的地方，完整历史记录 远程仓库：GitHub&#x2F;GitLab 等托管平台  Q2：git merge 和 git rebase 有什么区别？   对比项 merge rebase    提交历史 保留分支结构，产生...</div></div></div><div class="recent-post-item"><div class="post_cover left"><a href="/2026/07/07/gc-tuning-guide/" title="GC 调优实战：一次线上 OOM 的排查经历"><img class="post-bg" src="/img/java-series-02-gc-tuning.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="GC 调优实战：一次线上 OOM 的排查经历"></a></div><div class="recent-post-info"><a class="article-title" href="/2026/07/07/gc-tuning-guide/" title="GC 调优实战：一次线上 OOM 的排查经历">GC 调优实战：一次线上 OOM 的排查经历</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2026-07-07T06:30:00.000Z" title="发表于 2026-07-07 14:30:00">2026-07-07</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/Java-%E6%B7%B1%E5%BA%A6/">Java 深度</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Java/">Java</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/JVM/">JVM</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%90%8E%E7%AB%AF/">后端</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/GC/">GC</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98/">性能调优</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/OOM/">OOM</a></span></div><div class="content">前言凌晨两点，运维告警群突然弹出一连串红色预警：核心订单服务多个实例响应超时，K8s Pod 频繁自动重启，错误日志中反复出现 java.lang.OutOfMemoryError: Java heap space。 作为后端团队的核心开发，我紧急介入排查。整个过程从 GC 现象观察到堆内存定位，从收集器原理到参数调优落地，前后三小时彻底解决问题。 很多人觉得 GC 调优是”玄学”，靠背参数就能应付。但真实线上场景里，懂 GC 算法原理、会用原生工具定位问题，才是解决 OOM 的核心能力。本文就以这次实战为线索，系统梳理 GC 核心算法、主流收集器选型，以及 jstat、jmap 的实战用法。  一、故障初现：线上 OOM 的现场信息1.1 故障现象当时正值业务高峰期，监控平台显示：  接口平均响应时间从 50ms 飙升至 800ms，大量请求超时熔断 Pod 每 10 分钟左右触发一次自动重启，服务完全无法稳定承载流量 JVM 监控显示老年代内存占用持续走高，Full GC 频率远超正常水平  1.2 初步日志定位登录容器查看服务错误日志，核心报错非常明确： 1java.lan...</div></div></div><div class="recent-post-item"><div class="post_cover right"><a href="/2026/07/06/jvm-memory-model/" title="JVM 运行时内存区域：你真的理解堆和栈吗？"><img class="post-bg" src="/img/java-series-01-jvm-memory.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="JVM 运行时内存区域：你真的理解堆和栈吗？"></a></div><div class="recent-post-info"><a class="article-title" href="/2026/07/06/jvm-memory-model/" title="JVM 运行时内存区域：你真的理解堆和栈吗？">JVM 运行时内存区域：你真的理解堆和栈吗？</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2026-07-06T08:00:00.000Z" title="发表于 2026-07-06 16:00:00">2026-07-06</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/Java-%E6%B7%B1%E5%BA%A6/">Java 深度</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Java/">Java</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/JVM/">JVM</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%90%8E%E7%AB%AF/">后端</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B/">内存模型</a></span></div><div class="content">前言写了多年 Java 代码，new 了无数个对象，调用了数不清的方法，但被问到”JVM 内存里堆和栈有什么区别”时，很多人依然只能说出”堆存对象，栈存变量”。面试被追问方法区、程序计数器、对象创建流程时，更是容易卡壳。 JVM 运行时内存区域是 Java 工程师的基本功，它不仅是面试高频考点，更是我们排查内存溢出、理解 GC 机制、进行性能调优的底层基石。今天我们就系统梳理一遍 JVM 运行时数据区，把堆、栈、方法区、程序计数器讲透，再完整走一遍对象从加载到创建的全过程。  一、JVM 运行时数据区总览Java 虚拟机在执行 Java 程序的过程中，会把它管理的内存划分为若干个不同的数据区域。这些区域各有用途、创建销毁时间各不相同：有的随着虚拟机进程启动而存在，有的则依赖用户线程的启动和结束而建立和销毁。 按照线程共享和线程私有两大维度，可以划分为以下区域：  线程私有：随线程生而生，随线程灭而灭 程序计数器 Java 虚拟机栈 本地方法栈   线程共享：所有线程共享，随虚拟机启动而创建 Java 堆 方法区（JDK 8 后演变为元空间） 运行时常量池（方法区的一部分）    ...</div></div></div><div class="recent-post-item"><div class="post_cover left"><a href="/2026/07/06/android-hardware-guide/" title="安卓手机硬件全解析：从芯片到屏幕，一文看懂所有配置"><img class="post-bg" src="/img/android-hardware-cover.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="安卓手机硬件全解析：从芯片到屏幕，一文看懂所有配置"></a></div><div class="recent-post-info"><a class="article-title" href="/2026/07/06/android-hardware-guide/" title="安卓手机硬件全解析：从芯片到屏幕，一文看懂所有配置">安卓手机硬件全解析：从芯片到屏幕，一文看懂所有配置</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2026-07-06T06:00:00.000Z" title="发表于 2026-07-06 14:00:00">2026-07-06</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/%E6%8A%80%E6%9C%AF%E7%A7%91%E6%99%AE/">技术科普</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E6%89%8B%E6%9C%BA%E7%A1%AC%E4%BB%B6/">手机硬件</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Android/">Android</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/CPU/">CPU</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%B1%8F%E5%B9%95/">屏幕</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E7%94%B5%E6%B1%A0/">电池</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E6%91%84%E5%83%8F%E5%A4%B4/">摄像头</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E7%A7%91%E6%99%AE/">科普</a></span></div><div class="content">前言  每次看到手机发布会，满屏的参数让人眼花缭乱：骁龙8 Gen3、LPDDR5X、UFS 4.0、1/1.3英寸大底、2K LTPO……这些参数到底意味着什么？哪个更重要？  这篇文章将从硬件工程师的视角，带你逐个拆解安卓手机的每一个核心硬件模块。看完之后，你将能够独立判断一部手机的硬件水平。  一、处理器（SoC）—— 手机的大脑  1.1 什么是 SoC  手机里的"CPU"其实不是单纯的 CPU，而是一颗 SoC（System on Chip，片上系统）。它把多个模块集成在一颗芯片上：  SoC 内部结构： ┌──────────────────────────────────────┐ │           SoC（片上系统）              │ │                                      │ │  ┌─────────┐  ┌─────────┐            │ │  │  CPU    │  │  GPU    │            │ │  │ 大中小核 │  │ 图形处理  │            ...</div></div></div><div class="recent-post-item"><div class="post_cover right"><a href="/2026/07/05/2026-07-05-oled-screen-guide/" title="手机屏幕技术深度解析：以OLED为例"><img class="post-bg" src="/img/oled-cover.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="手机屏幕技术深度解析：以OLED为例"></a></div><div class="recent-post-info"><a class="article-title" href="/2026/07/05/2026-07-05-oled-screen-guide/" title="手机屏幕技术深度解析：以OLED为例">手机屏幕技术深度解析：以OLED为例</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2026-07-05T15:00:00.000Z" title="发表于 2026-07-05 23:00:00">2026-07-05</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/%E6%8A%80%E6%9C%AF%E7%A7%91%E6%99%AE/">技术科普</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E6%89%8B%E6%9C%BA%E7%A1%AC%E4%BB%B6/">手机硬件</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/OLED/">OLED</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%B1%8F%E5%B9%95%E6%8A%80%E6%9C%AF/">屏幕技术</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E6%98%BE%E7%A4%BA%E6%8A%80%E6%9C%AF/">显示技术</a></span></div><div class="content">你每天看手机屏幕超过 6 小时，但你真的了解它吗？  一、屏幕基础概念  1.1 像素与分辨率  屏幕是由无数个像素（Pixel）组成的，每个像素可以独立发光或显示颜色。     术语 含义 示例    分辨率 屏幕像素的总数 2778×1284（iPhone 14 Pro Max）   PPI 每英寸像素数，数值越高越细腻 460 PPI   FHD+ 全高清升级版 2400×1080   2K 超高清 3200×1440   PPI 的计算公式：  PPI = √(水平像素² + 垂直像素²) / 屏幕尺寸(英寸) 人眼在 25cm 距离下，大约能分辨 300 PPI 以上的细节。所以现在主流手机的 400+ PPI 已经足够清晰。  1.2 色域与色准  色域（Color Gamut）是屏幕能显示的颜色范围：     色域标准 说明 应用    sRGB 最基础的标准，覆盖约 35% 可见色 网页、日常使用   DCI-P3 影视级色域，比 sRGB 宽 25% 旗舰手机、影院   Rec.2020 超广色域，覆盖约 75% 可见色 8K 电视、专业显示   色准用 ΔE（...</div></div></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">qjngbac</div><div class="author-info-description">一个正在学习的开发者</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">8</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">31</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">3</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/qjngbac"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/qjngbac" target="_blank" title="Github"><i class="fab fa-github"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到我的博客</div></div><div class="sticky_layout"><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2026/07/08/aqs-reentrantlock-guide/" title="AQS 源码分析：ReentrantLock 背后的秘密"><img src="/img/java-series-05-aqs.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="AQS 源码分析：ReentrantLock 背后的秘密"/></a><div class="content"><a class="title" href="/2026/07/08/aqs-reentrantlock-guide/" title="AQS 源码分析：ReentrantLock 背后的秘密">AQS 源码分析：ReentrantLock 背后的秘密</a><time datetime="2026-07-08T07:00:00.000Z" title="发表于 2026-07-08 15:00:00">2026-07-08</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/08/2026-07-08-class-loading-mechanism/" title="类加载机制：为什么你的代码会报 ClassNotFoundException"><img src="/img/java-series-03-classloading.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="类加载机制：为什么你的代码会报 ClassNotFoundException"/></a><div class="content"><a class="title" href="/2026/07/08/2026-07-08-class-loading-mechanism/" title="类加载机制：为什么你的代码会报 ClassNotFoundException">类加载机制：为什么你的代码会报 ClassNotFoundException</a><time datetime="2026-07-08T06:00:00.000Z" title="发表于 2026-07-08 14:00:00">2026-07-08</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/08/thread-pool-guide/" title="线程池原理：面试必问的 ThreadPoolExecutor 你真的懂吗？"><img src="/img/java-series-04-thread-pool.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="线程池原理：面试必问的 ThreadPoolExecutor 你真的懂吗？"/></a><div class="content"><a class="title" href="/2026/07/08/thread-pool-guide/" title="线程池原理：面试必问的 ThreadPoolExecutor 你真的懂吗？">线程池原理：面试必问的 ThreadPoolExecutor 你真的懂吗？</a><time datetime="2026-07-08T06:00:00.000Z" title="发表于 2026-07-08 14:00:00">2026-07-08</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/07/git-docker-linux-interview/" title="Git、Docker、Linux 面试高频问答：后端开发必会的三大基本功"><img src="/img/git-docker-linux-cover.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Git、Docker、Linux 面试高频问答：后端开发必会的三大基本功"/></a><div class="content"><a class="title" href="/2026/07/07/git-docker-linux-interview/" title="Git、Docker、Linux 面试高频问答：后端开发必会的三大基本功">Git、Docker、Linux 面试高频问答：后端开发必会的三大基本功</a><time datetime="2026-07-07T07:00:00.000Z" title="发表于 2026-07-07 15:00:00">2026-07-07</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/07/gc-tuning-guide/" title="GC 调优实战：一次线上 OOM 的排查经历"><img src="/img/java-series-02-gc-tuning.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="GC 调优实战：一次线上 OOM 的排查经历"/></a><div class="content"><a class="title" href="/2026/07/07/gc-tuning-guide/" title="GC 调优实战：一次线上 OOM 的排查经历">GC 调优实战：一次线上 OOM 的排查经历</a><time datetime="2026-07-07T06:30:00.000Z" title="发表于 2026-07-07 14:30:00">2026-07-07</time></div></div></div></div><div class="card-widget card-categories"><div class="item-headline">
+            <i class="fas fa-folder-open"></i>
+            <span>分类</span>
+            
+          </div>
+          <ul class="card-category-list" id="aside-cat-list">
+            <li class="card-category-list-item "><a class="card-category-list-link" href="/categories/Java-%E6%B7%B1%E5%BA%A6/"><span class="card-category-list-name">Java 深度</span><span class="card-category-list-count">5</span></a></li><li class="card-category-list-item "><a class="card-category-list-link" href="/categories/%E5%90%8E%E7%AB%AF%E5%9F%BA%E7%A1%80/"><span class="card-category-list-name">后端基础</span><span class="card-category-list-count">1</span></a></li><li class="card-category-list-item "><a class="card-category-list-link" href="/categories/%E6%8A%80%E6%9C%AF%E7%A7%91%E6%99%AE/"><span class="card-category-list-name">技术科普</span><span class="card-category-list-count">2</span></a></li>
+          </ul></div><div class="card-widget card-tags"><div class="item-headline"><i class="fas fa-tags"></i><span>标签</span></div><div class="card-tag-cloud"><a href="/tags/%E6%89%8B%E6%9C%BA%E7%A1%AC%E4%BB%B6/" style="font-size: 1.22em; color: rgb(52, 50, 158);">手机硬件</a><a href="/tags/OLED/" style="font-size: 1.15em; color: rgb(167, 60, 121);">OLED</a><a href="/tags/%E5%B1%8F%E5%B9%95%E6%8A%80%E6%9C%AF/" style="font-size: 1.15em; color: rgb(90, 121, 56);">屏幕技术</a><a href="/tags/%E6%98%BE%E7%A4%BA%E6%8A%80%E6%9C%AF/" style="font-size: 1.15em; color: rgb(50, 154, 172);">显示技术</a><a href="/tags/Java/" style="font-size: 1.45em; color: rgb(50, 84, 50);">Java</a><a href="/tags/JVM/" style="font-size: 1.3em; color: rgb(142, 172, 142);">JVM</a><a href="/tags/%E7%B1%BB%E5%8A%A0%E8%BD%BD/" style="font-size: 1.15em; color: rgb(113, 54, 96);">类加载</a><a href="/tags/ClassLoader/" style="font-size: 1.15em; color: rgb(147, 50, 50);">ClassLoader</a><a href="/tags/ClassNotFoundException/" style="font-size: 1.15em; color: rgb(50, 61, 184);">ClassNotFoundException</a><a href="/tags/%E5%90%8E%E7%AB%AF/" style="font-size: 1.38em; color: rgb(50, 80, 95);">后端</a><a href="/tags/%E9%9D%A2%E8%AF%95/" style="font-size: 1.45em; color: rgb(50, 88, 50);">面试</a><a href="/tags/%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B/" style="font-size: 1.22em; color: rgb(76, 50, 50);">并发编程</a><a href="/tags/AQS/" style="font-size: 1.15em; color: rgb(72, 87, 72);">AQS</a><a href="/tags/ReentrantLock/" style="font-size: 1.15em; color: rgb(186, 97, 50);">ReentrantLock</a><a href="/tags/%E6%BA%90%E7%A0%81/" style="font-size: 1.15em; color: rgb(183, 107, 112);">源码</a><a href="/tags/%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B/" style="font-size: 1.15em; color: rgb(66, 105, 173);">内存模型</a><a href="/tags/GC/" style="font-size: 1.15em; color: rgb(113, 50, 50);">GC</a><a href="/tags/%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98/" style="font-size: 1.15em; color: rgb(64, 50, 157);">性能调优</a><a href="/tags/OOM/" style="font-size: 1.15em; color: rgb(149, 94, 184);">OOM</a><a href="/tags/%E7%BA%BF%E7%A8%8B%E6%B1%A0/" style="font-size: 1.15em; color: rgb(161, 106, 50);">线程池</a><a href="/tags/ThreadPoolExecutor/" style="font-size: 1.15em; color: rgb(147, 69, 50);">ThreadPoolExecutor</a><a href="/tags/Git/" style="font-size: 1.15em; color: rgb(181, 91, 98);">Git</a><a href="/tags/Docker/" style="font-size: 1.15em; color: rgb(88, 116, 50);">Docker</a><a href="/tags/Linux/" style="font-size: 1.15em; color: rgb(50, 106, 98);">Linux</a><a href="/tags/%E8%BF%90%E7%BB%B4/" style="font-size: 1.15em; color: rgb(197, 50, 109);">运维</a><a href="/tags/Android/" style="font-size: 1.15em; color: rgb(55, 192, 178);">Android</a><a href="/tags/CPU/" style="font-size: 1.15em; color: rgb(189, 142, 50);">CPU</a><a href="/tags/%E5%B1%8F%E5%B9%95/" style="font-size: 1.15em; color: rgb(184, 81, 50);">屏幕</a><a href="/tags/%E7%94%B5%E6%B1%A0/" style="font-size: 1.15em; color: rgb(50, 113, 134);">电池</a><a href="/tags/%E6%91%84%E5%83%8F%E5%A4%B4/" style="font-size: 1.15em; color: rgb(144, 173, 116);">摄像头</a><a href="/tags/%E7%A7%91%E6%99%AE/" style="font-size: 1.15em; color: rgb(80, 52, 50);">科普</a></div></div><div class="card-widget card-archives">
+    <div class="item-headline">
+      <i class="fas fa-archive"></i>
+      <span>归档</span>
+      
+    </div>
+  
+    <ul class="card-archive-list">
+      
+        <li class="card-archive-list-item">
+          <a class="card-archive-list-link" href="/archives/2026/07/">
+            <span class="card-archive-list-date">
+              七月 2026
+            </span>
+            <span class="card-archive-list-count">8</span>
+          </a>
+        </li>
+      
+    </ul>
+  </div><div class="card-widget card-webinfo"><div class="item-headline"><i class="fas fa-chart-line"></i><span>网站信息</span></div><div class="webinfo"><div class="webinfo-item"><div class="item-name">文章数目 :</div><div class="item-count">8</div></div><div class="webinfo-item"><div class="item-name">本站访客数 :</div><div class="item-count" id="busuanzi_value_site_uv"><i class="fa-solid fa-spinner fa-spin"></i></div></div><div class="webinfo-item"><div class="item-name">本站总浏览量 :</div><div class="item-count" id="busuanzi_value_site_pv"><i class="fa-solid fa-spinner fa-spin"></i></div></div><div class="webinfo-item"><div class="item-name">最后更新时间 :</div><div class="item-count" id="last-push-date" data-lastPushDate="2026-07-08T09:36:16.105Z"><i class="fa-solid fa-spinner fa-spin"></i></div></div></div></div></div></div></main><footer id="footer"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2024 - 2026 By qjngbac</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 7.3.0</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.5.5</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.5.5"></script><script src="/js/main.js?v=5.5.5"></script><div class="js-pjax"></div><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

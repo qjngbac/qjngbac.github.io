@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="430" viewBox="0 0 960 430" role="img" aria-labelledby="title desc">
+  <title id="title">Parent delegation model</title>
+  <desc id="desc">A diagram showing application class loader delegates to platform or extension class loader, then bootstrap class loader; failed loads fall back downward.</desc>
+  <defs>
+    <marker id="upArrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#2563eb"/>
+    </marker>
+    <marker id="downArrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#dc2626"/>
+    </marker>
+  </defs>
+  <rect width="960" height="430" rx="18" fill="#f8fafc"/>
+  <text x="40" y="44" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#0f172a">双亲委派模型</text>
+  <text x="40" y="72" font-family="Arial, sans-serif" font-size="14" fill="#475569">加载请求先向上委派；父加载器加载失败后，才由子加载器向下尝试。</text>
+  <g font-family="Arial, sans-serif">
+    <g transform="translate(280,96)">
+      <rect width="400" height="72" rx="12" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+      <text x="200" y="30" text-anchor="middle" font-size="19" font-weight="700" fill="#1e3a8a">Bootstrap ClassLoader</text>
+      <text x="200" y="54" text-anchor="middle" font-size="13" fill="#1e40af">加载 java.base 等核心类库，由 JVM 实现</text>
+    </g>
+    <g transform="translate(280,202)">
+      <rect width="400" height="72" rx="12" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+      <text x="200" y="30" text-anchor="middle" font-size="19" font-weight="700" fill="#14532d">Extension / Platform ClassLoader</text>
+      <text x="200" y="54" text-anchor="middle" font-size="13" fill="#166534">JDK 8 是 Extension；JDK 9+ 改为 Platform</text>
+    </g>
+    <g transform="translate(280,308)">
+      <rect width="400" height="72" rx="12" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+      <text x="200" y="30" text-anchor="middle" font-size="19" font-weight="700" fill="#78350f">Application ClassLoader</text>
+      <text x="200" y="54" text-anchor="middle" font-size="13" fill="#92400e">加载 classpath / module path 中的业务类与依赖</text>
+    </g>
+  </g>
+  <g stroke-width="3" fill="none">
+    <path d="M430 308 C360 272,360 238,430 202" stroke="#2563eb" marker-end="url(#upArrow)"/>
+    <path d="M430 202 C360 166,360 132,430 96" stroke="#2563eb" marker-end="url(#upArrow)"/>
+    <path d="M530 168 C600 202,600 236,530 202" stroke="#dc2626" marker-end="url(#downArrow)"/>
+    <path d="M530 274 C600 308,600 342,530 308" stroke="#dc2626" marker-end="url(#downArrow)"/>
+  </g>
+  <text x="190" y="252" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#2563eb">向上委派</text>
+  <text x="700" y="252" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#dc2626">失败后回落</text>
+  <text x="40" y="405" font-family="Arial, sans-serif" font-size="13" fill="#64748b">类的唯一性 = 类加载器 + 全限定类名。即使类名相同，只要加载器不同，JVM 也会认为是不同类型。</text>
+</svg>

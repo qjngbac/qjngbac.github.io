@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="260" viewBox="0 0 960 260" role="img" aria-labelledby="title desc">
+  <title id="title">Java class loading lifecycle</title>
+  <desc id="desc">A flow diagram showing loading, verification, preparation, resolution, initialization, using, and unloading.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#64748b"/>
+    </marker>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0%" stop-color="#f8fafc"/>
+      <stop offset="100%" stop-color="#eef2ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="960" height="260" rx="18" fill="url(#bg)"/>
+  <text x="40" y="44" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#0f172a">类加载生命周期</text>
+  <text x="40" y="72" font-family="Arial, sans-serif" font-size="14" fill="#475569">加载、验证、准备、解析、初始化属于类加载主流程；使用和卸载发生在后续运行期。</text>
+  <g font-family="Arial, sans-serif" text-anchor="middle">
+    <g transform="translate(55,112)">
+      <rect width="110" height="72" rx="10" fill="#dbeafe" stroke="#2563eb"/>
+      <text x="55" y="30" font-size="18" font-weight="700" fill="#1e3a8a">加载</text>
+      <text x="55" y="54" font-size="13" fill="#1e40af">读取字节码</text>
+    </g>
+    <g transform="translate(185,112)">
+      <rect width="110" height="72" rx="10" fill="#dcfce7" stroke="#16a34a"/>
+      <text x="55" y="30" font-size="18" font-weight="700" fill="#14532d">验证</text>
+      <text x="55" y="54" font-size="13" fill="#166534">安全校验</text>
+    </g>
+    <g transform="translate(315,112)">
+      <rect width="110" height="72" rx="10" fill="#fef3c7" stroke="#d97706"/>
+      <text x="55" y="30" font-size="18" font-weight="700" fill="#78350f">准备</text>
+      <text x="55" y="54" font-size="13" fill="#92400e">静态变量零值</text>
+    </g>
+    <g transform="translate(445,112)">
+      <rect width="110" height="72" rx="10" fill="#fae8ff" stroke="#c026d3"/>
+      <text x="55" y="30" font-size="18" font-weight="700" fill="#701a75">解析</text>
+      <text x="55" y="54" font-size="13" fill="#86198f">符号转直接引用</text>
+    </g>
+    <g transform="translate(575,112)">
+      <rect width="110" height="72" rx="10" fill="#fee2e2" stroke="#dc2626"/>
+      <text x="55" y="30" font-size="18" font-weight="700" fill="#7f1d1d">初始化</text>
+      <text x="55" y="54" font-size="13" fill="#991b1b">执行 &lt;clinit&gt;</text>
+    </g>
+    <g transform="translate(705,112)">
+      <rect width="90" height="72" rx="10" fill="#e0f2fe" stroke="#0284c7"/>
+      <text x="45" y="30" font-size="18" font-weight="700" fill="#0c4a6e">使用</text>
+      <text x="45" y="54" font-size="13" fill="#075985">运行期</text>
+    </g>
+    <g transform="translate(815,112)">
+      <rect width="90" height="72" rx="10" fill="#e2e8f0" stroke="#64748b"/>
+      <text x="45" y="30" font-size="18" font-weight="700" fill="#334155">卸载</text>
+      <text x="45" y="54" font-size="13" fill="#475569">可回收</text>
+    </g>
+  </g>
+  <g stroke="#64748b" stroke-width="2" marker-end="url(#arrow)">
+    <line x1="165" y1="148" x2="181" y2="148"/>
+    <line x1="295" y1="148" x2="311" y2="148"/>
+    <line x1="425" y1="148" x2="441" y2="148"/>
+    <line x1="555" y1="148" x2="571" y2="148"/>
+    <line x1="685" y1="148" x2="701" y2="148"/>
+    <line x1="795" y1="148" x2="811" y2="148"/>
+  </g>
+  <text x="40" y="220" font-family="Arial, sans-serif" font-size="13" fill="#64748b">提示：验证、准备、解析通常合称为链接（Linking）。解析不一定严格按图中时机一次性完成，可能延迟到运行期。</text>
+</svg>

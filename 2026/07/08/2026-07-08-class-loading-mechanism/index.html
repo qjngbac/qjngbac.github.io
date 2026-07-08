@@ -1,0 +1,478 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>类加载机制：为什么你的代码会报 ClassNotFoundException | Wait</title><meta name="author" content="qjngbac"><meta name="copyright" content="qjngbac"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="前言刚改完的代码本地跑得好好的，一上测试环境就抛出 java.lang.ClassNotFoundException；Maven 依赖明明已经引入，打包也没报错，翻遍 lib 目录也能找到对应 jar 包，可 JVM 就是说找不到类。 很多人遇到这类问题，第一反应都是”缺包了””依赖没打进去”。这当然是最常见原因，但并不是全部。真实线上场景里，类明明存在却依然加载失败，往往和类加载器隔离、双亲委派">
+<meta property="og:type" content="article">
+<meta property="og:title" content="类加载机制：为什么你的代码会报 ClassNotFoundException">
+<meta property="og:url" content="https://qjngbac.github.io/2026/07/08/2026-07-08-class-loading-mechanism/index.html">
+<meta property="og:site_name" content="Wait">
+<meta property="og:description" content="前言刚改完的代码本地跑得好好的，一上测试环境就抛出 java.lang.ClassNotFoundException；Maven 依赖明明已经引入，打包也没报错，翻遍 lib 目录也能找到对应 jar 包，可 JVM 就是说找不到类。 很多人遇到这类问题，第一反应都是”缺包了””依赖没打进去”。这当然是最常见原因，但并不是全部。真实线上场景里，类明明存在却依然加载失败，往往和类加载器隔离、双亲委派">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://qjngbac.github.io/img/java-series-03-classloading.jpg">
+<meta property="article:published_time" content="2026-07-08T06:00:00.000Z">
+<meta property="article:modified_time" content="2026-07-08T05:27:37.137Z">
+<meta property="article:author" content="qjngbac">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="JVM">
+<meta property="article:tag" content="类加载">
+<meta property="article:tag" content="ClassLoader">
+<meta property="article:tag" content="ClassNotFoundException">
+<meta property="article:tag" content="后端">
+<meta property="article:tag" content="面试">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://qjngbac.github.io/img/java-series-03-classloading.jpg"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "类加载机制：为什么你的代码会报 ClassNotFoundException",
+  "url": "https://qjngbac.github.io/2026/07/08/2026-07-08-class-loading-mechanism/",
+  "image": "https://qjngbac.github.io/img/java-series-03-classloading.jpg",
+  "datePublished": "2026-07-08T06:00:00.000Z",
+  "dateModified": "2026-07-08T05:27:37.137Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "qjngbac",
+      "url": "https://qjngbac.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://qjngbac.github.io/2026/07/08/2026-07-08-class-loading-mechanism/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.5.5"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        if (!ttl) return
+        const expiry = Date.now() + ttl * 86400000
+        localStorage.setItem(key, JSON.stringify({ value, expiry }))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return undefined
+        const { value, expiry } = JSON.parse(itemStr)
+        if (Date.now() > expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return value
+      }
+    }
+
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+        script.onload = script.onreadystatechange = () => {
+          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      }),
+      getCSS: (url, id) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onload = link.onreadystatechange = () => {
+          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+        }
+        link.onerror = reject
+        document.head.appendChild(link)
+      }),
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: true
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: '类加载机制：为什么你的代码会报 ClassNotFoundException',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="generator" content="Hexo 7.3.0"></head><body><div id="loading-box"><div class="loading-left-bg"></div><div class="loading-right-bg"></div><div class="spinner-box"><div class="configure-border-1"><div class="configure-core"></div></div><div class="configure-border-2"><div class="configure-core"></div></div><div class="loading-word">加载中...</div></div></div><script>(()=>{
+  const $loadingBox = document.getElementById('loading-box')
+  const $body = document.body
+  const preloader = {
+    endLoading: () => {
+      if ($loadingBox.classList.contains('loaded')) return
+      $body.style.overflow = ''
+      $loadingBox.classList.add('loaded')
+    },
+    initLoading: () => {
+      $body.style.overflow = 'hidden'
+      $loadingBox.classList.remove('loaded')
+    }
+  }
+
+  preloader.initLoading()
+
+  if (document.readyState === 'complete') {
+    preloader.endLoading()
+  } else {
+    window.addEventListener('load', preloader.endLoading)
+    document.addEventListener('DOMContentLoaded', preloader.endLoading)
+    // Add timeout protection: force end after 7 seconds
+    setTimeout(preloader.endLoading, 7000)
+  }
+
+  if (false) {
+    btf.addGlobalFn('pjaxSend', preloader.initLoading, 'preloader_init')
+    btf.addGlobalFn('pjaxComplete', preloader.endLoading, 'preloader_end')
+  }
+})()</script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">8</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">31</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">3</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(/img/java-series-03-classloading.jpg);"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">Wait</span></a><a class="nav-page-title" href="/"><span class="site-name">类加载机制：为什么你的代码会报 ClassNotFoundException</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">类加载机制：为什么你的代码会报 ClassNotFoundException</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-07-08T06:00:00.000Z" title="发表于 2026-07-08 14:00:00">2026-07-08</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-07-08T05:27:37.137Z" title="更新于 2026-07-08 13:27:37">2026-07-08</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/Java-%E6%B7%B1%E5%BA%A6/">Java 深度</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>刚改完的代码本地跑得好好的，一上测试环境就抛出 <code>java.lang.ClassNotFoundException</code>；Maven 依赖明明已经引入，打包也没报错，翻遍 lib 目录也能找到对应 jar 包，可 JVM 就是说找不到类。</p>
+<p>很多人遇到这类问题，第一反应都是”缺包了””依赖没打进去”。这当然是最常见原因，但并不是全部。真实线上场景里，类明明存在却依然加载失败，往往和<strong>类加载器隔离、双亲委派模型、线程上下文类加载器、容器自定义加载规则</strong>有关。</p>
+<p>类加载是 Java 最核心的基础机制之一，也是面试高频考点，更是我们排查依赖冲突、容器隔离、插件化、热部署问题的底层依据。本文就从 <code>ClassNotFoundException</code> 切入，把类加载流程、双亲委派模型、自定义类加载器，以及打破双亲委派的典型场景一次讲透。</p>
+<hr>
+<h2 id="一、前置认知：一个类从源码到执行要走几步"><a href="#一、前置认知：一个类从源码到执行要走几步" class="headerlink" title="一、前置认知：一个类从源码到执行要走几步"></a>一、前置认知：一个类从源码到执行要走几步</h2><p>Java 源码会先被编译成 <code>.class</code> 字节码文件。JVM 运行时不会直接执行 <code>.java</code> 文件，而是通过类加载机制把描述类的数据从 Class 文件、jar 包、网络或其他来源加载到内存中，再完成校验、转换、解析和初始化，最终形成可以被虚拟机直接使用的 Java 类型。</p>
+<p>从 JVM 规范角度看，一个类的生命周期通常包括 7 个阶段：</p>
+<ol>
+<li><strong>加载（Loading）</strong>：通过类的全限定名获取字节码流，在内存中生成代表该类的 <code>Class</code> 对象</li>
+<li><strong>验证（Verification）</strong>：校验字节码合法性，确保不会危害虚拟机安全</li>
+<li><strong>准备（Preparation）</strong>：为类变量分配内存，并设置零值初始值</li>
+<li><strong>解析（Resolution）</strong>：将常量池中的符号引用替换为直接引用</li>
+<li><strong>初始化（Initialization）</strong>：执行类构造器 <code>&lt;clinit&gt;</code>，也就是静态变量赋值和静态代码块</li>
+<li><strong>使用（Using）</strong>：对象创建、方法调用、字段访问等正常运行期行为</li>
+<li><strong>卸载（Unloading）</strong>：满足条件后，类元数据被回收</li>
+</ol>
+<p>其中，验证、准备、解析这三个阶段合称为<strong>链接（Linking）</strong>。需要注意的是，解析阶段并不一定一次性全部完成，也可能在运行期间按需解析。</p>
+<p><img src="/../img/classloading-lifecycle.svg" alt="类加载生命周期"></p>
+<p><code>ClassNotFoundException</code> 通常发生在”加载”阶段：当程序主动要求加载某个类时，类加载器沿着可见路径查找对应字节码，如果最终找不到，就会抛出这个受检异常。</p>
+<p>那 JVM 到底让谁去找类？去哪里找类？答案就是<strong>类加载器（ClassLoader）</strong>。</p>
+<hr>
+<h2 id="二、类加载器层级：谁负责加载你的类"><a href="#二、类加载器层级：谁负责加载你的类" class="headerlink" title="二、类加载器层级：谁负责加载你的类"></a>二、类加载器层级：谁负责加载你的类</h2><h3 id="2-1-JDK-8-中的三类加载器"><a href="#2-1-JDK-8-中的三类加载器" class="headerlink" title="2.1 JDK 8 中的三类加载器"></a>2.1 JDK 8 中的三类加载器</h3><p>在 JDK 8 及之前，默认类加载器层级通常可以理解为三层：</p>
+<table>
+<thead>
+<tr>
+<th>类加载器</th>
+<th>负责范围</th>
+<th>典型内容</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Bootstrap ClassLoader</td>
+<td>JVM 核心类库</td>
+<td><code>rt.jar</code>、<code>java.lang.*</code>、<code>java.util.*</code></td>
+</tr>
+<tr>
+<td>Extension ClassLoader</td>
+<td>扩展类库</td>
+<td><code>JAVA_HOME/jre/lib/ext</code> 下的 jar</td>
+</tr>
+<tr>
+<td>Application ClassLoader</td>
+<td>应用 classpath</td>
+<td>业务代码、第三方依赖</td>
+</tr>
+</tbody></table>
+<p><strong>启动类加载器（Bootstrap ClassLoader）</strong> 位于最顶层，由 JVM 自身实现，不是普通 Java 对象，因此在 Java 代码里拿到它时通常显示为 <code>null</code>。</p>
+<p><strong>扩展类加载器（Extension ClassLoader）</strong> 负责加载扩展目录中的类库，这套机制在 JDK 9 模块化之后已经发生变化。</p>
+<p><strong>应用程序类加载器（Application ClassLoader）</strong> 也叫系统类加载器，负责加载 classpath 下的业务类和依赖。我们平时写的大部分 Java 类，默认都是由它加载的。</p>
+<h3 id="2-2-JDK-9-之后的变化"><a href="#2-2-JDK-9-之后的变化" class="headerlink" title="2.2 JDK 9 之后的变化"></a>2.2 JDK 9 之后的变化</h3><p>JDK 9 引入模块系统后，<code>rt.jar</code> 和扩展目录机制都被移除，类加载器层级也有所调整：</p>
+<table>
+<thead>
+<tr>
+<th>版本</th>
+<th>中间层加载器</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>JDK 8 及之前</td>
+<td>Extension ClassLoader</td>
+<td>加载 <code>jre/lib/ext</code> 扩展目录</td>
+</tr>
+<tr>
+<td>JDK 9+</td>
+<td>Platform ClassLoader</td>
+<td>加载平台模块，不再依赖 ext 目录</td>
+</tr>
+</tbody></table>
+<p>所以，如果文章、面试题或线上日志里提到 Extension ClassLoader，要注意它主要对应 JDK 8 及之前；在现代 JDK 中，更准确的说法是 Platform ClassLoader。</p>
+<hr>
+<h2 id="三、核心基石：双亲委派模型"><a href="#三、核心基石：双亲委派模型" class="headerlink" title="三、核心基石：双亲委派模型"></a>三、核心基石：双亲委派模型</h2><h3 id="3-1-双亲委派的工作流程"><a href="#3-1-双亲委派的工作流程" class="headerlink" title="3.1 双亲委派的工作流程"></a>3.1 双亲委派的工作流程</h3><p>双亲委派模型的核心逻辑是：<strong>类加载器收到加载请求时，自己先不加载，而是先把请求委派给父类加载器</strong>。父类加载器也继续向上委派，直到最顶层的启动类加载器。只有当父加载器无法完成加载时，子加载器才会尝试自己加载。</p>
+<p>用更通俗的话讲就是：儿子接到活，先交给爸爸；爸爸再交给爷爷。爷爷能做就爷爷做，爷爷做不了再退回爸爸，爸爸也做不了，最后才轮到儿子自己动手。</p>
+<p><img src="/../img/classloader-parent-delegation.svg" alt="双亲委派模型"></p>
+<p>完整流程可以拆成 6 步：</p>
+<ol>
+<li>当前类加载器检查该类是否已经加载过，已加载则直接返回</li>
+<li>未加载则把请求委派给父类加载器</li>
+<li>父类加载器继续向上委派，直到 Bootstrap ClassLoader</li>
+<li>Bootstrap ClassLoader 尝试加载核心类</li>
+<li>父加载器加载失败后，请求逐级向下回落</li>
+<li>最终由最初收到请求的类加载器尝试自己加载</li>
+</ol>
+<p>这套逻辑的核心入口就是 <code>ClassLoader#loadClass()</code>。</p>
+<h3 id="3-2-为什么要设计双亲委派"><a href="#3-2-为什么要设计双亲委派" class="headerlink" title="3.2 为什么要设计双亲委派"></a>3.2 为什么要设计双亲委派</h3><p>双亲委派不是 JVM 规范强制要求的规则，但它是 JDK 默认类加载器的重要实现模型，主要解决两个问题。</p>
+<p><strong>1. 避免核心类被重复加载</strong></p>
+<p>如果每个类加载器都先自己加载，那么同一个类可能被加载多次，JVM 中会出现多份同名类。双亲委派让越基础的类越先由上层加载器加载，减少重复加载和类型混乱。</p>
+<p><strong>2. 保护 Java 核心类库安全</strong></p>
+<p>假设你自己写了一个 <code>java.lang.String</code> 或 <code>java.lang.Object</code>，如果没有双亲委派，应用类加载器可能会优先加载你的伪造类，破坏 Java 核心类库的安全边界。</p>
+<p>有了双亲委派，<code>java.lang.*</code> 这类核心类永远优先交给 Bootstrap ClassLoader 加载，用户自定义同名类不会覆盖核心实现。</p>
+<blockquote>
+<p>注意：双亲委派里的”父子”不是继承关系，而是组合关系。子加载器持有父加载器引用，请求加载时把任务委派过去。</p>
+</blockquote>
+<h3 id="3-3-类的唯一性：不只看类名"><a href="#3-3-类的唯一性：不只看类名" class="headerlink" title="3.3 类的唯一性：不只看类名"></a>3.3 类的唯一性：不只看类名</h3><p>JVM 判断两个类是否相同，不只看全限定类名，还要看加载它们的类加载器。</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">类的唯一性 = 类加载器 + 全限定类名</span><br></pre></td></tr></table></figure>
+
+<p>也就是说，即使两个类都叫 <code>com.demo.User</code>，只要它们由不同类加载器加载，JVM 也会认为它们是两个完全不同的类型。这正是很多 <code>ClassCastException</code> 的根源。</p>
+<hr>
+<h2 id="四、为什么会出现-ClassNotFoundException"><a href="#四、为什么会出现-ClassNotFoundException" class="headerlink" title="四、为什么会出现 ClassNotFoundException"></a>四、为什么会出现 ClassNotFoundException</h2><p>理解了类加载器和双亲委派，再看 <code>ClassNotFoundException</code>，就不会只停留在”缺包”这一层了。</p>
+<h3 id="4-1-类真的不存在"><a href="#4-1-类真的不存在" class="headerlink" title="4.1 类真的不存在"></a>4.1 类真的不存在</h3><p>这是最常见、也最好排查的情况。类加载器沿着委派链查找，所有可见路径里都没有对应 Class 文件。</p>
+<p>常见原因：</p>
+<ul>
+<li>Maven &#x2F; Gradle 依赖没有引入</li>
+<li>依赖 <code>scope</code> 写成了 <code>test</code> 或 <code>provided</code>，运行时不可用</li>
+<li>Spring Boot 打包插件配置错误，依赖没有进入最终 jar</li>
+<li>类名、包名、反射字符串拼写错误</li>
+<li>本地环境有依赖，测试或生产环境缺依赖</li>
+</ul>
+<p>例如：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Class.forName(<span class="string">&quot;com.mysql.cj.jdbc.Driver&quot;</span>);</span><br></pre></td></tr></table></figure>
+
+<p>如果运行时 classpath 中没有 MySQL 驱动 jar，就会抛出 <code>ClassNotFoundException</code>。</p>
+<h3 id="4-2-类存在，但当前加载器看不见"><a href="#4-2-类存在，但当前加载器看不见" class="headerlink" title="4.2 类存在，但当前加载器看不见"></a>4.2 类存在，但当前加载器看不见</h3><p>这类问题更隐蔽。jar 包可能真的在机器上，类文件也真的存在，但<strong>当前类加载器没有权限或没有路径去加载它</strong>。</p>
+<p>典型场景是 Web 容器。Tomcat 中每个 Web 应用都有自己的 <code>WebAppClassLoader</code>。应用 A 的类加载器不能随便加载应用 B 的 <code>WEB-INF/lib</code>；父加载器也默认看不到某个 Web 应用内部的业务类。</p>
+<p>如果公共层代码尝试直接加载 Web 应用内部实现类，就可能出现：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">java.lang.ClassNotFoundException: com.example.plugin.OrderPlugin</span><br></pre></td></tr></table></figure>
+
+<p>这不是类不存在，而是<strong>加载器视角下不可见</strong>。</p>
+<h3 id="4-3-SPI-或插件机制中上下文加载器不对"><a href="#4-3-SPI-或插件机制中上下文加载器不对" class="headerlink" title="4.3 SPI 或插件机制中上下文加载器不对"></a>4.3 SPI 或插件机制中上下文加载器不对</h3><p>很多框架会通过 SPI 或插件机制加载实现类，比如 JDBC、日志框架、Dubbo 扩展点、Spring 工厂加载等。这类代码经常依赖线程上下文类加载器：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Thread.currentThread().getContextClassLoader()</span><br></pre></td></tr></table></figure>
+
+<p>如果当前线程上下文类加载器设置不正确，框架就可能在错误的加载器范围里查找实现类，导致明明有实现 jar，却加载不到实现类。</p>
+<h3 id="4-4-相关异常别混淆"><a href="#4-4-相关异常别混淆" class="headerlink" title="4.4 相关异常别混淆"></a>4.4 相关异常别混淆</h3><p>类加载相关异常名字很像，但含义不同：</p>
+<table>
+<thead>
+<tr>
+<th>异常</th>
+<th>类型</th>
+<th>常见触发点</th>
+<th>核心含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>ClassNotFoundException</code></td>
+<td>受检异常</td>
+<td><code>Class.forName()</code>、<code>loadClass()</code></td>
+<td>主动加载某个类时找不到</td>
+</tr>
+<tr>
+<td><code>NoClassDefFoundError</code></td>
+<td>Error</td>
+<td>JVM 解析、链接或运行期使用类时</td>
+<td>编译期存在，运行期缺失或初始化失败</td>
+</tr>
+<tr>
+<td><code>ExceptionInInitializerError</code></td>
+<td>Error</td>
+<td>类初始化阶段</td>
+<td>静态变量或静态代码块执行失败</td>
+</tr>
+<tr>
+<td><code>ClassCastException</code></td>
+<td>运行时异常</td>
+<td>强制类型转换</td>
+<td>类型不兼容，可能由不同类加载器加载同名类引起</td>
+</tr>
+<tr>
+<td><code>LinkageError</code></td>
+<td>Error</td>
+<td>链接阶段</td>
+<td>类版本冲突、方法字段签名不匹配等</td>
+</tr>
+</tbody></table>
+<p>一个容易忽略的细节：如果类初始化时静态代码块抛异常，第一次通常看到 <code>ExceptionInInitializerError</code>；后续再次使用这个类时，可能变成 <code>NoClassDefFoundError: Could not initialize class ...</code>。</p>
+<hr>
+<h2 id="五、自定义类加载器：自己掌控类的加载"><a href="#五、自定义类加载器：自己掌控类的加载" class="headerlink" title="五、自定义类加载器：自己掌控类的加载"></a>五、自定义类加载器：自己掌控类的加载</h2><p>默认的应用类加载器只能加载 classpath 或 module path 下的类。如果我们想从自定义目录、网络、数据库、加密文件中加载字节码，就需要自定义类加载器。</p>
+<h3 id="5-1-自定义类加载器的典型场景"><a href="#5-1-自定义类加载器的典型场景" class="headerlink" title="5.1 自定义类加载器的典型场景"></a>5.1 自定义类加载器的典型场景</h3><ul>
+<li><strong>加密保护</strong>：Class 文件加密存储，加载时解密再交给 JVM</li>
+<li><strong>热部署&#x2F;热加载</strong>：不重启服务，重新加载变更后的类</li>
+<li><strong>插件化系统</strong>：每个插件使用独立类加载器，方便安装、卸载和隔离</li>
+<li><strong>依赖隔离</strong>：同一进程中加载多个版本的同名依赖</li>
+<li><strong>非标准路径加载</strong>：从网络、数据库、对象存储等来源加载字节码</li>
+</ul>
+<h3 id="5-2-推荐方式：重写-findClass"><a href="#5-2-推荐方式：重写-findClass" class="headerlink" title="5.2 推荐方式：重写 findClass()"></a>5.2 推荐方式：重写 findClass()</h3><p>自定义类加载器最常见做法是继承 <code>ClassLoader</code>，并重写 <code>findClass()</code>，不要一上来就重写 <code>loadClass()</code>。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> java.io.IOException;</span><br><span class="line"><span class="keyword">import</span> java.nio.file.Files;</span><br><span class="line"><span class="keyword">import</span> java.nio.file.Path;</span><br><span class="line"><span class="keyword">import</span> java.nio.file.Paths;</span><br><span class="line"></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">DirectoryClassLoader</span> <span class="keyword">extends</span> <span class="title class_">ClassLoader</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> Path classRoot;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="title function_">DirectoryClassLoader</span><span class="params">(Path classRoot)</span> &#123;</span><br><span class="line">        <span class="built_in">super</span>(DirectoryClassLoader.class.getClassLoader());</span><br><span class="line">        <span class="built_in">this</span>.classRoot = classRoot;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">protected</span> Class&lt;?&gt; findClass(String className) <span class="keyword">throws</span> ClassNotFoundException &#123;</span><br><span class="line">        <span class="type">Path</span> <span class="variable">classFile</span> <span class="operator">=</span> classRoot.resolve(className.replace(<span class="string">&#x27;.&#x27;</span>, <span class="string">&#x27;/&#x27;</span>) + <span class="string">&quot;.class&quot;</span>);</span><br><span class="line"></span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="type">byte</span>[] bytes = Files.readAllBytes(classFile);</span><br><span class="line">            <span class="keyword">return</span> defineClass(className, bytes, <span class="number">0</span>, bytes.length);</span><br><span class="line">        &#125; <span class="keyword">catch</span> (IOException e) &#123;</span><br><span class="line">            <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">ClassNotFoundException</span>(className, e);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>使用方式：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="type">Path</span> <span class="variable">root</span> <span class="operator">=</span> Paths.get(<span class="string">&quot;/opt/plugins/classes&quot;</span>);</span><br><span class="line"><span class="type">ClassLoader</span> <span class="variable">loader</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">DirectoryClassLoader</span>(root);</span><br><span class="line"></span><br><span class="line">Class&lt;?&gt; clazz = loader.loadClass(<span class="string">&quot;com.example.PluginService&quot;</span>);</span><br><span class="line"><span class="type">Object</span> <span class="variable">instance</span> <span class="operator">=</span> clazz.getDeclaredConstructor().newInstance();</span><br></pre></td></tr></table></figure>
+
+<p>为什么推荐重写 <code>findClass()</code>？</p>
+<p>因为 <code>loadClass()</code> 已经实现了双亲委派逻辑。我们只重写 <code>findClass()</code>，等于只定义”父加载器都找不到时，我自己怎么找”。这样既能扩展加载来源，又不会破坏默认安全模型。</p>
+<hr>
+<h2 id="六、打破双亲委派：不是违规，是场景需要"><a href="#六、打破双亲委派：不是违规，是场景需要" class="headerlink" title="六、打破双亲委派：不是违规，是场景需要"></a>六、打破双亲委派：不是违规，是场景需要</h2><p>双亲委派是默认推荐模型，但不是铁律。很多成熟框架和容器都会有意识地打破或绕开它，因为默认模型有一个明显限制：<strong>父加载器无法主动看见子加载器负责的类</strong>。</p>
+<h3 id="6-1-场景一：SPI-与线程上下文类加载器"><a href="#6-1-场景一：SPI-与线程上下文类加载器" class="headerlink" title="6.1 场景一：SPI 与线程上下文类加载器"></a>6.1 场景一：SPI 与线程上下文类加载器</h3><p>最经典的例子是 JDBC。</p>
+<p><code>java.sql.DriverManager</code> 属于 JDK 核心类，由上层加载器加载。但数据库驱动实现类，比如 MySQL 的 <code>com.mysql.cj.jdbc.Driver</code>，通常位于业务 classpath 中，由应用类加载器加载。</p>
+<p>问题来了：上层加载器看不到应用 classpath 中的厂商驱动类，怎么加载驱动实现？</p>
+<p>解决办法是<strong>线程上下文类加载器（Thread Context ClassLoader）</strong>。JDK 核心类在需要加载第三方实现时，可以使用当前线程的上下文类加载器。默认情况下，它通常就是应用类加载器。</p>
+<p>这相当于父层代码反向借用了子层加载器的能力，绕开了严格的双亲委派路径。</p>
+<h3 id="6-2-场景二：Tomcat-Web-应用隔离"><a href="#6-2-场景二：Tomcat-Web-应用隔离" class="headerlink" title="6.2 场景二：Tomcat Web 应用隔离"></a>6.2 场景二：Tomcat Web 应用隔离</h3><p>Tomcat 需要在同一个容器中部署多个 Web 应用，而不同应用可能依赖不同版本的同一个 jar。如果完全遵循双亲委派，公共父加载器会优先加载依赖，多个应用就很容易互相影响。</p>
+<p>因此，Tomcat 为每个 Web 应用创建独立的 <code>WebAppClassLoader</code>。Web 应用加载业务类时，通常会优先从自己的 <code>WEB-INF/classes</code> 和 <code>WEB-INF/lib</code> 中查找；核心 Java 类、容器公共类等仍交给上层加载器处理。</p>
+<p><img src="/../img/tomcat-classloader-isolation.svg" alt="Tomcat 类加载隔离"></p>
+<p>这种机制让应用 A 可以使用 <code>dependency-1.0.jar</code>，应用 B 可以使用 <code>dependency-2.0.jar</code>，彼此互不污染。</p>
+<h3 id="6-3-场景三：插件化和热部署"><a href="#6-3-场景三：插件化和热部署" class="headerlink" title="6.3 场景三：插件化和热部署"></a>6.3 场景三：插件化和热部署</h3><p>插件系统也经常打破双亲委派。原因很简单：插件需要独立安装、卸载、升级，不能和主应用共享同一个类命名空间。</p>
+<p>常见做法是：</p>
+<ul>
+<li>每个插件一个独立 ClassLoader</li>
+<li>插件优先加载自己的依赖</li>
+<li>公共 API 由父加载器加载，保证主程序和插件能共享接口</li>
+<li>插件卸载时，丢弃对应 ClassLoader，让类元数据具备被回收的可能</li>
+</ul>
+<p>这也是很多热部署框架、IDE 插件系统、OSGi 容器的基础思路。</p>
+<h3 id="6-4-如何打破双亲委派"><a href="#6-4-如何打破双亲委派" class="headerlink" title="6.4 如何打破双亲委派"></a>6.4 如何打破双亲委派</h3><p>核心方式是重写 <code>loadClass()</code>，把默认的”先父后子”改成”指定范围内先子后父”。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">ChildFirstClassLoader</span> <span class="keyword">extends</span> <span class="title class_">ClassLoader</span> &#123;</span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">protected</span> Class&lt;?&gt; loadClass(String name, <span class="type">boolean</span> resolve) <span class="keyword">throws</span> ClassNotFoundException &#123;</span><br><span class="line">        <span class="keyword">synchronized</span> (getClassLoadingLock(name)) &#123;</span><br><span class="line">            Class&lt;?&gt; loaded = findLoadedClass(name);</span><br><span class="line">            <span class="keyword">if</span> (loaded != <span class="literal">null</span>) &#123;</span><br><span class="line">                <span class="keyword">return</span> loaded;</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="comment">// 核心 Java 类必须交给父加载器，避免破坏安全边界</span></span><br><span class="line">            <span class="keyword">if</span> (name.startsWith(<span class="string">&quot;java.&quot;</span>)) &#123;</span><br><span class="line">                <span class="keyword">return</span> <span class="built_in">super</span>.loadClass(name, resolve);</span><br><span class="line">            &#125;</span><br><span class="line"></span><br><span class="line">            <span class="keyword">try</span> &#123;</span><br><span class="line">                Class&lt;?&gt; clazz = findClass(name); <span class="comment">// 子加载器优先</span></span><br><span class="line">                <span class="keyword">if</span> (resolve) &#123;</span><br><span class="line">                    resolveClass(clazz);</span><br><span class="line">                &#125;</span><br><span class="line">                <span class="keyword">return</span> clazz;</span><br><span class="line">            &#125; <span class="keyword">catch</span> (ClassNotFoundException ex) &#123;</span><br><span class="line">                <span class="keyword">return</span> <span class="built_in">super</span>.loadClass(name, resolve); <span class="comment">// 找不到再交给父加载器</span></span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这类代码要非常谨慎。普通业务项目通常不应该随便打破双亲委派，否则很容易引入类冲突、类型转换失败和安全问题。</p>
+<hr>
+<h2 id="七、线上排查指南：类加载异常怎么定位"><a href="#七、线上排查指南：类加载异常怎么定位" class="headerlink" title="七、线上排查指南：类加载异常怎么定位"></a>七、线上排查指南：类加载异常怎么定位</h2><p>遇到 <code>ClassNotFoundException</code> 或相关类加载异常，可以按下面顺序排查。</p>
+<h3 id="7-1-确认类是否真的在包里"><a href="#7-1-确认类是否真的在包里" class="headerlink" title="7.1 确认类是否真的在包里"></a>7.1 确认类是否真的在包里</h3><p>先确认 jar 中是否存在目标 class：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">jar tf app.jar | grep <span class="string">&#x27;com/example/YourClass.class&#x27;</span></span><br></pre></td></tr></table></figure>
+
+<p>Spring Boot 可执行 jar 通常还要检查：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">jar tf app.jar | grep <span class="string">&#x27;BOOT-INF/lib&#x27;</span></span><br><span class="line">jar tf app.jar | grep <span class="string">&#x27;BOOT-INF/classes&#x27;</span></span><br></pre></td></tr></table></figure>
+
+<p>如果类不在最终产物中，就继续检查 Maven &#x2F; Gradle 依赖。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">mvn dependency:tree</span><br></pre></td></tr></table></figure>
+
+<p>重点看：</p>
+<ul>
+<li>依赖是否被排除</li>
+<li>scope 是否为 <code>provided</code> 或 <code>test</code></li>
+<li>是否存在版本冲突</li>
+<li>打包插件是否把依赖打进最终产物</li>
+</ul>
+<h3 id="7-2-打印类加载器信息"><a href="#7-2-打印类加载器信息" class="headerlink" title="7.2 打印类加载器信息"></a>7.2 打印类加载器信息</h3><p>在可控代码中，可以直接打印：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">System.out.println(YourClass.class.getClassLoader());</span><br><span class="line">System.out.println(Thread.currentThread().getContextClassLoader());</span><br><span class="line">System.out.println(ClassLoader.getSystemClassLoader());</span><br></pre></td></tr></table></figure>
+
+<p>如果涉及反射、SPI、插件加载，尤其要关注线程上下文类加载器。</p>
+<h3 id="7-3-打开-JVM-类加载日志"><a href="#7-3-打开-JVM-类加载日志" class="headerlink" title="7.3 打开 JVM 类加载日志"></a>7.3 打开 JVM 类加载日志</h3><p>JDK 8 可以用：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">-verbose:class</span><br></pre></td></tr></table></figure>
+
+<p>JDK 9+ 推荐使用统一日志：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">-Xlog:class+load=info</span><br></pre></td></tr></table></figure>
+
+<p>日志会显示类从哪个位置被加载，非常适合排查”到底加载了哪个 jar”。</p>
+<h3 id="7-4-使用-Arthas-快速定位"><a href="#7-4-使用-Arthas-快速定位" class="headerlink" title="7.4 使用 Arthas 快速定位"></a>7.4 使用 Arthas 快速定位</h3><p>线上 Java 服务可以用 Arthas：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">sc -d com.example.YourClass</span><br></pre></td></tr></table></figure>
+
+<p>它会显示类的加载器、类加载器 hash、所在 jar 路径等信息。</p>
+<p>如果怀疑类加载器层级有问题，可以看：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">classloader -t</span><br></pre></td></tr></table></figure>
+
+<p>这样能直接看到当前 JVM 中的类加载器树，比盲猜可靠得多。</p>
+<h3 id="7-5-排查初始化失败"><a href="#7-5-排查初始化失败" class="headerlink" title="7.5 排查初始化失败"></a>7.5 排查初始化失败</h3><p>如果看到的是 <code>NoClassDefFoundError</code>，不要只盯着”找不到类”。还要检查这个类是否曾经初始化失败。</p>
+<p>重点看：</p>
+<ul>
+<li>静态代码块是否抛异常</li>
+<li>静态变量初始化是否依赖外部配置</li>
+<li>初始化时是否连接数据库、读取文件、访问网络</li>
+<li>日志中是否有更早的 <code>ExceptionInInitializerError</code></li>
+</ul>
+<hr>
+<h2 id="八、常见误区澄清"><a href="#八、常见误区澄清" class="headerlink" title="八、常见误区澄清"></a>八、常见误区澄清</h2><p><strong>1. “双亲委派是 JVM 规范强制要求的”</strong></p>
+<p>不对。双亲委派是 JDK 默认类加载器的经典实现模型，不是 JVM 规范强制规定。Tomcat、OSGi、插件框架都可以根据需要改变加载顺序。</p>
+<p><strong>2. “全限定类名一样，就是同一个类”</strong></p>
+<p>不对。JVM 判断类唯一性时，同时看类加载器和全限定类名。不同类加载器加载的同名类，不是同一个类型。</p>
+<p><strong>3. “ClassNotFoundException 一定是缺 jar”</strong></p>
+<p>不一定。缺 jar 是最常见原因，但类加载器隔离、上下文类加载器错误、模块路径不正确、打包结构不正确，也都会导致类找不到。</p>
+<p><strong>4. “自定义类加载器就应该重写 loadClass()”</strong></p>
+<p>不一定。大多数情况下应该重写 <code>findClass()</code>，保留双亲委派。只有明确需要 child-first 或隔离加载时，才考虑重写 <code>loadClass()</code>。</p>
+<p><strong>5. “打破双亲委派一定是不好的实践”</strong></p>
+<p>不对。对普通业务代码来说，遵循双亲委派更稳妥；但对容器、插件系统、热部署框架来说，打破双亲委派是实现隔离和扩展能力的常规手段。</p>
+<hr>
+<h2 id="九、面试回答模板"><a href="#九、面试回答模板" class="headerlink" title="九、面试回答模板"></a>九、面试回答模板</h2><p>如果面试官问：”说说 Java 类加载机制和双亲委派模型”，可以这样回答：</p>
+<blockquote>
+<p>Java 类加载过程包括加载、验证、准备、解析、初始化、使用和卸载，其中验证、准备、解析属于链接阶段。类加载器负责把字节码加载到 JVM 中，默认类加载器采用双亲委派模型：收到加载请求后，先委派给父加载器，父加载器加载不了时，子加载器才自己加载。这样可以避免核心类重复加载，也能防止用户伪造 <code>java.lang.*</code> 这类核心类。  </p>
+<p>但双亲委派不是强制规范，在 SPI、Tomcat、插件化和热部署场景中，经常需要通过线程上下文类加载器或自定义 <code>loadClass()</code> 来打破默认委派顺序。排查 <code>ClassNotFoundException</code> 时，不只要看 jar 是否存在，还要看类是否对当前 ClassLoader 可见。</p>
+</blockquote>
+<p>这个回答既覆盖了基础流程，也点出了实际工程场景，比单纯背”父加载器先加载”更完整。</p>
+<hr>
+<h2 id="写在最后"><a href="#写在最后" class="headerlink" title="写在最后"></a>写在最后</h2><p>类加载机制看起来抽象，但它和日常开发的距离非常近。依赖冲突、jar 包打包、Tomcat 部署、SPI 扩展、插件化、热部署，这些问题背后都绕不开 ClassLoader。</p>
+<p>很多人把它当成面试八股，觉得背几个概念就够了。可一旦线上出现 <code>ClassNotFoundException</code>、<code>NoClassDefFoundError</code> 或诡异的 <code>ClassCastException</code>，真正能快速定位问题的人，一定是理解类加载器边界的人。</p>
+<p>记住一句话：<strong>类找不到，不一定是类不存在；也可能是当前类加载器看不见。</strong></p>
+<hr>
+<blockquote>
+<p><strong>系列文章预告</strong>：</p>
+<ul>
+<li>上一篇：GC 调优实战：一次线上 OOM 的排查经历</li>
+<li>下一篇：线程池核心原理：为什么阿里规范不建议使用 Executors</li>
+</ul>
+</blockquote>
+<p><em>如果觉得有帮助，欢迎点赞收藏，有问题欢迎评论区交流。</em></p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://qjngbac.github.io">qjngbac</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://qjngbac.github.io/2026/07/08/2026-07-08-class-loading-mechanism/">https://qjngbac.github.io/2026/07/08/2026-07-08-class-loading-mechanism/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://qjngbac.github.io" target="_blank">Wait</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/Java/">Java</a><a class="post-meta__tags" href="/tags/JVM/">JVM</a><a class="post-meta__tags" href="/tags/%E7%B1%BB%E5%8A%A0%E8%BD%BD/">类加载</a><a class="post-meta__tags" href="/tags/ClassLoader/">ClassLoader</a><a class="post-meta__tags" href="/tags/ClassNotFoundException/">ClassNotFoundException</a><a class="post-meta__tags" href="/tags/%E5%90%8E%E7%AB%AF/">后端</a><a class="post-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a></div><div class="post-share"><div class="social-share" data-image="/img/java-series-03-classloading.jpg" data-sites="facebook,x,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/2026/07/08/thread-pool-guide/" title="线程池原理：面试必问的 ThreadPoolExecutor 你真的懂吗？"><img class="cover" src="/img/java-series-04-thread-pool.jpg" onerror="onerror=null;src='/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">线程池原理：面试必问的 ThreadPoolExecutor 你真的懂吗？</div></div><div class="info-2"><div class="info-item-1">前言做 Java 开发的人，几乎天天都在跟线程池打交道：业务异步解耦用线程池，接口并行聚合用线程池，定时任务也离不开线程池。很多人随手一个 Executors.newFixedThreadPool() 就用起来了，可一旦被面试官追问：  核心线程和非核心线程有什么区别？ 任务提交后线程池的完整执行流程是什么？ execute 和 submit 有什么本质区别？ 四种拒绝策略分别适用什么场景？  能完整答上来的人并不多。线程池不是简单的”一堆线程凑个池子”，它是一套完整的资源管控与任务调度机制，ThreadPoolExecutor 就是这套机制的核心实现。 它既是面试高频考点，也是线上最容易出问题的地方：无界队列导致 OOM、线程数失控打满 CPU、任务异常静默丢失…… 这些问题的根因，往往都是对线程池原理理解不到位。 今天我们就从底层源码视角出发，把 ThreadPoolExecutor 的核心参数、执行流程、拒绝策略、方法对比一次性讲透。  一、为什么我们需要线程池？在讲原理之前，先想清楚一个最基础的问题：为什么不直接 new Thread() 跑任务，非要用线程池？ 1234...</div></div></div></a><a class="pagination-related" href="/2026/07/07/git-docker-linux-interview/" title="Git、Docker、Linux 面试高频问答：后端开发必会的三大基本功"><img class="cover" src="/img/git-docker-linux-cover.jpg" onerror="onerror=null;src='/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Git、Docker、Linux 面试高频问答：后端开发必会的三大基本功</div></div><div class="info-2"><div class="info-item-1">前言面试中，Git、Docker、Linux 这三个工具几乎每场都会被问到。很多人觉得”会用就行”，但面试官问的不是”你会不会敲命令”，而是”你理不理解背后的原理”。 本文整理了这三个方向的高频面试题，每个问题都给出简洁但有深度的回答。不是命令手册，而是帮你建立知识框架。  一、Git 篇Q1：Git 的工作区域有哪些？Git 本地有三个核心区域，配合一个远程仓库： 1234567工作区（Working Directory）    ↓ git add暂存区（Stage / Index）    ↓ git commit本地仓库（Local Repository）    ↓ git push远程仓库（Remote Repository）   工作区：你正在编辑的文件目录 暂存区：git add 后文件的临时存储区，准备提交 本地仓库：git commit 后文件存储的地方，完整历史记录 远程仓库：GitHub&#x2F;GitLab 等托管平台  Q2：git merge 和 git rebase 有什么区别？   对比项 merge rebase    提交历史 保留分支结构，产生...</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/2026/07/06/jvm-memory-model/" title="JVM 运行时内存区域：你真的理解堆和栈吗？"><img class="cover" src="/img/java-series-01-jvm-memory.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-06</div><div class="info-item-2">JVM 运行时内存区域：你真的理解堆和栈吗？</div></div><div class="info-2"><div class="info-item-1">前言写了多年 Java 代码，new 了无数个对象，调用了数不清的方法，但被问到”JVM 内存里堆和栈有什么区别”时，很多人依然只能说出”堆存对象，栈存变量”。面试被追问方法区、程序计数器、对象创建流程时，更是容易卡壳。 JVM 运行时内存区域是 Java 工程师的基本功，它不仅是面试高频考点，更是我们排查内存溢出、理解 GC 机制、进行性能调优的底层基石。今天我们就系统梳理一遍 JVM 运行时数据区，把堆、栈、方法区、程序计数器讲透，再完整走一遍对象从加载到创建的全过程。  一、JVM 运行时数据区总览Java 虚拟机在执行 Java 程序的过程中，会把它管理的内存划分为若干个不同的数据区域。这些区域各有用途、创建销毁时间各不相同：有的随着虚拟机进程启动而存在，有的则依赖用户线程的启动和结束而建立和销毁。 按照线程共享和线程私有两大维度，可以划分为以下区域：  线程私有：随线程生而生，随线程灭而灭 程序计数器 Java 虚拟机栈 本地方法栈   线程共享：所有线程共享，随虚拟机启动而创建 Java 堆 方法区（JDK 8 后演变为元空间） 运行时常量池（方法区的一部分）    ...</div></div></div></a><a class="pagination-related" href="/2026/07/07/gc-tuning-guide/" title="GC 调优实战：一次线上 OOM 的排查经历"><img class="cover" src="/img/java-series-02-gc-tuning.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-07</div><div class="info-item-2">GC 调优实战：一次线上 OOM 的排查经历</div></div><div class="info-2"><div class="info-item-1">前言凌晨两点，运维告警群突然弹出一连串红色预警：核心订单服务多个实例响应超时，K8s Pod 频繁自动重启，错误日志中反复出现 java.lang.OutOfMemoryError: Java heap space。 作为后端团队的核心开发，我紧急介入排查。整个过程从 GC 现象观察到堆内存定位，从收集器原理到参数调优落地，前后三小时彻底解决问题。 很多人觉得 GC 调优是”玄学”，靠背参数就能应付。但真实线上场景里，懂 GC 算法原理、会用原生工具定位问题，才是解决 OOM 的核心能力。本文就以这次实战为线索，系统梳理 GC 核心算法、主流收集器选型，以及 jstat、jmap 的实战用法。  一、故障初现：线上 OOM 的现场信息1.1 故障现象当时正值业务高峰期，监控平台显示：  接口平均响应时间从 50ms 飙升至 800ms，大量请求超时熔断 Pod 每 10 分钟左右触发一次自动重启，服务完全无法稳定承载流量 JVM 监控显示老年代内存占用持续走高，Full GC 频率远超正常水平  1.2 初步日志定位登录容器查看服务错误日志，核心报错非常明确： 1java.lan...</div></div></div></a><a class="pagination-related" href="/2026/07/08/aqs-reentrantlock-guide/" title="AQS 源码分析：ReentrantLock 背后的秘密"><img class="cover" src="/img/java-series-05-aqs.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-08</div><div class="info-item-2">AQS 源码分析：ReentrantLock 背后的秘密</div></div><div class="info-2"><div class="info-item-1">前言写 Java 并发代码，ReentrantLock 几乎是开发者最常用的显式锁：它支持公平&#x2F;非公平切换、可重入、可中断获取，比 synchronized 灵活得多。但很多人用了很久，却不知道它的底层完全建立在 AQS 之上。 面试中 AQS 更是并发模块的必考题：state 变量有什么用？CLH 队列怎么工作？公平锁和非公平锁到底差在哪？这些问题看似是八股，实则是理解整个 JUC 并发工具包的钥匙。 ReentrantLock 本身几乎没有复杂逻辑，它的全部锁能力，都委托给了内部的 AQS 实现类。今天我们就从 ReentrantLock 切入，逐层拆解 AQS 的核心设计：state 同步状态、CLH 等待队列、公平与非公平实现，彻底搞懂显式锁的底层原理。  一、AQS 是什么？JUC 并发的基石AQS 全称 AbstractQueuedSynchronizer，抽象队列同步器，是 java.util.concurrent 包的核心骨架。 它本质上是一个抽象框架：用一个共享变量维护同步状态，再用一个 FIFO 的等待队列管理所有抢不到锁而阻塞的线程。基于这套框架，...</div></div></div></a><a class="pagination-related" href="/2026/07/08/thread-pool-guide/" title="线程池原理：面试必问的 ThreadPoolExecutor 你真的懂吗？"><img class="cover" src="/img/java-series-04-thread-pool.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-08</div><div class="info-item-2">线程池原理：面试必问的 ThreadPoolExecutor 你真的懂吗？</div></div><div class="info-2"><div class="info-item-1">前言做 Java 开发的人，几乎天天都在跟线程池打交道：业务异步解耦用线程池，接口并行聚合用线程池，定时任务也离不开线程池。很多人随手一个 Executors.newFixedThreadPool() 就用起来了，可一旦被面试官追问：  核心线程和非核心线程有什么区别？ 任务提交后线程池的完整执行流程是什么？ execute 和 submit 有什么本质区别？ 四种拒绝策略分别适用什么场景？  能完整答上来的人并不多。线程池不是简单的”一堆线程凑个池子”，它是一套完整的资源管控与任务调度机制，ThreadPoolExecutor 就是这套机制的核心实现。 它既是面试高频考点，也是线上最容易出问题的地方：无界队列导致 OOM、线程数失控打满 CPU、任务异常静默丢失…… 这些问题的根因，往往都是对线程池原理理解不到位。 今天我们就从底层源码视角出发，把 ThreadPoolExecutor 的核心参数、执行流程、拒绝策略、方法对比一次性讲透。  一、为什么我们需要线程池？在讲原理之前，先想清楚一个最基础的问题：为什么不直接 new Thread() 跑任务，非要用线程池？ 1234...</div></div></div></a><a class="pagination-related" href="/2026/07/07/git-docker-linux-interview/" title="Git、Docker、Linux 面试高频问答：后端开发必会的三大基本功"><img class="cover" src="/img/git-docker-linux-cover.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-07</div><div class="info-item-2">Git、Docker、Linux 面试高频问答：后端开发必会的三大基本功</div></div><div class="info-2"><div class="info-item-1">前言面试中，Git、Docker、Linux 这三个工具几乎每场都会被问到。很多人觉得”会用就行”，但面试官问的不是”你会不会敲命令”，而是”你理不理解背后的原理”。 本文整理了这三个方向的高频面试题，每个问题都给出简洁但有深度的回答。不是命令手册，而是帮你建立知识框架。  一、Git 篇Q1：Git 的工作区域有哪些？Git 本地有三个核心区域，配合一个远程仓库： 1234567工作区（Working Directory）    ↓ git add暂存区（Stage / Index）    ↓ git commit本地仓库（Local Repository）    ↓ git push远程仓库（Remote Repository）   工作区：你正在编辑的文件目录 暂存区：git add 后文件的临时存储区，准备提交 本地仓库：git commit 后文件存储的地方，完整历史记录 远程仓库：GitHub&#x2F;GitLab 等托管平台  Q2：git merge 和 git rebase 有什么区别？   对比项 merge rebase    提交历史 保留分支结构，产生...</div></div></div></a></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">qjngbac</div><div class="author-info-description">一个正在学习的开发者</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">8</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">31</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">3</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/qjngbac"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/qjngbac" target="_blank" title="Github"><i class="fab fa-github"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到我的博客</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%89%8D%E8%A8%80"><span class="toc-number">1.</span> <span class="toc-text">前言</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%80%E3%80%81%E5%89%8D%E7%BD%AE%E8%AE%A4%E7%9F%A5%EF%BC%9A%E4%B8%80%E4%B8%AA%E7%B1%BB%E4%BB%8E%E6%BA%90%E7%A0%81%E5%88%B0%E6%89%A7%E8%A1%8C%E8%A6%81%E8%B5%B0%E5%87%A0%E6%AD%A5"><span class="toc-number">2.</span> <span class="toc-text">一、前置认知：一个类从源码到执行要走几步</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%8C%E3%80%81%E7%B1%BB%E5%8A%A0%E8%BD%BD%E5%99%A8%E5%B1%82%E7%BA%A7%EF%BC%9A%E8%B0%81%E8%B4%9F%E8%B4%A3%E5%8A%A0%E8%BD%BD%E4%BD%A0%E7%9A%84%E7%B1%BB"><span class="toc-number">3.</span> <span class="toc-text">二、类加载器层级：谁负责加载你的类</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#2-1-JDK-8-%E4%B8%AD%E7%9A%84%E4%B8%89%E7%B1%BB%E5%8A%A0%E8%BD%BD%E5%99%A8"><span class="toc-number">3.1.</span> <span class="toc-text">2.1 JDK 8 中的三类加载器</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-2-JDK-9-%E4%B9%8B%E5%90%8E%E7%9A%84%E5%8F%98%E5%8C%96"><span class="toc-number">3.2.</span> <span class="toc-text">2.2 JDK 9 之后的变化</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%89%E3%80%81%E6%A0%B8%E5%BF%83%E5%9F%BA%E7%9F%B3%EF%BC%9A%E5%8F%8C%E4%BA%B2%E5%A7%94%E6%B4%BE%E6%A8%A1%E5%9E%8B"><span class="toc-number">4.</span> <span class="toc-text">三、核心基石：双亲委派模型</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#3-1-%E5%8F%8C%E4%BA%B2%E5%A7%94%E6%B4%BE%E7%9A%84%E5%B7%A5%E4%BD%9C%E6%B5%81%E7%A8%8B"><span class="toc-number">4.1.</span> <span class="toc-text">3.1 双亲委派的工作流程</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-2-%E4%B8%BA%E4%BB%80%E4%B9%88%E8%A6%81%E8%AE%BE%E8%AE%A1%E5%8F%8C%E4%BA%B2%E5%A7%94%E6%B4%BE"><span class="toc-number">4.2.</span> <span class="toc-text">3.2 为什么要设计双亲委派</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-3-%E7%B1%BB%E7%9A%84%E5%94%AF%E4%B8%80%E6%80%A7%EF%BC%9A%E4%B8%8D%E5%8F%AA%E7%9C%8B%E7%B1%BB%E5%90%8D"><span class="toc-number">4.3.</span> <span class="toc-text">3.3 类的唯一性：不只看类名</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9B%9B%E3%80%81%E4%B8%BA%E4%BB%80%E4%B9%88%E4%BC%9A%E5%87%BA%E7%8E%B0-ClassNotFoundException"><span class="toc-number">5.</span> <span class="toc-text">四、为什么会出现 ClassNotFoundException</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#4-1-%E7%B1%BB%E7%9C%9F%E7%9A%84%E4%B8%8D%E5%AD%98%E5%9C%A8"><span class="toc-number">5.1.</span> <span class="toc-text">4.1 类真的不存在</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-2-%E7%B1%BB%E5%AD%98%E5%9C%A8%EF%BC%8C%E4%BD%86%E5%BD%93%E5%89%8D%E5%8A%A0%E8%BD%BD%E5%99%A8%E7%9C%8B%E4%B8%8D%E8%A7%81"><span class="toc-number">5.2.</span> <span class="toc-text">4.2 类存在，但当前加载器看不见</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-3-SPI-%E6%88%96%E6%8F%92%E4%BB%B6%E6%9C%BA%E5%88%B6%E4%B8%AD%E4%B8%8A%E4%B8%8B%E6%96%87%E5%8A%A0%E8%BD%BD%E5%99%A8%E4%B8%8D%E5%AF%B9"><span class="toc-number">5.3.</span> <span class="toc-text">4.3 SPI 或插件机制中上下文加载器不对</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-4-%E7%9B%B8%E5%85%B3%E5%BC%82%E5%B8%B8%E5%88%AB%E6%B7%B7%E6%B7%86"><span class="toc-number">5.4.</span> <span class="toc-text">4.4 相关异常别混淆</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%94%E3%80%81%E8%87%AA%E5%AE%9A%E4%B9%89%E7%B1%BB%E5%8A%A0%E8%BD%BD%E5%99%A8%EF%BC%9A%E8%87%AA%E5%B7%B1%E6%8E%8C%E6%8E%A7%E7%B1%BB%E7%9A%84%E5%8A%A0%E8%BD%BD"><span class="toc-number">6.</span> <span class="toc-text">五、自定义类加载器：自己掌控类的加载</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#5-1-%E8%87%AA%E5%AE%9A%E4%B9%89%E7%B1%BB%E5%8A%A0%E8%BD%BD%E5%99%A8%E7%9A%84%E5%85%B8%E5%9E%8B%E5%9C%BA%E6%99%AF"><span class="toc-number">6.1.</span> <span class="toc-text">5.1 自定义类加载器的典型场景</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-2-%E6%8E%A8%E8%8D%90%E6%96%B9%E5%BC%8F%EF%BC%9A%E9%87%8D%E5%86%99-findClass"><span class="toc-number">6.2.</span> <span class="toc-text">5.2 推荐方式：重写 findClass()</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%AD%E3%80%81%E6%89%93%E7%A0%B4%E5%8F%8C%E4%BA%B2%E5%A7%94%E6%B4%BE%EF%BC%9A%E4%B8%8D%E6%98%AF%E8%BF%9D%E8%A7%84%EF%BC%8C%E6%98%AF%E5%9C%BA%E6%99%AF%E9%9C%80%E8%A6%81"><span class="toc-number">7.</span> <span class="toc-text">六、打破双亲委派：不是违规，是场景需要</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#6-1-%E5%9C%BA%E6%99%AF%E4%B8%80%EF%BC%9ASPI-%E4%B8%8E%E7%BA%BF%E7%A8%8B%E4%B8%8A%E4%B8%8B%E6%96%87%E7%B1%BB%E5%8A%A0%E8%BD%BD%E5%99%A8"><span class="toc-number">7.1.</span> <span class="toc-text">6.1 场景一：SPI 与线程上下文类加载器</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#6-2-%E5%9C%BA%E6%99%AF%E4%BA%8C%EF%BC%9ATomcat-Web-%E5%BA%94%E7%94%A8%E9%9A%94%E7%A6%BB"><span class="toc-number">7.2.</span> <span class="toc-text">6.2 场景二：Tomcat Web 应用隔离</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#6-3-%E5%9C%BA%E6%99%AF%E4%B8%89%EF%BC%9A%E6%8F%92%E4%BB%B6%E5%8C%96%E5%92%8C%E7%83%AD%E9%83%A8%E7%BD%B2"><span class="toc-number">7.3.</span> <span class="toc-text">6.3 场景三：插件化和热部署</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#6-4-%E5%A6%82%E4%BD%95%E6%89%93%E7%A0%B4%E5%8F%8C%E4%BA%B2%E5%A7%94%E6%B4%BE"><span class="toc-number">7.4.</span> <span class="toc-text">6.4 如何打破双亲委派</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%83%E3%80%81%E7%BA%BF%E4%B8%8A%E6%8E%92%E6%9F%A5%E6%8C%87%E5%8D%97%EF%BC%9A%E7%B1%BB%E5%8A%A0%E8%BD%BD%E5%BC%82%E5%B8%B8%E6%80%8E%E4%B9%88%E5%AE%9A%E4%BD%8D"><span class="toc-number">8.</span> <span class="toc-text">七、线上排查指南：类加载异常怎么定位</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#7-1-%E7%A1%AE%E8%AE%A4%E7%B1%BB%E6%98%AF%E5%90%A6%E7%9C%9F%E7%9A%84%E5%9C%A8%E5%8C%85%E9%87%8C"><span class="toc-number">8.1.</span> <span class="toc-text">7.1 确认类是否真的在包里</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#7-2-%E6%89%93%E5%8D%B0%E7%B1%BB%E5%8A%A0%E8%BD%BD%E5%99%A8%E4%BF%A1%E6%81%AF"><span class="toc-number">8.2.</span> <span class="toc-text">7.2 打印类加载器信息</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#7-3-%E6%89%93%E5%BC%80-JVM-%E7%B1%BB%E5%8A%A0%E8%BD%BD%E6%97%A5%E5%BF%97"><span class="toc-number">8.3.</span> <span class="toc-text">7.3 打开 JVM 类加载日志</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#7-4-%E4%BD%BF%E7%94%A8-Arthas-%E5%BF%AB%E9%80%9F%E5%AE%9A%E4%BD%8D"><span class="toc-number">8.4.</span> <span class="toc-text">7.4 使用 Arthas 快速定位</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#7-5-%E6%8E%92%E6%9F%A5%E5%88%9D%E5%A7%8B%E5%8C%96%E5%A4%B1%E8%B4%A5"><span class="toc-number">8.5.</span> <span class="toc-text">7.5 排查初始化失败</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%AB%E3%80%81%E5%B8%B8%E8%A7%81%E8%AF%AF%E5%8C%BA%E6%BE%84%E6%B8%85"><span class="toc-number">9.</span> <span class="toc-text">八、常见误区澄清</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B9%9D%E3%80%81%E9%9D%A2%E8%AF%95%E5%9B%9E%E7%AD%94%E6%A8%A1%E6%9D%BF"><span class="toc-number">10.</span> <span class="toc-text">九、面试回答模板</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%86%99%E5%9C%A8%E6%9C%80%E5%90%8E"><span class="toc-number">11.</span> <span class="toc-text">写在最后</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2026/07/08/aqs-reentrantlock-guide/" title="AQS 源码分析：ReentrantLock 背后的秘密"><img src="/img/java-series-05-aqs.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="AQS 源码分析：ReentrantLock 背后的秘密"/></a><div class="content"><a class="title" href="/2026/07/08/aqs-reentrantlock-guide/" title="AQS 源码分析：ReentrantLock 背后的秘密">AQS 源码分析：ReentrantLock 背后的秘密</a><time datetime="2026-07-08T07:00:00.000Z" title="发表于 2026-07-08 15:00:00">2026-07-08</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/08/2026-07-08-class-loading-mechanism/" title="类加载机制：为什么你的代码会报 ClassNotFoundException"><img src="/img/java-series-03-classloading.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="类加载机制：为什么你的代码会报 ClassNotFoundException"/></a><div class="content"><a class="title" href="/2026/07/08/2026-07-08-class-loading-mechanism/" title="类加载机制：为什么你的代码会报 ClassNotFoundException">类加载机制：为什么你的代码会报 ClassNotFoundException</a><time datetime="2026-07-08T06:00:00.000Z" title="发表于 2026-07-08 14:00:00">2026-07-08</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/08/thread-pool-guide/" title="线程池原理：面试必问的 ThreadPoolExecutor 你真的懂吗？"><img src="/img/java-series-04-thread-pool.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="线程池原理：面试必问的 ThreadPoolExecutor 你真的懂吗？"/></a><div class="content"><a class="title" href="/2026/07/08/thread-pool-guide/" title="线程池原理：面试必问的 ThreadPoolExecutor 你真的懂吗？">线程池原理：面试必问的 ThreadPoolExecutor 你真的懂吗？</a><time datetime="2026-07-08T06:00:00.000Z" title="发表于 2026-07-08 14:00:00">2026-07-08</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/07/git-docker-linux-interview/" title="Git、Docker、Linux 面试高频问答：后端开发必会的三大基本功"><img src="/img/git-docker-linux-cover.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Git、Docker、Linux 面试高频问答：后端开发必会的三大基本功"/></a><div class="content"><a class="title" href="/2026/07/07/git-docker-linux-interview/" title="Git、Docker、Linux 面试高频问答：后端开发必会的三大基本功">Git、Docker、Linux 面试高频问答：后端开发必会的三大基本功</a><time datetime="2026-07-07T07:00:00.000Z" title="发表于 2026-07-07 15:00:00">2026-07-07</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/07/gc-tuning-guide/" title="GC 调优实战：一次线上 OOM 的排查经历"><img src="/img/java-series-02-gc-tuning.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="GC 调优实战：一次线上 OOM 的排查经历"/></a><div class="content"><a class="title" href="/2026/07/07/gc-tuning-guide/" title="GC 调优实战：一次线上 OOM 的排查经历">GC 调优实战：一次线上 OOM 的排查经历</a><time datetime="2026-07-07T06:30:00.000Z" title="发表于 2026-07-07 14:30:00">2026-07-07</time></div></div></div></div></div></div></main><footer id="footer"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2024 - 2026 By qjngbac</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 7.3.0</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.5.5</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.5.5"></script><script src="/js/main.js?v=5.5.5"></script><div class="js-pjax"></div><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>
