@@ -1,0 +1,273 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Wait - 记录学习与成长</title><meta name="author" content="qjngbac"><meta name="copyright" content="qjngbac"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta property="og:type" content="website">
+<meta property="og:title" content="Wait">
+<meta property="og:url" content="https://qjngbac.github.io/index.html">
+<meta property="og:site_name" content="Wait">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://qjngbac.github.io/img/butterfly-icon.png">
+<meta property="article:author" content="qjngbac">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://qjngbac.github.io/img/butterfly-icon.png"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "Wait",
+  "alternateName": [
+    "记录学习与成长",
+    "qjngbac.github.io"
+  ],
+  "url": "https://qjngbac.github.io/"
+}</script><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://qjngbac.github.io/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.5.5"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        if (!ttl) return
+        const expiry = Date.now() + ttl * 86400000
+        localStorage.setItem(key, JSON.stringify({ value, expiry }))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return undefined
+        const { value, expiry } = JSON.parse(itemStr)
+        if (Date.now() > expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return value
+      }
+    }
+
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+        script.onload = script.onreadystatechange = () => {
+          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      }),
+      getCSS: (url, id) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onload = link.onreadystatechange = () => {
+          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+        }
+        link.onerror = reject
+        document.head.appendChild(link)
+      }),
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: true
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Wait',
+  isHighlightShrink: false,
+  isToc: false,
+  pageType: 'home'
+}</script><meta name="generator" content="Hexo 7.3.0"></head><body><div id="loading-box"><div class="loading-left-bg"></div><div class="loading-right-bg"></div><div class="spinner-box"><div class="configure-border-1"><div class="configure-core"></div></div><div class="configure-border-2"><div class="configure-core"></div></div><div class="loading-word">加载中...</div></div></div><script>(()=>{
+  const $loadingBox = document.getElementById('loading-box')
+  const $body = document.body
+  const preloader = {
+    endLoading: () => {
+      if ($loadingBox.classList.contains('loaded')) return
+      $body.style.overflow = ''
+      $loadingBox.classList.add('loaded')
+    },
+    initLoading: () => {
+      $body.style.overflow = 'hidden'
+      $loadingBox.classList.remove('loaded')
+    }
+  }
+
+  preloader.initLoading()
+
+  if (document.readyState === 'complete') {
+    preloader.endLoading()
+  } else {
+    window.addEventListener('load', preloader.endLoading)
+    document.addEventListener('DOMContentLoaded', preloader.endLoading)
+    // Add timeout protection: force end after 7 seconds
+    setTimeout(preloader.endLoading, 7000)
+  }
+
+  if (false) {
+    btf.addGlobalFn('pjaxSend', preloader.initLoading, 'preloader_init')
+    btf.addGlobalFn('pjaxComplete', preloader.endLoading, 'preloader_end')
+  }
+})()</script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">42</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">139</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div></div></div><div class="page" id="body-wrap"><header class="full_page" id="page-header" style="background-image: url(https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1920&amp;q=80);"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">Wait</span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="site-info"><h1 id="site-title">Wait</h1><div id="site_social_icons"><a class="social-icon" href="https://github.com/qjngbac" target="_blank" title="Github"><i class="fab fa-github"></i></a></div></div><div id="scroll-down"><i class="fas fa-angle-down scroll-down-effects"></i></div></header><main class="layout" id="content-inner"><div class="recent-posts nc" id="recent-posts"><div class="recent-post-items"><div class="recent-post-item"><div class="post_cover left"><a href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"><img class="post-bg" src="/../img/ai-10-ollama.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"></a></div><div class="recent-post-info"><a class="article-title" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成">Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2026-07-22T02:00:00.000Z" title="发表于 2026-07-22 10:00:00">2026-07-22</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/AI%E5%B7%A5%E7%A8%8B/">AI工程</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/AI%E5%B7%A5%E7%A8%8B/">AI工程</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Spring-Boot/">Spring Boot</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Ollama/">Ollama</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E6%9C%AC%E5%9C%B0%E5%A4%A7%E6%A8%A1%E5%9E%8B/">本地大模型</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/LLM/">LLM</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/CPU%E6%8E%A8%E7%90%86/">CPU推理</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/GPU/">GPU</a></span></div><div class="content">前言云端模型 API 上手快、能力强，但有持续费用、网络依赖和数据出网限制。Ollama 提供了一套简单的本地模型管理与 API 服务，可以在 Windows、macOS 和 Linux 上拉取并运行支持的模型，再通过本地 HTTP 接口接入 Python、Java 或 AI 框架。 本地部署不等于“零成本”。模型需要磁盘、内存或显存，CPU 推理速度可能较慢，升级、并发和监控都需要自己承担。它更准确的价值是：降低按次 API 费用、提高数据本地性，并为开发测试提供可控模型服务。 本文介绍 Ollama 的安装验证、模型选择、CPU&#x2F;GPU 运行、REST API、Embedding、Spring Boot 接入、上下文和内存优化，以及本地部署的适用边界。  一、Ollama 的基本架构安装后，Ollama 在本机提供模型管理和推理服务： 1234567CLI / Python / Spring Boot / LangChain                ↓       http://localhost:11434/api                ↓     ...</div></div></div><div class="recent-post-item"><div class="post_cover right"><a href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"><img class="post-bg" src="/../img/ai-09-spring-ai.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"></a></div><div class="recent-post-info"><a class="article-title" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling">Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2026-07-17T02:00:00.000Z" title="发表于 2026-07-17 10:00:00">2026-07-17</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/AI%E5%B7%A5%E7%A8%8B/">AI工程</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/AI%E5%B7%A5%E7%A8%8B/">AI工程</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Tool-Calling/">Tool Calling</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Java/">Java</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Spring-Boot/">Spring Boot</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/RAG/">RAG</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Spring-AI/">Spring AI</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/ChatClient/">ChatClient</a></span></div><div class="content">前言Python 生态在大模型应用中非常丰富，但对于已经使用 Spring Boot 的团队，鉴权、配置、数据库、日志、监控和部署体系都在 Java 侧。为了接入模型而重新搭建一套独立 Python 服务，并不总是最合适的选择。 Spring AI 为 Java 应用提供统一的模型、Embedding、向量库、Tool Calling、Chat Memory、RAG Advisor 和可观测性抽象。它的价值不是“用 Java 重新实现模型”，而是让 AI 能力进入熟悉的 Spring 配置和依赖注入体系。 本文基于 Spring AI 当前的核心抽象，搭建同步&#x2F;流式聊天、结构化输出、Tool Calling 和简单 RAG，并说明生产项目中的配置、安全和可观测性问题。  一、Spring AI 的核心抽象   抽象 作用    ChatModel 与聊天模型交互的底层统一接口   ChatClient 面向应用的流畅 API，支持同步、流式、Prompt、Advisor 和 Tool   EmbeddingModel 把文本转换为向量   VectorStore 保存文...</div></div></div><div class="recent-post-item"><div class="post_cover left"><a href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"><img class="post-bg" src="/../img/ai-08-vector-database.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"></a></div><div class="recent-post-info"><a class="article-title" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比">向量数据库选型实战：Chroma、Milvus 与 pgvector 对比</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2026-07-13T02:00:00.000Z" title="发表于 2026-07-13 10:00:00">2026-07-13</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/AI%E5%B7%A5%E7%A8%8B/">AI工程</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/AI%E5%B7%A5%E7%A8%8B/">AI工程</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/RAG/">RAG</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Chroma/">Chroma</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%90%91%E9%87%8F%E6%95%B0%E6%8D%AE%E5%BA%93/">向量数据库</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Milvus/">Milvus</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/pgvector/">pgvector</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/HNSW/">HNSW</a></span></div><div class="content">前言做 RAG 时经常会看到三类建议：个人项目用 Chroma，海量向量用 Milvus，已有 PostgreSQL 就用 pgvector。这个结论方向上没有问题，但真正选型不能只看一句话。 向量数据库不仅负责“存一个 float 数组”。它还要处理向量索引、Top-K 搜索、metadata 过滤、增删改、并发、备份恢复、监控和客户端接入。不同产品的定位不同：Chroma 更偏 AI 应用快速检索，Milvus 是专用、可扩展的向量数据库，pgvector 则把向量能力放进 PostgreSQL 生态。 本文从架构、索引、过滤、运维和适用场景比较三者，并给出一套公平的性能测试方法。   一、向量检索在做什么Embedding 模型把文本映射为固定维度向量： 1“Redis 分布式锁” → [0.12, -0.34, ...]  查询时，把用户问题也转换到同一向量空间，再按距离或相似度寻找邻居。 常见度量：    度量 含义 注意点    Cosine 比较方向相似度 常用于文本向量   Inner Product 点积 是否需归一化取决于模型   L2 欧氏距离 距离越小通常...</div></div></div><div class="recent-post-item"><div class="post_cover right"><a href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度"><img class="post-bg" src="/../img/ai-07-rag-evaluation.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 评估实战：Recall@K、MRR 与回答忠实度"></a></div><div class="recent-post-info"><a class="article-title" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度">RAG 评估实战：Recall@K、MRR 与回答忠实度</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2026-07-12T02:00:00.000Z" title="发表于 2026-07-12 10:00:00">2026-07-12</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/AI%E5%B7%A5%E7%A8%8B/">AI工程</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/AI%E5%B7%A5%E7%A8%8B/">AI工程</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/RAG%E8%AF%84%E4%BC%B0/">RAG评估</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Recall/">Recall</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/MRR/">MRR</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Faithfulness/">Faithfulness</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Ragas/">Ragas</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E6%A3%80%E7%B4%A2%E8%AF%84%E4%BC%B0/">检索评估</a></span></div><div class="content">前言很多 RAG 项目的优化方式是：改一个参数，随便问几个问题，感觉回答比以前好，就宣布“准确率提升”。这种方法无法复现，也无法判断提升来自检索、Prompt、模型还是偶然性。 RAG 是一条组合链路，至少包含文档处理、检索、排序和生成。评估也应拆开：检索阶段判断正确文档有没有被找回来、排在什么位置；生成阶段判断回答是否忠于上下文、是否真正回答问题；端到端阶段再看用户任务是否完成、延迟和成本是否可接受。 本文从构建评估集开始，实现 Recall@K、Hit Rate、MRR，并说明 Faithfulness、Answer Relevance、无答案识别和线上反馈应该如何组合。  一、RAG 评估要拆成三层12345678检索评估→ 正确文档是否被召回、排名是否合理生成评估→ 回答是否忠于上下文、是否相关、是否完整端到端评估→ 用户任务是否完成、延迟和成本是否可接受  只看最终答案有两个问题：  模型可能靠自身知识答对，掩盖检索失败 检索正确但生成失败时，不知道应该改哪一层    二、构建一份可用的评估集每条测试数据至少包含： 123456789101112&#123;  &quo...</div></div></div><div class="recent-post-item"><div class="post_cover left"><a href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"><img class="post-bg" src="/../img/ai-06-rag-retrieval.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"></a></div><div class="recent-post-info"><a class="article-title" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker">RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2026-07-09T02:00:00.000Z" title="发表于 2026-07-09 10:00:00">2026-07-09</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/AI%E5%B7%A5%E7%A8%8B/">AI工程</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/AI%E5%B7%A5%E7%A8%8B/">AI工程</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/RAG/">RAG</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E6%B7%B7%E5%90%88%E6%A3%80%E7%B4%A2/">混合检索</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/BM25/">BM25</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/RRF/">RRF</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Reranker/">Reranker</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Query-Rewrite/">Query Rewrite</a></span></div><div class="content">前言基础 RAG 通常使用一个 Embedding 模型，把问题转成向量，再做 Top-K 相似度检索。这条链路简单，但很快会遇到问题：搜索 SETNX 时找不到包含精确命令的片段；用户说“它为什么会失效”，单独拿这句话无法检索；向量结果语义相近，却没有真正回答问题；正确片段排在第 8 名，最终只取了前 4 名。 检索优化的核心不是盲目增加模型，而是分阶段解决： 12345让查询更适合检索→ 多路召回扩大候选集→ 融合不同排序→ 对候选做精细重排→ 只把高质量上下文交给生成模型  本文依次介绍 Query Rewrite、BM25 + 向量混合检索、RRF 融合、Reranker 与降级策略，并说明为什么所有优化都必须通过固定评估集验证。   一、先定位检索失败属于哪一类   失败类型 示例 常见方案    查询缺少上下文 “它为什么会失效？” 对话指代消解、查询改写   精确词召回失败 SETNX、错误码、类名 BM25&#x2F;关键词检索   同义表达不一致 “缓存雪崩”与“批量过期” 向量检索   正确文档排序靠后 Top-10 有，Top-4 无 RRF、Reranke...</div></div></div><div class="recent-post-item"><div class="post_cover right"><a href="/2026/07/07/git-docker-linux-interview/" title="Git、Docker、Linux 面试高频问答：后端开发必会的三大基本功"><img class="post-bg" src="/img/git-docker-linux-cover.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Git、Docker、Linux 面试高频问答：后端开发必会的三大基本功"></a></div><div class="recent-post-info"><a class="article-title" href="/2026/07/07/git-docker-linux-interview/" title="Git、Docker、Linux 面试高频问答：后端开发必会的三大基本功">Git、Docker、Linux 面试高频问答：后端开发必会的三大基本功</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2026-07-07T07:00:00.000Z" title="发表于 2026-07-07 15:00:00">2026-07-07</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/%E5%90%8E%E7%AB%AF%E5%9F%BA%E7%A1%80/">后端基础</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%90%8E%E7%AB%AF/">后端</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Docker/">Docker</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Git/">Git</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Linux/">Linux</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E8%BF%90%E7%BB%B4/">运维</a></span></div><div class="content">前言面试中，Git、Docker、Linux 这三个工具几乎每场都会被问到。很多人觉得”会用就行”，但面试官问的不是”你会不会敲命令”，而是”你理不理解背后的原理”。 本文整理了这三个方向的高频面试题，每个问题都给出简洁但有深度的回答。不是命令手册，而是帮你建立知识框架。  一、Git 篇Q1：Git 的工作区域有哪些？Git 本地有三个核心区域，配合一个远程仓库： 1234567工作区（Working Directory）    ↓ git add暂存区（Stage / Index）    ↓ git commit本地仓库（Local Repository）    ↓ git push远程仓库（Remote Repository）   工作区：你正在编辑的文件目录 暂存区：git add 后文件的临时存储区，准备提交 本地仓库：git commit 后文件存储的地方，完整历史记录 远程仓库：GitHub&#x2F;GitLab 等托管平台  Q2：git merge 和 git rebase 有什么区别？   对比项 merge rebase    提交历史 保留已有提交；必要...</div></div></div><div class="recent-post-item"><div class="post_cover left"><a href="/2026/07/05/oled-screen-guide/" title="手机屏幕技术深度解析：以OLED为例"><img class="post-bg" src="/img/oled-cover.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="手机屏幕技术深度解析：以OLED为例"></a></div><div class="recent-post-info"><a class="article-title" href="/2026/07/05/oled-screen-guide/" title="手机屏幕技术深度解析：以OLED为例">手机屏幕技术深度解析：以OLED为例</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2026-07-05T15:00:00.000Z" title="发表于 2026-07-05 23:00:00">2026-07-05</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/%E6%8A%80%E6%9C%AF%E7%A7%91%E6%99%AE/">技术科普</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E6%89%8B%E6%9C%BA%E7%A1%AC%E4%BB%B6/">手机硬件</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/OLED/">OLED</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%B1%8F%E5%B9%95%E6%8A%80%E6%9C%AF/">屏幕技术</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E6%98%BE%E7%A4%BA%E6%8A%80%E6%9C%AF/">显示技术</a></span></div><div class="content">你每天看手机屏幕超过 6 小时，但你真的了解它吗？  一、屏幕基础概念  1.1 像素与分辨率  屏幕是由无数个像素（Pixel）组成的，每个像素可以独立发光或显示颜色。     术语 含义 示例    分辨率 水平与垂直方向的像素数量 2796×1290（iPhone 14 Pro Max）   PPI 每英寸像素数，数值越高越细腻 460 PPI   FHD+ 非统一标准，通常指纵向像素多于 1920 的 1080P 屏 2400×1080   QHD &#x2F; QHD+ 约 2560×1440 或更长比例，手机宣传中常称“2K” 3200×1440（QHD+ 示例）   PPI 的计算公式：  PPI = √(水平像素² + 垂直像素²) / 屏幕尺寸(英寸) PPI 是否“足够”与观看距离、视力、子像素排列和显示内容有关。300 PPI 常被当作印刷或较远距离观看的经验参考，但在约 25cm 的手机观看距离下，部分用户仍能分辨更高像素密度带来的差异；因此不能只凭一个 PPI 数字判断清晰度。  1.2 色域与色准  色域（Color Gamut）是屏幕能显示的颜色范围...</div></div></div><div class="recent-post-item"><div class="post_cover right"><a href="/2026/07/04/05-langchain-rag/" title="LangChain RAG 实战：从文档入库到可追溯问答"><img class="post-bg" src="/../img/ai-05-langchain-rag.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="LangChain RAG 实战：从文档入库到可追溯问答"></a></div><div class="recent-post-info"><a class="article-title" href="/2026/07/04/05-langchain-rag/" title="LangChain RAG 实战：从文档入库到可追溯问答">LangChain RAG 实战：从文档入库到可追溯问答</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2026-07-04T02:00:00.000Z" title="发表于 2026-07-04 10:00:00">2026-07-04</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/AI%E5%B7%A5%E7%A8%8B/">AI工程</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/AI%E5%B7%A5%E7%A8%8B/">AI工程</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/LangChain/">LangChain</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/RAG/">RAG</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Chroma/">Chroma</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Embedding/">Embedding</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E6%96%87%E6%A1%A3%E5%88%87%E5%88%86/">文档切分</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E7%9F%A5%E8%AF%86%E5%BA%93/">知识库</a></span></div><div class="content">前言大模型能够回答大量通用问题，但它不知道你的私有文档，也可能使用过时知识或生成没有依据的内容。RAG（Retrieval-Augmented Generation，检索增强生成）通过“先检索、再生成”把外部知识放进模型上下文，使回答能够参考知识库并附带来源。 RAG 不能彻底消除幻觉。检索可能漏掉正确文档，切分可能破坏语义，生成模型也可能误读上下文。因此，一个合格的 RAG 系统不仅要能回答，还要保存稳定文档标识、展示引用，并在资料不足时明确降级。 本文使用 LangChain、Chroma 和 Markdown 文档搭建一条可运行的基础链路：文档加载、标题感知切分、Embedding、向量入库、Top-K 检索、带引用生成和无资料拒答。  一、RAG 的完整链路12345离线入库：文档 → 解析 → 切分 → 元数据 → Embedding → 向量库在线问答：问题 → Embedding → 相似度检索 → 上下文组装 → LLM → 答案 + 引用  两条链路要分开设计：文档更新不应阻塞每次问答；在线请求也不应临时重新切分整个知识库。  基础问答通常采用确定的“两步 RA...</div></div></div><div class="recent-post-item"><div class="post_cover left"><a href="/2026/07/02/android-hardware-guide/" title="安卓手机硬件全解析：从芯片到屏幕，一文看懂所有配置"><img class="post-bg" src="/img/android-hardware-cover.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="安卓手机硬件全解析：从芯片到屏幕，一文看懂所有配置"></a></div><div class="recent-post-info"><a class="article-title" href="/2026/07/02/android-hardware-guide/" title="安卓手机硬件全解析：从芯片到屏幕，一文看懂所有配置">安卓手机硬件全解析：从芯片到屏幕，一文看懂所有配置</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2026-07-02T06:00:00.000Z" title="发表于 2026-07-02 14:00:00">2026-07-02</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/%E6%8A%80%E6%9C%AF%E7%A7%91%E6%99%AE/">技术科普</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E6%89%8B%E6%9C%BA%E7%A1%AC%E4%BB%B6/">手机硬件</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Android/">Android</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/CPU/">CPU</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%B1%8F%E5%B9%95/">屏幕</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E7%94%B5%E6%B1%A0/">电池</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E6%91%84%E5%83%8F%E5%A4%B4/">摄像头</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E7%A7%91%E6%99%AE/">科普</a></span></div><div class="content">前言  每次看到手机发布会，满屏的参数让人眼花缭乱：骁龙8 Gen3、LPDDR5X、UFS 4.0、1/1.3英寸大底、2K LTPO……这些参数到底意味着什么？哪个更重要？  这篇文章将从硬件工程师的视角，带你逐个拆解安卓手机的每一个核心硬件模块。看完之后，你将能够独立判断一部手机的硬件水平。  一、处理器（SoC）—— 手机的大脑  1.1 什么是 SoC  手机里的"CPU"其实不是单纯的 CPU，而是一颗 SoC（System on Chip，片上系统）。它把多个模块集成在一颗芯片上：  SoC 内部结构： ┌──────────────────────────────────────┐ │           SoC（片上系统）              │ │                                      │ │  ┌─────────┐  ┌─────────┐            │ │  │  CPU    │  │  GPU    │            │ │  │ 大中小核 │  │ 图形处理  │            ...</div></div></div><div class="recent-post-item"><div class="post_cover right"><a href="/2026/06/25/04-agent-langgraph/" title="AI Agent 工程化实战：从工具调用到 LangGraph 状态工作流"><img class="post-bg" src="/../img/ai-04-agent-langgraph.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="AI Agent 工程化实战：从工具调用到 LangGraph 状态工作流"></a></div><div class="recent-post-info"><a class="article-title" href="/2026/06/25/04-agent-langgraph/" title="AI Agent 工程化实战：从工具调用到 LangGraph 状态工作流">AI Agent 工程化实战：从工具调用到 LangGraph 状态工作流</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2026-06-25T02:00:00.000Z" title="发表于 2026-06-25 10:00:00">2026-06-25</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/AI%E5%B7%A5%E7%A8%8B/">AI工程</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/AI%E5%B7%A5%E7%A8%8B/">AI工程</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/AI-Agent/">AI Agent</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/LangChain/">LangChain</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/LangGraph/">LangGraph</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/ReAct/">ReAct</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E7%8A%B6%E6%80%81%E6%9C%BA/">状态机</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%B7%A5%E5%85%B7%E8%B0%83%E7%94%A8/">工具调用</a></span></div><div class="content">前言Function Calling 解决了“模型如何请求工具”，但一个完整任务往往不止一次调用：先判断是否需要检索，再查询知识库；检索结果不足时改写问题；涉及写操作时暂停等待用户确认；工具失败后决定重试、降级还是结束。 这时仅靠一个 while 循环会越来越难维护。AI Agent 的工程价值，就是把模型、工具、状态和执行循环组织起来。LangChain 提供较高层的 Agent 接口，LangGraph 则提供低层、状态化、可持久化的图工作流，适合需要明确节点、分支、恢复和人工介入的场景。 本文不追求“万能自主 Agent”，而是以一个后端知识助手为例，讲清 Workflow 与 Agent、ReAct、工具调用、状态管理、LangGraph 图结构、持久化和安全边界。  一、Workflow 和 Agent 的区别   维度 Workflow Agent    执行路径 代码预先定义 模型在运行时参与决定   可预测性 较高 较低   调试难度 较低 较高   适用场景 固定审批、ETL、确定性流程 开放问题、多工具选择   成本控制 容易 需要步数和预算限制   例如： ...</div></div></div></div><nav id="pagination"><div class="pagination"><span class="page-number current">1</span><a class="page-number" href="/page/2/#content-inner">2</a><span class="space">&hellip;</span><a class="page-number" href="/page/5/#content-inner">5</a><a class="extend next" rel="next" href="/page/2/#content-inner"><i class="fas fa-chevron-right fa-fw"></i></a></div></nav></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">qjngbac</div><div class="author-info-description">一个正在学习的开发者</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">42</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">139</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/qjngbac"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/qjngbac" target="_blank" title="Github"><i class="fab fa-github"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到我的博客</div></div><div class="sticky_layout"><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"><img src="/../img/ai-10-ollama.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"/></a><div class="content"><a class="title" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成">Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成</a><time datetime="2026-07-22T02:00:00.000Z" title="发表于 2026-07-22 10:00:00">2026-07-22</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"><img src="/../img/ai-09-spring-ai.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"/></a><div class="content"><a class="title" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling">Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling</a><time datetime="2026-07-17T02:00:00.000Z" title="发表于 2026-07-17 10:00:00">2026-07-17</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"><img src="/../img/ai-08-vector-database.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"/></a><div class="content"><a class="title" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比">向量数据库选型实战：Chroma、Milvus 与 pgvector 对比</a><time datetime="2026-07-13T02:00:00.000Z" title="发表于 2026-07-13 10:00:00">2026-07-13</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度"><img src="/../img/ai-07-rag-evaluation.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 评估实战：Recall@K、MRR 与回答忠实度"/></a><div class="content"><a class="title" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度">RAG 评估实战：Recall@K、MRR 与回答忠实度</a><time datetime="2026-07-12T02:00:00.000Z" title="发表于 2026-07-12 10:00:00">2026-07-12</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"><img src="/../img/ai-06-rag-retrieval.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"/></a><div class="content"><a class="title" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker">RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker</a><time datetime="2026-07-09T02:00:00.000Z" title="发表于 2026-07-09 10:00:00">2026-07-09</time></div></div></div></div><div class="card-widget card-categories"><div class="item-headline">
+            <i class="fas fa-folder-open"></i>
+            <span>分类</span>
+            
+          </div>
+          <ul class="card-category-list" id="aside-cat-list">
+            <li class="card-category-list-item "><a class="card-category-list-link" href="/categories/AI%E5%B7%A5%E7%A8%8B/"><span class="card-category-list-name">AI工程</span><span class="card-category-list-count">10</span></a></li><li class="card-category-list-item "><a class="card-category-list-link" href="/categories/Java-%E6%B7%B1%E5%BA%A6/"><span class="card-category-list-name">Java 深度</span><span class="card-category-list-count">15</span></a></li><li class="card-category-list-item "><a class="card-category-list-link" href="/categories/%E5%90%8E%E7%AB%AF%E5%9F%BA%E7%A1%80/"><span class="card-category-list-name">后端基础</span><span class="card-category-list-count">1</span></a></li><li class="card-category-list-item "><a class="card-category-list-link" href="/categories/%E5%90%8E%E7%AB%AF%E5%B7%A5%E7%A8%8B/"><span class="card-category-list-name">后端工程</span><span class="card-category-list-count">14</span></a></li><li class="card-category-list-item "><a class="card-category-list-link" href="/categories/%E6%8A%80%E6%9C%AF%E7%A7%91%E6%99%AE/"><span class="card-category-list-name">技术科普</span><span class="card-category-list-count">2</span></a></li>
+          </ul></div><div class="card-widget card-tags"><div class="item-headline"><i class="fas fa-tags"></i><span>标签</span></div><div class="card-tag-cloud"><a href="/tags/%E5%A4%A7%E6%A8%A1%E5%9E%8B/" style="font-size: 1.24em; color: rgb(106, 50, 50);">大模型</a><a href="/tags/OpenAI-API/" style="font-size: 1.15em; color: rgb(50, 200, 83);">OpenAI API</a><a href="/tags/SSE/" style="font-size: 1.15em; color: rgb(83, 50, 112);">SSE</a><a href="/tags/%E6%B5%81%E5%BC%8F%E8%BE%93%E5%87%BA/" style="font-size: 1.15em; color: rgb(111, 56, 180);">流式输出</a><a href="/tags/%E5%90%8E%E7%AB%AF/" style="font-size: 1.41em; color: rgb(50, 72, 185);">后端</a><a href="/tags/AI%E5%B7%A5%E7%A8%8B/" style="font-size: 1.32em; color: rgb(193, 52, 50);">AI工程</a><a href="/tags/%E9%9D%A2%E8%AF%95/" style="font-size: 1.45em; color: rgb(120, 50, 169);">面试</a><a href="/tags/Function-Calling/" style="font-size: 1.15em; color: rgb(174, 83, 180);">Function Calling</a><a href="/tags/Tool-Calling/" style="font-size: 1.19em; color: rgb(50, 50, 70);">Tool Calling</a><a href="/tags/Java/" style="font-size: 1.36em; color: rgb(50, 144, 50);">Java</a><a href="/tags/Spring-Boot/" style="font-size: 1.28em; color: rgb(135, 50, 79);">Spring Boot</a><a href="/tags/AI-Agent/" style="font-size: 1.15em; color: rgb(103, 50, 74);">AI Agent</a><a href="/tags/LangChain/" style="font-size: 1.19em; color: rgb(67, 97, 88);">LangChain</a><a href="/tags/LangGraph/" style="font-size: 1.15em; color: rgb(50, 183, 88);">LangGraph</a><a href="/tags/ReAct/" style="font-size: 1.15em; color: rgb(95, 50, 187);">ReAct</a><a href="/tags/%E7%8A%B6%E6%80%81%E6%9C%BA/" style="font-size: 1.15em; color: rgb(88, 50, 92);">状态机</a><a href="/tags/%E5%B7%A5%E5%85%B7%E8%B0%83%E7%94%A8/" style="font-size: 1.15em; color: rgb(66, 147, 130);">工具调用</a><a href="/tags/Prompt%E5%B7%A5%E7%A8%8B/" style="font-size: 1.15em; color: rgb(50, 135, 50);">Prompt工程</a><a href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B/" style="font-size: 1.15em; color: rgb(78, 156, 50);">上下文工程</a><a href="/tags/Structured-Outputs/" style="font-size: 1.15em; color: rgb(59, 191, 170);">Structured Outputs</a><a href="/tags/Prompt-Injection/" style="font-size: 1.15em; color: rgb(116, 93, 92);">Prompt Injection</a><a href="/tags/RAG/" style="font-size: 1.28em; color: rgb(133, 145, 106);">RAG</a><a href="/tags/Chroma/" style="font-size: 1.19em; color: rgb(182, 82, 95);">Chroma</a><a href="/tags/Embedding/" style="font-size: 1.15em; color: rgb(56, 100, 62);">Embedding</a><a href="/tags/%E6%96%87%E6%A1%A3%E5%88%87%E5%88%86/" style="font-size: 1.15em; color: rgb(50, 50, 50);">文档切分</a><a href="/tags/%E7%9F%A5%E8%AF%86%E5%BA%93/" style="font-size: 1.15em; color: rgb(50, 54, 70);">知识库</a><a href="/tags/%E6%B7%B7%E5%90%88%E6%A3%80%E7%B4%A2/" style="font-size: 1.15em; color: rgb(50, 64, 61);">混合检索</a><a href="/tags/BM25/" style="font-size: 1.15em; color: rgb(54, 160, 50);">BM25</a><a href="/tags/RRF/" style="font-size: 1.15em; color: rgb(105, 67, 50);">RRF</a><a href="/tags/Reranker/" style="font-size: 1.15em; color: rgb(101, 125, 50);">Reranker</a><a href="/tags/Query-Rewrite/" style="font-size: 1.15em; color: rgb(82, 199, 50);">Query Rewrite</a><a href="/tags/%E5%90%91%E9%87%8F%E6%95%B0%E6%8D%AE%E5%BA%93/" style="font-size: 1.15em; color: rgb(177, 116, 50);">向量数据库</a><a href="/tags/Milvus/" style="font-size: 1.15em; color: rgb(181, 92, 50);">Milvus</a><a href="/tags/pgvector/" style="font-size: 1.15em; color: rgb(193, 156, 167);">pgvector</a><a href="/tags/HNSW/" style="font-size: 1.15em; color: rgb(125, 50, 153);">HNSW</a><a href="/tags/Spring-AI/" style="font-size: 1.15em; color: rgb(51, 137, 53);">Spring AI</a><a href="/tags/ChatClient/" style="font-size: 1.15em; color: rgb(196, 112, 135);">ChatClient</a><a href="/tags/Ollama/" style="font-size: 1.15em; color: rgb(165, 185, 167);">Ollama</a><a href="/tags/%E6%9C%AC%E5%9C%B0%E5%A4%A7%E6%A8%A1%E5%9E%8B/" style="font-size: 1.15em; color: rgb(50, 50, 166);">本地大模型</a><a href="/tags/LLM/" style="font-size: 1.15em; color: rgb(50, 50, 165);">LLM</a></div></div><div class="card-widget card-archives">
+    <div class="item-headline">
+      <i class="fas fa-archive"></i>
+      <span>归档</span>
+      <a class="card-more-btn" href="/archives/"
+            title="查看更多">
+            <i class="fas fa-angle-right"></i>
+          </a>
+    </div>
+  
+    <ul class="card-archive-list">
+      
+        <li class="card-archive-list-item">
+          <a class="card-archive-list-link" href="/archives/2026/07/">
+            <span class="card-archive-list-date">
+              七月 2026
+            </span>
+            <span class="card-archive-list-count">9</span>
+          </a>
+        </li>
+      
+        <li class="card-archive-list-item">
+          <a class="card-archive-list-link" href="/archives/2026/06/">
+            <span class="card-archive-list-date">
+              六月 2026
+            </span>
+            <span class="card-archive-list-count">6</span>
+          </a>
+        </li>
+      
+        <li class="card-archive-list-item">
+          <a class="card-archive-list-link" href="/archives/2026/05/">
+            <span class="card-archive-list-date">
+              五月 2026
+            </span>
+            <span class="card-archive-list-count">1</span>
+          </a>
+        </li>
+      
+        <li class="card-archive-list-item">
+          <a class="card-archive-list-link" href="/archives/2026/04/">
+            <span class="card-archive-list-date">
+              四月 2026
+            </span>
+            <span class="card-archive-list-count">3</span>
+          </a>
+        </li>
+      
+        <li class="card-archive-list-item">
+          <a class="card-archive-list-link" href="/archives/2026/03/">
+            <span class="card-archive-list-date">
+              三月 2026
+            </span>
+            <span class="card-archive-list-count">2</span>
+          </a>
+        </li>
+      
+        <li class="card-archive-list-item">
+          <a class="card-archive-list-link" href="/archives/2026/01/">
+            <span class="card-archive-list-date">
+              一月 2026
+            </span>
+            <span class="card-archive-list-count">2</span>
+          </a>
+        </li>
+      
+        <li class="card-archive-list-item">
+          <a class="card-archive-list-link" href="/archives/2025/12/">
+            <span class="card-archive-list-date">
+              十二月 2025
+            </span>
+            <span class="card-archive-list-count">3</span>
+          </a>
+        </li>
+      
+        <li class="card-archive-list-item">
+          <a class="card-archive-list-link" href="/archives/2025/11/">
+            <span class="card-archive-list-date">
+              十一月 2025
+            </span>
+            <span class="card-archive-list-count">4</span>
+          </a>
+        </li>
+      
+    </ul>
+  </div><div class="card-widget card-webinfo"><div class="item-headline"><i class="fas fa-chart-line"></i><span>网站信息</span></div><div class="webinfo"><div class="webinfo-item"><div class="item-name">文章数目 :</div><div class="item-count">42</div></div><div class="webinfo-item"><div class="item-name">本站访客数 :</div><div class="item-count" id="busuanzi_value_site_uv"><i class="fa-solid fa-spinner fa-spin"></i></div></div><div class="webinfo-item"><div class="item-name">本站总浏览量 :</div><div class="item-count" id="busuanzi_value_site_pv"><i class="fa-solid fa-spinner fa-spin"></i></div></div><div class="webinfo-item"><div class="item-name">最后更新时间 :</div><div class="item-count" id="last-push-date" data-lastPushDate="2026-07-22T13:17:58.557Z"><i class="fa-solid fa-spinner fa-spin"></i></div></div></div></div></div></div></main><footer id="footer"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2024 - 2026 By qjngbac</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 7.3.0</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.5.5</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.5.5"></script><script src="/js/main.js?v=5.5.5"></script><div class="js-pjax"></div><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

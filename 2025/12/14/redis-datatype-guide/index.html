@@ -1,0 +1,556 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Redis 数据结构与应用场景：远不止缓存 | Wait</title><meta name="author" content="qjngbac"><meta name="copyright" content="qjngbac"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="前言提到 Redis，大多数人的第一反应是「缓存」：把热点数据放进去，减轻数据库压力。但如果你只把 Redis 当一个键值对缓存用，那就太浪费它的能力了。 Redis 真正的核心优势，在于它提供了一整套成熟的内置数据结构，从简单的字符串到有序集合，每一种都对应着一类典型的业务问题。不用自己手写链表、去重集合、排行榜，一行命令就能解决复杂的业务逻辑，这才是 Redis 不可替代的价值。 今天我们就拆">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Redis 数据结构与应用场景：远不止缓存">
+<meta property="og:url" content="https://qjngbac.github.io/2025/12/14/redis-datatype-guide/index.html">
+<meta property="og:site_name" content="Wait">
+<meta property="og:description" content="前言提到 Redis，大多数人的第一反应是「缓存」：把热点数据放进去，减轻数据库压力。但如果你只把 Redis 当一个键值对缓存用，那就太浪费它的能力了。 Redis 真正的核心优势，在于它提供了一整套成熟的内置数据结构，从简单的字符串到有序集合，每一种都对应着一类典型的业务问题。不用自己手写链表、去重集合、排行榜，一行命令就能解决复杂的业务逻辑，这才是 Redis 不可替代的价值。 今天我们就拆">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://qjngbac.github.io/img/backend-04-redis-struct.jpg">
+<meta property="article:published_time" content="2025-12-14T06:00:00.000Z">
+<meta property="article:modified_time" content="2026-07-19T09:05:58.593Z">
+<meta property="article:author" content="qjngbac">
+<meta property="article:tag" content="后端">
+<meta property="article:tag" content="面试">
+<meta property="article:tag" content="数据结构">
+<meta property="article:tag" content="Redis">
+<meta property="article:tag" content="缓存">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://qjngbac.github.io/img/backend-04-redis-struct.jpg"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Redis 数据结构与应用场景：远不止缓存",
+  "url": "https://qjngbac.github.io/2025/12/14/redis-datatype-guide/",
+  "image": "https://qjngbac.github.io/img/backend-04-redis-struct.jpg",
+  "datePublished": "2025-12-14T06:00:00.000Z",
+  "dateModified": "2026-07-19T09:05:58.593Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "qjngbac",
+      "url": "https://qjngbac.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://qjngbac.github.io/2025/12/14/redis-datatype-guide/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.5.5"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        if (!ttl) return
+        const expiry = Date.now() + ttl * 86400000
+        localStorage.setItem(key, JSON.stringify({ value, expiry }))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return undefined
+        const { value, expiry } = JSON.parse(itemStr)
+        if (Date.now() > expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return value
+      }
+    }
+
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+        script.onload = script.onreadystatechange = () => {
+          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      }),
+      getCSS: (url, id) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onload = link.onreadystatechange = () => {
+          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+        }
+        link.onerror = reject
+        document.head.appendChild(link)
+      }),
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: true
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Redis 数据结构与应用场景：远不止缓存',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="generator" content="Hexo 7.3.0"></head><body><div id="loading-box"><div class="loading-left-bg"></div><div class="loading-right-bg"></div><div class="spinner-box"><div class="configure-border-1"><div class="configure-core"></div></div><div class="configure-border-2"><div class="configure-core"></div></div><div class="loading-word">加载中...</div></div></div><script>(()=>{
+  const $loadingBox = document.getElementById('loading-box')
+  const $body = document.body
+  const preloader = {
+    endLoading: () => {
+      if ($loadingBox.classList.contains('loaded')) return
+      $body.style.overflow = ''
+      $loadingBox.classList.add('loaded')
+    },
+    initLoading: () => {
+      $body.style.overflow = 'hidden'
+      $loadingBox.classList.remove('loaded')
+    }
+  }
+
+  preloader.initLoading()
+
+  if (document.readyState === 'complete') {
+    preloader.endLoading()
+  } else {
+    window.addEventListener('load', preloader.endLoading)
+    document.addEventListener('DOMContentLoaded', preloader.endLoading)
+    // Add timeout protection: force end after 7 seconds
+    setTimeout(preloader.endLoading, 7000)
+  }
+
+  if (false) {
+    btf.addGlobalFn('pjaxSend', preloader.initLoading, 'preloader_init')
+    btf.addGlobalFn('pjaxComplete', preloader.endLoading, 'preloader_end')
+  }
+})()</script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">42</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">139</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(/img/backend-04-redis-struct.jpg);"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">Wait</span></a><a class="nav-page-title" href="/"><span class="site-name">Redis 数据结构与应用场景：远不止缓存</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">Redis 数据结构与应用场景：远不止缓存</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2025-12-14T06:00:00.000Z" title="发表于 2025-12-14 14:00:00">2025-12-14</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-07-19T09:05:58.593Z" title="更新于 2026-07-19 17:05:58">2026-07-19</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/%E5%90%8E%E7%AB%AF%E5%B7%A5%E7%A8%8B/">后端工程</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>提到 Redis，大多数人的第一反应是「缓存」：把热点数据放进去，减轻数据库压力。但如果你只把 Redis 当一个键值对缓存用，那就太浪费它的能力了。</p>
+<p>Redis 真正的核心优势，在于它提供了一整套成熟的内置数据结构，从简单的字符串到有序集合，每一种都对应着一类典型的业务问题。不用自己手写链表、去重集合、排行榜，一行命令就能解决复杂的业务逻辑，这才是 Redis 不可替代的价值。</p>
+<p>今天我们就拆解最常用的五大核心数据结构：String、Hash、List、Set、ZSet，讲透每一种的底层实现、核心特性与典型业务场景，看完就能直接对应到自己的项目里。</p>
+<hr>
+<h2 id="一、总览：两层结构设计"><a href="#一、总览：两层结构设计" class="headerlink" title="一、总览：两层结构设计"></a>一、总览：两层结构设计</h2><p>Redis 的数据结构分为两层：</p>
+<ul>
+<li><strong>逻辑结构</strong>：我们日常开发直接使用的 API 层，也就是 String、Hash、List、Set、ZSet 五种核心类型</li>
+<li><strong>底层编码</strong>：每种逻辑结构对应多种底层实现，Redis 会根据元素数量、数据大小自动切换，在空间占用和执行性能之间做最优平衡</li>
+</ul>
+<p>理解了底层编码，才能真正看懂不同场景下的性能差异，避免「小数据量很快、数据上来就变慢」的认知偏差。</p>
+<!-- 配图 1：五种数据结构与底层编码映射关系图 -->
+<!-- 插入位置：此处 -->
+
+<p><img src="/../img/redis-encoding-map.png" alt="数据结构与编码映射"></p>
+<hr>
+<h2 id="二、逐个拆解：底层实现与典型场景"><a href="#二、逐个拆解：底层实现与典型场景" class="headerlink" title="二、逐个拆解：底层实现与典型场景"></a>二、逐个拆解：底层实现与典型场景</h2><h3 id="2-1-String：最基础也最通用"><a href="#2-1-String：最基础也最通用" class="headerlink" title="2.1 String：最基础也最通用"></a>2.1 String：最基础也最通用</h3><p>String 是 Redis 最基础的数据结构，value 不仅支持普通字符串，还支持数字、二进制数据，单值最大 512MB。</p>
+<h4 id="底层实现：SDS-简单动态字符串"><a href="#底层实现：SDS-简单动态字符串" class="headerlink" title="底层实现：SDS 简单动态字符串"></a>底层实现：SDS 简单动态字符串</h4><p>Redis 没有直接使用 C 语言原生字符串，而是自研了 SDS（Simple Dynamic String），相比原生字符串有三个核心优势：</p>
+<ul>
+<li><strong>O(1) 获取长度</strong>：结构体直接记录字符串长度，无需遍历计算</li>
+<li><strong>二进制安全</strong>：不以 <code>\0</code> 作为结束标志，可以存储图片、序列化对象等任意二进制数据</li>
+<li><strong>空间预分配</strong>：修改字符串时预分配冗余空间，减少频繁内存重分配</li>
+</ul>
+<p>SDS 的内部结构：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> __<span class="title">attribute__</span> ((__<span class="title">packed__</span>)) <span class="title">sdshdr8</span> &#123;</span></span><br><span class="line">    <span class="type">uint8_t</span> len;        <span class="comment">// 已用长度</span></span><br><span class="line">    <span class="type">uint8_t</span> alloc;      <span class="comment">// 分配的总长度</span></span><br><span class="line">    <span class="type">unsigned</span> <span class="type">char</span> flags; <span class="comment">// 类型标志</span></span><br><span class="line">    <span class="type">char</span> buf[];         <span class="comment">// 实际数据</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>Redis 3.2 之后，SDS 根据字符串长度自动选择 sdshdr8&#x2F;16&#x2F;32&#x2F;64，短字符串只用 3 字节元数据开销，极致节省空间。</p>
+<p>根据存储内容，String 会自动切换三种编码：</p>
+<ul>
+<li><strong>int 编码</strong>：值为长整型范围内的数字，直接用整数存储，极致省空间</li>
+<li><strong>embstr 编码</strong>：长度 ≤ 44 字节的短字符串，RedisObject 和 SDS 连续分配，一次内存分配搞定</li>
+<li><strong>raw 编码</strong>：长度超过 44 字节的长字符串，RedisObject 和 SDS 分开分配</li>
+</ul>
+<blockquote>
+<p><strong>为什么是 44 字节？</strong> Redis 的 RedisObject 固定占 16 字节，SDS 最小头部（sdshdr8）占 3 字节，加上 <code>\0</code> 结尾共 19 字节。jemalloc 分配内存按 64 字节对齐，64 - 19 &#x3D; 45，但实际可用 payload 为 44 字节。embstr 的意义在于只触发一次内存分配，访问效率更高。</p>
+</blockquote>
+<h4 id="典型业务场景"><a href="#典型业务场景" class="headerlink" title="典型业务场景"></a>典型业务场景</h4><p>String 是万能结构，但最能发挥价值的是以下场景：</p>
+<ol>
+<li><p><strong>对象缓存</strong></p>
+<p>把用户信息、商品详情等序列化成 JSON 字符串存储，是最经典的缓存用法。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">SET user:1001 <span class="string">&#x27;&#123;&quot;id&quot;:1001,&quot;name&quot;:&quot;张三&quot;,&quot;age&quot;:25&#125;&#x27;</span></span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>原子计数器</strong></p>
+<p>利用 <code>INCR</code>&#x2F;<code>DECR</code> 原子命令，实现阅读量、点赞数、访问量等计数场景。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">INCR article:<span class="built_in">read</span>:1001</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>分布式锁</strong></p>
+<p>配合 <code>SET key value NX EX/PX</code> 原子命令和唯一 value，实现轻量级分布式锁。不要把 <code>SETNX</code> 和 <code>EXPIRE</code> 拆成两条命令。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">SET lock:order:1001 550e8400-e29b-41d4-a716-446655440000 NX EX 10</span><br></pre></td></tr></table></figure>
+
+<p>value 必须是每次加锁生成的唯一 token，释放时再用 Lua 比对 token 后删除；不能直接 <code>DEL</code>，否则旧客户端可能误删新持有者的锁。</p>
+</li>
+<li><p><strong>接口限流</strong></p>
+<p>结合时间窗口自增，实现用户级、接口级限流。</p>
+<figure class="highlight lua"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 固定窗口计数：自增和首次设置 TTL 必须放在同一个 Lua 脚本中</span></span><br><span class="line"><span class="keyword">local</span> count = redis.call(<span class="string">&#x27;INCR&#x27;</span>, KEYS[<span class="number">1</span>])</span><br><span class="line"><span class="keyword">if</span> count == <span class="number">1</span> <span class="keyword">then</span></span><br><span class="line">    redis.call(<span class="string">&#x27;EXPIRE&#x27;</span>, KEYS[<span class="number">1</span>], ARGV[<span class="number">1</span>])</span><br><span class="line"><span class="keyword">end</span></span><br><span class="line"><span class="keyword">return</span> count</span><br></pre></td></tr></table></figure>
+
+<p>如果把 <code>INCR</code> 与 <code>EXPIRE</code> 拆开，进程在两条命令之间失败会留下永不过期的 key；每次请求都重设 TTL 又会改变固定窗口语义。高精度限流可使用 Lua 实现滑动窗口或令牌桶。</p>
+</li>
+<li><p><strong>全局唯一 ID</strong></p>
+<p>用自增命令生成趋势递增的全局 ID，替代数据库自增主键。</p>
+</li>
+</ol>
+<hr>
+<h3 id="2-2-Hash：结构化对象存储首选"><a href="#2-2-Hash：结构化对象存储首选" class="headerlink" title="2.2 Hash：结构化对象存储首选"></a>2.2 Hash：结构化对象存储首选</h3><p>Hash 的 value 本身是一个键值对结构，相当于 Java 中的 <code>Map&lt;String, String&gt;</code>，天然适合存储结构化对象。</p>
+<h4 id="底层实现：listpack-哈希表"><a href="#底层实现：listpack-哈希表" class="headerlink" title="底层实现：listpack + 哈希表"></a>底层实现：listpack + 哈希表</h4><ul>
+<li><strong>listpack</strong>：Redis 7.0+ 中，字段数量和单值大小未超过 <code>hash-max-listpack-entries</code>、<code>hash-max-listpack-value</code> 时使用，连续内存存储，节省空间</li>
+<li><strong>哈希表（hashtable）</strong>：超过上述任一阈值时自动转为哈希表，保证 O(1) 读写</li>
+</ul>
+<blockquote>
+<p>Redis 6.2 及更早版本使用 ziplist；Redis 7.0+ 已由 listpack 取代，避免了 ziplist 的级联更新问题。默认阈值通常仍是 512 个条目、单值 64 字节，但可以通过配置调整。</p>
+</blockquote>
+<h4 id="核心优势"><a href="#核心优势" class="headerlink" title="核心优势"></a>核心优势</h4><p>相比 String 序列化存对象，Hash 的价值在于：</p>
+<ul>
+<li>支持字段级读写，无需全量反序列化，更新单个字段性能更高</li>
+<li>小对象场景下内存占用远低于 String 序列化</li>
+</ul>
+<h4 id="典型业务场景-1"><a href="#典型业务场景-1" class="headerlink" title="典型业务场景"></a>典型业务场景</h4><ol>
+<li><p><strong>对象属性存储</strong></p>
+<p>用户信息、商品参数等结构化数据，支持单个字段更新，灵活度更高。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">HSET user:1001 name 张三 age 25 phone 13800138000</span><br><span class="line">HGET user:1001 name</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>购物车</strong></p>
+<p>用户 ID 为 key，商品 ID 为 field，商品数量为 value，增删改查天然对应。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">HINCRBY cart:1001 goods:2001 1</span><br><span class="line">HLEN cart:1001</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>系统配置管理</strong></p>
+<p>业务参数、功能开关用 Hash 存储，支持单个字段动态修改，无需整体加载。</p>
+</li>
+</ol>
+<hr>
+<h3 id="2-3-List：有序可重复的双向列表"><a href="#2-3-List：有序可重复的双向列表" class="headerlink" title="2.3 List：有序可重复的双向列表"></a>2.3 List：有序可重复的双向列表</h3><p>List 是按插入顺序排列的字符串列表，元素可重复，支持两端插入弹出，支持按索引访问，本质是有序序列。</p>
+<h4 id="底层实现：快速列表-quicklist"><a href="#底层实现：快速列表-quicklist" class="headerlink" title="底层实现：快速列表 quicklist"></a>底层实现：快速列表 quicklist</h4><p>Redis 3.2 之后，List 底层统一为 <strong>quicklist</strong>，它把多个紧凑顺序块串成双向链表：</p>
+<ul>
+<li>列表拆分为多个节点，Redis 7.0+ 的每个节点内部使用 listpack；旧版本使用 ziplist</li>
+<li>节点之间用双向指针连接，保证两端插入弹出的高性能</li>
+<li>完美平衡了空间占用与插入性能</li>
+</ul>
+<!-- 配图 2：quicklist 结构示意图 -->
+<!-- 插入位置：此处 -->
+
+<p><img src="/../img/redis-quicklist.png" alt="quicklist 结构"></p>
+<h4 id="典型业务场景-2"><a href="#典型业务场景-2" class="headerlink" title="典型业务场景"></a>典型业务场景</h4><ol>
+<li><p><strong>简易消息队列</strong></p>
+<p><code>LPUSH</code> + <code>RPOP</code> 实现先进先出队列，适合简单的异步解耦场景。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">LPUSH queue:order <span class="string">&#x27;&#123;&quot;orderId&quot;:1001&#125;&#x27;</span></span><br><span class="line">RPOP queue:order</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>注意：原生 List 不支持 ACK 确认、消费者组、重复消费，复杂场景建议用 Stream 或专业 MQ。</p>
+</blockquote>
+</li>
+<li><p><strong>最新内容列表</strong></p>
+<p>最新公告、文章列表、动态 Feed，头部插入、按范围读取，天然有序。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">LPUSH news:latest <span class="string">&#x27;&#123;&quot;id&quot;:1001,&quot;title&quot;:&quot;...&quot;&#125;&#x27;</span></span><br><span class="line">LRANGE news:latest 0 9</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>用户时间线</strong></p>
+<p>社交产品的关注动态，发布时写入粉丝时间线列表，刷新直接读取。</p>
+</li>
+<li><p><strong>栈结构</strong></p>
+<p><code>LPUSH</code> + <code>LPOP</code> 实现先进后出的栈。</p>
+</li>
+</ol>
+<hr>
+<h3 id="2-4-Set：无序去重集合"><a href="#2-4-Set：无序去重集合" class="headerlink" title="2.4 Set：无序去重集合"></a>2.4 Set：无序去重集合</h3><p>Set 是无序、不可重复的字符串集合，核心能力是<strong>去重 + 集合运算</strong>（交集、并集、差集）。</p>
+<h4 id="底层实现：整数集合-listpack-哈希表"><a href="#底层实现：整数集合-listpack-哈希表" class="headerlink" title="底层实现：整数集合 + listpack + 哈希表"></a>底层实现：整数集合 + listpack + 哈希表</h4><ul>
+<li><strong>整数集合（intset）</strong>：所有元素都是整数且数量 ≤ 512（<code>set-max-intset-entries</code>）时，用连续整数数组存储，极致省空间</li>
+<li><strong>listpack</strong>：Redis 7.2+ 可将少量短字符串成员编码为 listpack，默认受 <code>set-max-listpack-entries</code> 和 <code>set-max-listpack-value</code> 控制</li>
+<li><strong>哈希表（hashtable）</strong>：不满足整数集合条件时自动转换，判断元素是否存在为 O(1)</li>
+</ul>
+<blockquote>
+<p>intset 内部按升序排列，支持 int16&#x2F;int32&#x2F;int64 自动升级：当插入一个 int64 的值时，整个集合自动升级为 int64 编码，保证兼容性。</p>
+</blockquote>
+<h4 id="典型业务场景-3"><a href="#典型业务场景-3" class="headerlink" title="典型业务场景"></a>典型业务场景</h4><p>Set 的不可替代性在于集合运算，这是其他结构很难高效实现的。</p>
+<ol>
+<li><p><strong>标签系统</strong></p>
+<p>用户标签、内容标签，天然去重，支持快速判断标签是否存在。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">SADD user:1001:tags Java 后端 高并发</span><br><span class="line">SISMEMBER user:1001:tags Java</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>共同关注 &#x2F; 共同好友</strong></p>
+<p>用交集命令 <code>SINTER</code> 一键算出两个用户的共同集合。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">SINTER user:1001:follow user:1002:follow</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>去重统计</strong></p>
+<p>页面独立访客 UV、活动参与用户数，存入 Set 天然去重。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">SADD page:uv:1001 1001 1002 1003</span><br><span class="line">SCARD page:uv:1001</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>抽奖系统</strong></p>
+<ul>
+<li><code>SRANDMEMBER</code>：随机读取不删除，适合可重复抽奖</li>
+<li><code>SPOP</code>：随机取出并删除，适合抽完即止的场景</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">SPOP lottery:pool 1</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>黑白名单</strong></p>
+<p>IP 黑白名单、用户黑名单，存在性判断 O(1)，性能极高。</p>
+</li>
+</ol>
+<hr>
+<h3 id="2-5-ZSet：有序不重复的加权集合"><a href="#2-5-ZSet：有序不重复的加权集合" class="headerlink" title="2.5 ZSet：有序不重复的加权集合"></a>2.5 ZSet：有序不重复的加权集合</h3><p>ZSet（Sorted Set）每个元素都附带一个分数（score），元素不重复、分数可重复，自动按分数从小到大排序，支持按分数、排名范围查询。</p>
+<h4 id="底层实现：listpack-或跳表-哈希表"><a href="#底层实现：listpack-或跳表-哈希表" class="headerlink" title="底层实现：listpack 或跳表 + 哈希表"></a>底层实现：listpack 或跳表 + 哈希表</h4><p>元素较少且成员较短时，Redis 7.0+ 使用 listpack；超过阈值后会转换为跳表与哈希表的组合，两种结构各司其职：</p>
+<ul>
+<li><strong>哈希表</strong>：存储元素与分数的映射，O(1) 查询元素对应的分数</li>
+<li><strong>跳表（Skip List）</strong>：按分数有序存储所有元素，通过多层索引把查找复杂度降到 O(logn)，支持高效的范围查询、排名查询</li>
+</ul>
+<!-- 配图 3：跳表结构示意图 -->
+<!-- 插入位置：此处 -->
+
+<p><img src="/../img/redis-skiplist.png" alt="跳表结构"></p>
+<p>跳表相比平衡树的优势：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>跳表</th>
+<th>平衡树（红黑树）</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>实现复杂度</td>
+<td>简单，只需维护多层链表</td>
+<td>复杂，需要旋转、染色</td>
+</tr>
+<tr>
+<td>范围查询</td>
+<td>从起点沿底层链表遍历即可</td>
+<td>需要中序遍历</td>
+</tr>
+<tr>
+<td>更新范围</td>
+<td>插入主要调整搜索路径上的指针</td>
+<td>需要维护平衡并可能旋转</td>
+</tr>
+<tr>
+<td>内存占用</td>
+<td>指针数量可调</td>
+<td>每个节点固定 2~3 个指针</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p><strong>为什么不用 B+ 树？</strong> B+ 树更适合磁盘存储（减少 IO），而跳表是纯内存结构，实现更简洁、范围查询更直观。Redis 作为内存数据库，跳表是更自然的选择。</p>
+</blockquote>
+<p>ZSet 的小数据默认阈值是元素数 ≤ 128、成员长度 ≤ 64 字节，对应 Redis 7.0+ 的 <code>zset-max-listpack-entries</code> 和 <code>zset-max-listpack-value</code>；Redis 6.2 及更早版本对应 ziplist 配置。Redis 命令主要串行执行，因此选择跳表的核心并不是“并发加锁更容易”，而是实现、范围遍历和更新成本之间的权衡。</p>
+<h4 id="典型业务场景-4"><a href="#典型业务场景-4" class="headerlink" title="典型业务场景"></a>典型业务场景</h4><p>ZSet 是业务想象力最强的结构，核心价值是「有序 + 权重」。</p>
+<ol>
+<li><p><strong>各类排行榜</strong></p>
+<p>游戏积分、商品销量、热搜榜、贡献榜，是 ZSet 最经典的场景。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">ZADD game:rank 1000 玩家A 800 玩家B 1200 玩家C</span><br><span class="line">ZRANGE game:rank 0 9 REV WITHSCORES</span><br><span class="line">ZRANK game:rank 玩家B</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>延迟队列</strong></p>
+<p>时间戳作为分数，任务内容作为元素，定时轮询取出到期任务执行。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">ZADD task:delay 1678888888 order:<span class="built_in">timeout</span>:1001</span><br><span class="line">ZRANGEBYSCORE task:delay 0 当前时间戳</span><br></pre></td></tr></table></figure>
+</li>
+<li><p><strong>优先级任务队列</strong></p>
+<p>任务优先级作为分数，高优先级任务优先被消费。</p>
+</li>
+<li><p><strong>热度加权排序</strong></p>
+<p>综合点击、点赞、评论计算热度分存入 ZSet，自动按热度排序更新。</p>
+</li>
+<li><p><strong>滑动窗口限流</strong></p>
+<p>结合时间戳与分数，实现比固定窗口更精准的滑动窗口限流。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 用 member 记录请求唯一标识，score 记录时间戳</span></span><br><span class="line">ZADD rate:user:1001 1678888888.123 req-uuid-xxx</span><br><span class="line">ZREMRANGEBYSCORE rate:user:1001 0 (当前时间-窗口大小)</span><br><span class="line">ZCARD rate:user:1001  <span class="comment"># 获取窗口内请求数</span></span><br></pre></td></tr></table></figure></li>
+</ol>
+<hr>
+<h2 id="三、选型指南：一张表快速决策"><a href="#三、选型指南：一张表快速决策" class="headerlink" title="三、选型指南：一张表快速决策"></a>三、选型指南：一张表快速决策</h2><table>
+<thead>
+<tr>
+<th>业务场景</th>
+<th>首选结构</th>
+<th>核心理由</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>普通对象缓存、计数器</td>
+<td>String</td>
+<td>最简单通用，实现成本最低</td>
+</tr>
+<tr>
+<td>结构化对象、需频繁更新单个字段</td>
+<td>Hash</td>
+<td>比 String 省空间，字段级操作更灵活</td>
+</tr>
+<tr>
+<td>有序列表、最新消息、简易队列</td>
+<td>List</td>
+<td>天然有序，两端操作性能极高</td>
+</tr>
+<tr>
+<td>去重、标签、共同好友、集合运算</td>
+<td>Set</td>
+<td>原生支持交并差集，去重成本为零</td>
+</tr>
+<tr>
+<td>排行榜、延迟队列、优先级排序</td>
+<td>ZSet</td>
+<td>唯一支持按权重有序排列的结构</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="四、底层编码速查表"><a href="#四、底层编码速查表" class="headerlink" title="四、底层编码速查表"></a>四、底层编码速查表</h2><table>
+<thead>
+<tr>
+<th>数据结构</th>
+<th>小数据编码</th>
+<th>大数据编码</th>
+<th>切换阈值</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>String</td>
+<td>int &#x2F; embstr</td>
+<td>raw</td>
+<td>数字→int，≤44字节→embstr，&gt;44→raw</td>
+</tr>
+<tr>
+<td>Hash</td>
+<td>listpack（7.0+）</td>
+<td>hashtable</td>
+<td>默认 entries&gt;512 或 value&gt;64 字节时转换</td>
+</tr>
+<tr>
+<td>List</td>
+<td>quicklist（7.0+ 节点内为 listpack）</td>
+<td>quicklist</td>
+<td>节点大小由 quicklist 配置控制</td>
+</tr>
+<tr>
+<td>Set</td>
+<td>intset &#x2F; listpack（7.2+）</td>
+<td>hashtable</td>
+<td>整数集合与小字符串集合分别受对应阈值控制</td>
+</tr>
+<tr>
+<td>ZSet</td>
+<td>listpack（7.0+）</td>
+<td>skiplist + hashtable</td>
+<td>默认 entries&gt;128 或 member&gt;64 字节时转换</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>可以用 <code>OBJECT ENCODING key</code> 命令查看任意 key 的底层编码。</p>
+</blockquote>
+<hr>
+<h2 id="五、常见误区澄清"><a href="#五、常见误区澄清" class="headerlink" title="五、常见误区澄清"></a>五、常见误区澄清</h2><h3 id="1-“存对象用-String-就够了，没必要用-Hash”"><a href="#1-“存对象用-String-就够了，没必要用-Hash”" class="headerlink" title="1. “存对象用 String 就够了，没必要用 Hash”"></a>1. “存对象用 String 就够了，没必要用 Hash”</h3><p>小对象、更新少的场景用 String 没问题。但如果经常需要更新单个字段，Hash 无需全量读写反序列化，性能更好，内存占用也更低。</p>
+<p><strong>实际对比：</strong></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># String 方式：更新 age 需要全量读写</span></span><br><span class="line">GET user:1001 → 反序列化 → 修改 age → 序列化 → SET user:1001</span><br><span class="line"></span><br><span class="line"><span class="comment"># Hash 方式：直接更新 age 字段</span></span><br><span class="line">HSET user:1001 age 26</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-“List-可以替代专业消息队列”"><a href="#2-“List-可以替代专业消息队列”" class="headerlink" title="2. “List 可以替代专业消息队列”"></a>2. “List 可以替代专业消息队列”</h3><p>只能应对非常简单的解耦场景。它没有 ACK 确认、不支持消费者组、不保证消息可靠性，功能和稳定性远不如 RocketMQ、Kafka。如果需要 Redis 做消息队列，建议使用 Redis 5.0 引入的 Stream，它支持消费者组、消息确认（XACK）、持久化，是更完整的消息队列方案。</p>
+<h3 id="3-“数据量小的时候也一样快”"><a href="#3-“数据量小的时候也一样快”" class="headerlink" title="3. “数据量小的时候也一样快”"></a>3. “数据量小的时候也一样快”</h3><p>小数据量下 Redis 会使用 listpack、整数集合等省空间编码，部分操作的时间复杂度和大数据量下不同。比如 Hash 在 listpack 编码下查找字段是 O(n) 遍历，而不是 O(1) 哈希查找。设计方案时要考虑数据增长后的性能表现。</p>
+<h3 id="4-“Redis-只有这五种数据结构”"><a href="#4-“Redis-只有这五种数据结构”" class="headerlink" title="4. “Redis 只有这五种数据结构”"></a>4. “Redis 只有这五种数据结构”</h3><p>这五种是核心基础结构。除此之外 Redis 还有大量高级结构：</p>
+<table>
+<thead>
+<tr>
+<th>结构</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Bitmap</td>
+<td>签到统计、用户在线状态、布隆过滤器底层</td>
+</tr>
+<tr>
+<td>HyperLogLog</td>
+<td>基数统计（UV 去重），12KB 内存可统计 2^64 个元素</td>
+</tr>
+<tr>
+<td>Geo</td>
+<td>地理位置、附近的人、距离计算</td>
+</tr>
+<tr>
+<td>Stream</td>
+<td>消息队列（支持消费者组）</td>
+</tr>
+<tr>
+<td>Bitfield</td>
+<td>位域操作，紧凑存储多个小整数</td>
+</tr>
+</tbody></table>
+<h3 id="5-“ZSet-只能用于排行榜”"><a href="#5-“ZSet-只能用于排行榜”" class="headerlink" title="5. “ZSet 只能用于排行榜”"></a>5. “ZSet 只能用于排行榜”</h3><p>排行榜只是最直观的场景。延迟队列、滑动窗口限流、优先级队列、带权重的任务调度，都是 ZSet 的高效应用场景。只要是「按权重排序 + 快速查找」的需求，ZSet 都是首选。</p>
+<hr>
+<h2 id="六、面试高频问题"><a href="#六、面试高频问题" class="headerlink" title="六、面试高频问题"></a>六、面试高频问题</h2><p><strong>Q1：Redis 五种数据结构的底层编码分别是什么？</strong></p>
+<p>String 有 int&#x2F;embstr&#x2F;raw 三种；Redis 7.0+ 中 Hash、ZSet 的小数据编码是 listpack，大数据分别用 hashtable 和 skiplist+hashtable；List 使用 quicklist，节点内部是 listpack；Set 可用 intset，Redis 7.2+ 的小字符串集合还可用 listpack，超阈值后转为 hashtable。</p>
+<p><strong>Q2：为什么 ZSet 用跳表而不用红黑树？</strong></p>
+<p>跳表实现更简单，范围查询直接沿底层链表遍历，而红黑树需要中序遍历；跳表并发友好，局部修改不需要像红黑树那样做树旋转。</p>
+<p><strong>Q3：String 存对象和 Hash 存对象怎么选？</strong></p>
+<p>读多写少、整体更新 → String 序列化；需要频繁更新单个字段 → Hash。小 Hash 在 Redis 7.0+ 使用 listpack，Redis 6.2 及更早版本使用 ziplist；超过配置阈值后会转为 hashtable。</p>
+<p><strong>Q4：Redis 的 List 可以做消息队列吗？</strong></p>
+<p>简单场景可以（LPUSH + RPOP），但没有 ACK、消费者组、可靠性保证。复杂场景建议用 Redis Stream 或专业 MQ（Kafka、RocketMQ）。</p>
+<p><strong>Q5：Set 的交集运算时间复杂度是多少？</strong></p>
+<p><code>SINTER</code> 的最坏时间复杂度是 O(N*M)，N 是最小集合的元素数，M 是集合个数。<code>SINTERSTORE</code> 只减少结果传输并保存结果，计算本身仍会占用 Redis 执行线程，不能用来“避免阻塞”。大集合应限制基数、拆分或预计算；若只要交集数量，Redis 7.0+ 可用 <code>SINTERCARD ... LIMIT</code> 提前停止。</p>
+<p><strong>Q6：什么是 ziplist 的级联更新？</strong></p>
+<p>ziplist 中修改一个节点的长度，可能导致后续节点连续改变前置长度字段。Redis 7.0 用 listpack 替代 Hash、List 节点和 ZSet 中的 ziplist，通过不依赖前一节点长度的布局消除了这类级联更新。</p>
+<hr>
+<h2 id="写在最后"><a href="#写在最后" class="headerlink" title="写在最后"></a>写在最后</h2><p>Redis 之所以能成为后端开发的标配，绝不只是因为它能做缓存。它把业务开发中最常见的几类数据结构，都做成了高性能、开箱即用的实现，帮我们省去了大量重复造轮子的工作。</p>
+<p>理解每种结构的底层实现，不是为了应付面试，而是让你在做技术选型时，清楚地知道什么场景该用什么、为什么这么选、性能边界在哪里。选对了数据结构，往往能让业务实现事半功倍。</p>
+<hr>
+<blockquote>
+<p><strong>系列文章预告</strong>：</p>
+<ul>
+<li>上一篇：分库分表实战：百万级表的水平拆分策略</li>
+<li>下一篇：缓存穿透&#x2F;击穿&#x2F;雪崩：一次缓存故障的排查与解决</li>
+</ul>
+</blockquote>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://qjngbac.github.io">qjngbac</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://qjngbac.github.io/2025/12/14/redis-datatype-guide/">https://qjngbac.github.io/2025/12/14/redis-datatype-guide/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://qjngbac.github.io" target="_blank">Wait</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/%E5%90%8E%E7%AB%AF/">后端</a><a class="post-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><a class="post-meta__tags" href="/tags/%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84/">数据结构</a><a class="post-meta__tags" href="/tags/Redis/">Redis</a><a class="post-meta__tags" href="/tags/%E7%BC%93%E5%AD%98/">缓存</a></div><div class="post-share"><div class="social-share" data-image="/img/backend-04-redis-struct.jpg" data-sites="facebook,x,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/2025/12/27/cache-penetration-guide/" title="缓存穿透/击穿/雪崩：一次缓存故障的排查与解决"><img class="cover" src="/../img/backend-05-cache-avalanche.jpg" onerror="onerror=null;src='/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">缓存穿透/击穿/雪崩：一次缓存故障的排查与解决</div></div><div class="info-2"><div class="info-item-1">前言大促预热活动上线当晚，运维告警群突然炸锅：商品详情接口大面积超时，数据库 CPU 飙升至 98%，连接池被打满，大量请求直接报错。第一反应是流量突增，但拉监控一看，Redis 的 QPS 并不高，缓存命中率跌到了 30% 以下——很明显，缓存层出问题了。 很多人做缓存设计时，只想着「把数据放进 Redis 就能提速」，却忽略了缓存失效带来的反向冲击。缓存穿透、击穿、雪崩是三种最经典的缓存故障，很多人经常把三者混为一谈，但它们的触发原因、影响范围、解决方案完全不同。 本文就以这次真实的线上故障为例，先理清三者的本质区别，再从紧急止血到根治优化，完整讲解布隆过滤器、互斥锁、热点 key 治理等核心方案，最后给出一套可复用的缓存稳定性设计原则。  一、先分清：三者根本不是一回事很多人面试时背得滚瓜烂熟，真遇到故障却分不清是哪一种。我们先用一张表把核心差异说清楚：    问题类型 核心原因 典型特征 影响范围    缓存穿透 请求的 key 在缓存和数据库中都不存在 缓存命中率极低，大量请求直接打数据库 全量无效请求都打库   缓存击穿 单个热点 key 突然过期失效，大量并发同时打...</div></div></div></a><a class="pagination-related" href="/2025/12/07/sharding-guide/" title="分库分表实战：百万级表的水平拆分策略"><img class="cover" src="/img/backend-03-sharding.jpg" onerror="onerror=null;src='/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">分库分表实战：百万级表的水平拆分策略</div></div><div class="info-2"><div class="info-item-1">前言业务初期，单库单表简单高效。但随着业务增长，当订单表数据量突破千万、单表体积超过 20G 时，问题会集中爆发：查询越来越慢、索引体积膨胀、数据库连接数打满、单机存储逼近上限。加索引、优化 SQL 的收益越来越小，这时候分库分表就成了必然选择。 分库分表不是简单地把一张表拆成多张表，它涉及拆分策略选型、分片键设计、平滑扩容、分布式事务等一系列问题。选对了方案，系统容量和吞吐会明显提升；选错了分片键，后续会陷入跨库查询、数据倾斜的无尽泥潭。 本文就以最经典的订单表拆分为例，从拆分策略、分片键选型、ShardingSphere 落地到平滑扩容，完整讲透水平分库分表的实战全流程。  一、为什么需要分库分表？单库单表的四道天花板：    瓶颈 说明    性能瓶颈 热点数据与大范围扫描增加，Buffer Pool 命中、IO 与写入竞争逐渐恶化   存储瓶颈 磁盘空间逼近单机上限，大表 DDL 无法在线执行   连接瓶颈 单机连接数有限，业务量大时连接打满   并发瓶颈 单机 CPU、IO 有上限，无法横向扩展   什么时候该考虑分库分表？   观察信号 判断方式    容量增长 单机...</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/2025/12/27/cache-penetration-guide/" title="缓存穿透&#x2F;击穿&#x2F;雪崩：一次缓存故障的排查与解决"><img class="cover" src="/../img/backend-05-cache-avalanche.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2025-12-27</div><div class="info-item-2">缓存穿透&#x2F;击穿&#x2F;雪崩：一次缓存故障的排查与解决</div></div><div class="info-2"><div class="info-item-1">前言大促预热活动上线当晚，运维告警群突然炸锅：商品详情接口大面积超时，数据库 CPU 飙升至 98%，连接池被打满，大量请求直接报错。第一反应是流量突增，但拉监控一看，Redis 的 QPS 并不高，缓存命中率跌到了 30% 以下——很明显，缓存层出问题了。 很多人做缓存设计时，只想着「把数据放进 Redis 就能提速」，却忽略了缓存失效带来的反向冲击。缓存穿透、击穿、雪崩是三种最经典的缓存故障，很多人经常把三者混为一谈，但它们的触发原因、影响范围、解决方案完全不同。 本文就以这次真实的线上故障为例，先理清三者的本质区别，再从紧急止血到根治优化，完整讲解布隆过滤器、互斥锁、热点 key 治理等核心方案，最后给出一套可复用的缓存稳定性设计原则。  一、先分清：三者根本不是一回事很多人面试时背得滚瓜烂熟，真遇到故障却分不清是哪一种。我们先用一张表把核心差异说清楚：    问题类型 核心原因 典型特征 影响范围    缓存穿透 请求的 key 在缓存和数据库中都不存在 缓存命中率极低，大量请求直接打数据库 全量无效请求都打库   缓存击穿 单个热点 key 突然过期失效，大量并发同时打...</div></div></div></a><a class="pagination-related" href="/2026/03/14/distributed-lock-guide/" title="Redis 分布式锁：从 Redisson 到 RedLock"><img class="cover" src="/../img/backend-06-distributed-lock.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-03-14</div><div class="info-item-2">Redis 分布式锁：从 Redisson 到 RedLock</div></div><div class="info-2"><div class="info-item-1">前言在分布式系统中，多个服务实例共同操作同一个共享资源时，本地锁已经完全失效。比如库存扣减、订单幂等、定时任务防重执行，这些场景都需要一把全局的「锁」来保证互斥性，这就是分布式锁。 实现分布式锁的方案有很多：数据库、ZooKeeper、Redis 都可以做。其中 Redis 凭借高性能、低延迟、实现简单的特点，成为绝大多数业务场景的首选。但很多人对 Redis 分布式锁的认知停留在「SETNX 加锁、DEL 解锁」的初级版本，既说不清楚 Redisson 的看门狗机制，也讲不明白 RedLock 要解决什么问题。 本文就从最基础的手写锁开始，一步步演进到工业级的 Redisson 实现，再到多集群下的 RedLock 算法，最后对比 Redis 与 ZooKeeper 两种分布式锁的选型差异，把分布式锁的底层逻辑一次性讲透。  一、为什么需要分布式锁？在单体应用中，我们用 synchronized、ReentrantLock 就能解决线程安全问题。但当服务部署了多个实例，多个 JVM 进程各自独立，本地锁就完全失效了——A 实例加的锁，B 实例根本感知不到，并发操作共享资源时依然...</div></div></div></a><a class="pagination-related" href="/2026/04/20/kafka-guide/" title="Kafka 核心原理：分区、副本、消费者组"><img class="cover" src="/../img/backend-09-kafka.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-04-20</div><div class="info-item-2">Kafka 核心原理：分区、副本、消费者组</div></div><div class="info-2"><div class="info-item-1">前言在高吞吐事件流场景下，Kafka 是主流选择之一：顺序追加、分区并行、可回放日志和成熟流处理生态，让它广泛用于日志采集、数据集成与事件驱动架构。具体吞吐取决于消息大小、批量、确认级别、磁盘和集群拓扑，不能只背“单机十万级”这个数字。  本文以 Kafka 4.3 的现状补充说明：Kafka 4.x 仅支持 KRaft 模式，不再依赖 ZooKeeper；经典消费者组仍然可用，同时还有新的 Consumer Rebalance Protocol 和 Share Groups。核心分区、副本与日志原理保持不变。  但很多开发者对 Kafka 的认知停留在「发消息、收消息」的表层，说不清楚分区为什么能提升吞吐、ISR 副本是怎么同步的、消费者组 Rebalance 为什么会导致消费停滞，更说不清 Exactly-Once 语义到底怎么实现。 Kafka 的高性能与高可靠，不是凭空而来的，它建立在「分区、副本、消费者组」三大核心设计之上。今天我们就从底层原理出发，逐层拆解分区存储机制、ISR 副本同步、消费者组重平衡、Exactly-Once 语义实现，彻底搞懂 Kafka 的核心骨...</div></div></div></a><a class="pagination-related" href="/2026/06/01/k8s-guide/" title="K8s 核心概念：Pod&#x2F;Service&#x2F;Deployment"><img class="cover" src="/../img/backend-14-k8s.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-06-01</div><div class="info-item-2">K8s 核心概念：Pod&#x2F;Service&#x2F;Deployment</div></div><div class="info-2"><div class="info-item-1">前言Docker 解决了容器的构建与运行问题，但当业务从几个容器扩展到几十上百个容器时，单机管理就不够用了：实例异常了怎么自动恢复？流量上来了怎么横向扩容？多机集群怎么统一调度？怎样在满足条件时实现尽量不中断服务的滚动发布？ 这些问题，正是 Kubernetes（简称 K8s）要解决的。作为容器编排领域的事实标准，K8s 提供了一整套容器调度、服务发现、滚动发布、自动扩缩容的能力，而支撑这一切的，是三个最核心的基础资源：Pod、Service、Deployment。 本文就从「为什么需要」出发，逐层拆解三大核心资源的设计思想、工作原理与典型用法，同时覆盖 Pod 生命周期、服务发现、滚动更新、配置管理等关键知识点，帮你建立起 K8s 的核心认知框架。   一、Pod：K8s 最小的调度单元很多刚接触 K8s 的人会问：已经有容器了，为什么还要抽象出一个 Pod？ 1.1 Pod 是什么Pod 是 K8s 中最小的可部署计算单元，也是调度器直接调度的对象。它不是替代容器，而是封装一个或多个需要共同运行的容器。  一个 Pod 可以包含 1 个主容器 + 多个辅助容器（Sidecar...</div></div></div></a><a class="pagination-related" href="/2025/07/10/arraylist-vs-linkedlist-guide/" title="ArrayList vs LinkedList：别再被面试官骗了"><img class="cover" src="/img/java-series-11-arraylist-linkedlist.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2025-07-10</div><div class="info-item-2">ArrayList vs LinkedList：别再被面试官骗了</div></div><div class="info-2"><div class="info-item-1">前言面试 Java 开发，集合框架几乎是必考题，而 ArrayList 和 LinkedList 的对比更是高频中的高频。很多人背得滚瓜烂熟：  ArrayList 底层是数组，查询快、增删慢 LinkedList 底层是链表，增删快、查询慢  可真正写业务代码的时候，90% 的场景大家都会默认用 ArrayList，几乎没人主动用 LinkedList。既然 LinkedList 增删这么厉害，为什么实际开发中没人用？ 答案并不是一句「链表增删快」就能概括。这个结论只描述了已经定位到节点后的指针修改成本；真实代码还要考虑按索引定位、对象分配、CPU 缓存和数组批量拷贝。综合这些因素，ArrayList 在多数业务场景中通常更合适。 今天我们就从底层结构、时间复杂度、真实性能三个维度彻底讲透，打破刻板印象，告诉你什么时候该用谁。  一、底层结构：从根上就不一样两者的所有性能差异，本质都来自底层数据结构的不同。 1.1 ArrayList：动态数组，连续内存ArrayList 的本质是一个可动态扩容的 Object 数组，数组里保存的是元素引用，这些引用在内存中连续存放。 1234...</div></div></div></a><a class="pagination-related" href="/2026/05/05/docker-guide/" title="Docker 实战：从 Dockerfile 到容器编排"><img class="cover" src="/../img/backend-13-docker.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-05-05</div><div class="info-item-2">Docker 实战：从 Dockerfile 到容器编排</div></div><div class="info-2"><div class="info-item-1">前言在没有容器化的年代，部署服务是件非常折腾的事：开发环境能跑，上线就报错；机器换一台，就要从头装一遍依赖、配一遍环境；多服务部署还要挨个处理端口冲突、依赖顺序，效率极低。 Docker 的出现改变了这一局面：把应用及其运行时依赖构建为镜像后，可以在兼容的容器运行时上以更一致的方式交付。它提升了部署效率和进程隔离能力，但容器仍然共享宿主机内核，并不等同于虚拟机级别的隔离。但很多人用了很久 Docker，依然只会抄 Dockerfile、敲 run 命令，说不清楚镜像为什么能复用、数据怎么持久化、多服务怎么编排。 本文就从底层原理到实战落地，完整覆盖镜像分层机制、Dockerfile 最佳实践、数据卷与网络、Docker Compose 多容器编排，带你从零掌握容器化的核心能力。  一、镜像底层：分层存储的核心逻辑Docker 镜像最精妙的设计就是分层存储，理解了分层，你就能看懂所有镜像优化技巧的本质。 1.1 什么是镜像分层Docker 镜像由一组只读文件系统层和镜像配置共同组成。RUN、COPY、ADD 等会改变文件系统的构建步骤通常会形成新的文件系统层；CMD、EXPOSE ...</div></div></div></a></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">qjngbac</div><div class="author-info-description">一个正在学习的开发者</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">42</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">139</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/qjngbac"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/qjngbac" target="_blank" title="Github"><i class="fab fa-github"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到我的博客</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%89%8D%E8%A8%80"><span class="toc-number">1.</span> <span class="toc-text">前言</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%80%E3%80%81%E6%80%BB%E8%A7%88%EF%BC%9A%E4%B8%A4%E5%B1%82%E7%BB%93%E6%9E%84%E8%AE%BE%E8%AE%A1"><span class="toc-number">2.</span> <span class="toc-text">一、总览：两层结构设计</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%8C%E3%80%81%E9%80%90%E4%B8%AA%E6%8B%86%E8%A7%A3%EF%BC%9A%E5%BA%95%E5%B1%82%E5%AE%9E%E7%8E%B0%E4%B8%8E%E5%85%B8%E5%9E%8B%E5%9C%BA%E6%99%AF"><span class="toc-number">3.</span> <span class="toc-text">二、逐个拆解：底层实现与典型场景</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#2-1-String%EF%BC%9A%E6%9C%80%E5%9F%BA%E7%A1%80%E4%B9%9F%E6%9C%80%E9%80%9A%E7%94%A8"><span class="toc-number">3.1.</span> <span class="toc-text">2.1 String：最基础也最通用</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%BA%95%E5%B1%82%E5%AE%9E%E7%8E%B0%EF%BC%9ASDS-%E7%AE%80%E5%8D%95%E5%8A%A8%E6%80%81%E5%AD%97%E7%AC%A6%E4%B8%B2"><span class="toc-number">3.1.1.</span> <span class="toc-text">底层实现：SDS 简单动态字符串</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%85%B8%E5%9E%8B%E4%B8%9A%E5%8A%A1%E5%9C%BA%E6%99%AF"><span class="toc-number">3.1.2.</span> <span class="toc-text">典型业务场景</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-2-Hash%EF%BC%9A%E7%BB%93%E6%9E%84%E5%8C%96%E5%AF%B9%E8%B1%A1%E5%AD%98%E5%82%A8%E9%A6%96%E9%80%89"><span class="toc-number">3.2.</span> <span class="toc-text">2.2 Hash：结构化对象存储首选</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%BA%95%E5%B1%82%E5%AE%9E%E7%8E%B0%EF%BC%9Alistpack-%E5%93%88%E5%B8%8C%E8%A1%A8"><span class="toc-number">3.2.1.</span> <span class="toc-text">底层实现：listpack + 哈希表</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%A0%B8%E5%BF%83%E4%BC%98%E5%8A%BF"><span class="toc-number">3.2.2.</span> <span class="toc-text">核心优势</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%85%B8%E5%9E%8B%E4%B8%9A%E5%8A%A1%E5%9C%BA%E6%99%AF-1"><span class="toc-number">3.2.3.</span> <span class="toc-text">典型业务场景</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-3-List%EF%BC%9A%E6%9C%89%E5%BA%8F%E5%8F%AF%E9%87%8D%E5%A4%8D%E7%9A%84%E5%8F%8C%E5%90%91%E5%88%97%E8%A1%A8"><span class="toc-number">3.3.</span> <span class="toc-text">2.3 List：有序可重复的双向列表</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%BA%95%E5%B1%82%E5%AE%9E%E7%8E%B0%EF%BC%9A%E5%BF%AB%E9%80%9F%E5%88%97%E8%A1%A8-quicklist"><span class="toc-number">3.3.1.</span> <span class="toc-text">底层实现：快速列表 quicklist</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%85%B8%E5%9E%8B%E4%B8%9A%E5%8A%A1%E5%9C%BA%E6%99%AF-2"><span class="toc-number">3.3.2.</span> <span class="toc-text">典型业务场景</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-4-Set%EF%BC%9A%E6%97%A0%E5%BA%8F%E5%8E%BB%E9%87%8D%E9%9B%86%E5%90%88"><span class="toc-number">3.4.</span> <span class="toc-text">2.4 Set：无序去重集合</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%BA%95%E5%B1%82%E5%AE%9E%E7%8E%B0%EF%BC%9A%E6%95%B4%E6%95%B0%E9%9B%86%E5%90%88-listpack-%E5%93%88%E5%B8%8C%E8%A1%A8"><span class="toc-number">3.4.1.</span> <span class="toc-text">底层实现：整数集合 + listpack + 哈希表</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%85%B8%E5%9E%8B%E4%B8%9A%E5%8A%A1%E5%9C%BA%E6%99%AF-3"><span class="toc-number">3.4.2.</span> <span class="toc-text">典型业务场景</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-5-ZSet%EF%BC%9A%E6%9C%89%E5%BA%8F%E4%B8%8D%E9%87%8D%E5%A4%8D%E7%9A%84%E5%8A%A0%E6%9D%83%E9%9B%86%E5%90%88"><span class="toc-number">3.5.</span> <span class="toc-text">2.5 ZSet：有序不重复的加权集合</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%BA%95%E5%B1%82%E5%AE%9E%E7%8E%B0%EF%BC%9Alistpack-%E6%88%96%E8%B7%B3%E8%A1%A8-%E5%93%88%E5%B8%8C%E8%A1%A8"><span class="toc-number">3.5.1.</span> <span class="toc-text">底层实现：listpack 或跳表 + 哈希表</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%85%B8%E5%9E%8B%E4%B8%9A%E5%8A%A1%E5%9C%BA%E6%99%AF-4"><span class="toc-number">3.5.2.</span> <span class="toc-text">典型业务场景</span></a></li></ol></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%89%E3%80%81%E9%80%89%E5%9E%8B%E6%8C%87%E5%8D%97%EF%BC%9A%E4%B8%80%E5%BC%A0%E8%A1%A8%E5%BF%AB%E9%80%9F%E5%86%B3%E7%AD%96"><span class="toc-number">4.</span> <span class="toc-text">三、选型指南：一张表快速决策</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9B%9B%E3%80%81%E5%BA%95%E5%B1%82%E7%BC%96%E7%A0%81%E9%80%9F%E6%9F%A5%E8%A1%A8"><span class="toc-number">5.</span> <span class="toc-text">四、底层编码速查表</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%94%E3%80%81%E5%B8%B8%E8%A7%81%E8%AF%AF%E5%8C%BA%E6%BE%84%E6%B8%85"><span class="toc-number">6.</span> <span class="toc-text">五、常见误区澄清</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-%E2%80%9C%E5%AD%98%E5%AF%B9%E8%B1%A1%E7%94%A8-String-%E5%B0%B1%E5%A4%9F%E4%BA%86%EF%BC%8C%E6%B2%A1%E5%BF%85%E8%A6%81%E7%94%A8-Hash%E2%80%9D"><span class="toc-number">6.1.</span> <span class="toc-text">1. “存对象用 String 就够了，没必要用 Hash”</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-%E2%80%9CList-%E5%8F%AF%E4%BB%A5%E6%9B%BF%E4%BB%A3%E4%B8%93%E4%B8%9A%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97%E2%80%9D"><span class="toc-number">6.2.</span> <span class="toc-text">2. “List 可以替代专业消息队列”</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-%E2%80%9C%E6%95%B0%E6%8D%AE%E9%87%8F%E5%B0%8F%E7%9A%84%E6%97%B6%E5%80%99%E4%B9%9F%E4%B8%80%E6%A0%B7%E5%BF%AB%E2%80%9D"><span class="toc-number">6.3.</span> <span class="toc-text">3. “数据量小的时候也一样快”</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-%E2%80%9CRedis-%E5%8F%AA%E6%9C%89%E8%BF%99%E4%BA%94%E7%A7%8D%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%E2%80%9D"><span class="toc-number">6.4.</span> <span class="toc-text">4. “Redis 只有这五种数据结构”</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-%E2%80%9CZSet-%E5%8F%AA%E8%83%BD%E7%94%A8%E4%BA%8E%E6%8E%92%E8%A1%8C%E6%A6%9C%E2%80%9D"><span class="toc-number">6.5.</span> <span class="toc-text">5. “ZSet 只能用于排行榜”</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%AD%E3%80%81%E9%9D%A2%E8%AF%95%E9%AB%98%E9%A2%91%E9%97%AE%E9%A2%98"><span class="toc-number">7.</span> <span class="toc-text">六、面试高频问题</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%86%99%E5%9C%A8%E6%9C%80%E5%90%8E"><span class="toc-number">8.</span> <span class="toc-text">写在最后</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"><img src="/../img/ai-10-ollama.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"/></a><div class="content"><a class="title" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成">Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成</a><time datetime="2026-07-22T02:00:00.000Z" title="发表于 2026-07-22 10:00:00">2026-07-22</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"><img src="/../img/ai-09-spring-ai.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"/></a><div class="content"><a class="title" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling">Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling</a><time datetime="2026-07-17T02:00:00.000Z" title="发表于 2026-07-17 10:00:00">2026-07-17</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"><img src="/../img/ai-08-vector-database.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"/></a><div class="content"><a class="title" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比">向量数据库选型实战：Chroma、Milvus 与 pgvector 对比</a><time datetime="2026-07-13T02:00:00.000Z" title="发表于 2026-07-13 10:00:00">2026-07-13</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度"><img src="/../img/ai-07-rag-evaluation.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 评估实战：Recall@K、MRR 与回答忠实度"/></a><div class="content"><a class="title" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度">RAG 评估实战：Recall@K、MRR 与回答忠实度</a><time datetime="2026-07-12T02:00:00.000Z" title="发表于 2026-07-12 10:00:00">2026-07-12</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"><img src="/../img/ai-06-rag-retrieval.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"/></a><div class="content"><a class="title" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker">RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker</a><time datetime="2026-07-09T02:00:00.000Z" title="发表于 2026-07-09 10:00:00">2026-07-09</time></div></div></div></div></div></div></main><footer id="footer"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2024 - 2026 By qjngbac</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 7.3.0</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.5.5</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.5.5"></script><script src="/js/main.js?v=5.5.5"></script><div class="js-pjax"></div><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

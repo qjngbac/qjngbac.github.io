@@ -1,0 +1,453 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Kafka 核心原理：分区、副本、消费者组 | Wait</title><meta name="author" content="qjngbac"><meta name="copyright" content="qjngbac"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="前言在高吞吐事件流场景下，Kafka 是主流选择之一：顺序追加、分区并行、可回放日志和成熟流处理生态，让它广泛用于日志采集、数据集成与事件驱动架构。具体吞吐取决于消息大小、批量、确认级别、磁盘和集群拓扑，不能只背“单机十万级”这个数字。  本文以 Kafka 4.3 的现状补充说明：Kafka 4.x 仅支持 KRaft 模式，不再依赖 ZooKeeper；经典消费者组仍然可用，同时还有新的 Co">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Kafka 核心原理：分区、副本、消费者组">
+<meta property="og:url" content="https://qjngbac.github.io/2026/04/20/kafka-guide/index.html">
+<meta property="og:site_name" content="Wait">
+<meta property="og:description" content="前言在高吞吐事件流场景下，Kafka 是主流选择之一：顺序追加、分区并行、可回放日志和成熟流处理生态，让它广泛用于日志采集、数据集成与事件驱动架构。具体吞吐取决于消息大小、批量、确认级别、磁盘和集群拓扑，不能只背“单机十万级”这个数字。  本文以 Kafka 4.3 的现状补充说明：Kafka 4.x 仅支持 KRaft 模式，不再依赖 ZooKeeper；经典消费者组仍然可用，同时还有新的 Co">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://qjngbac.github.io/img/backend-09-kafka.jpg">
+<meta property="article:published_time" content="2026-04-20T08:00:00.000Z">
+<meta property="article:modified_time" content="2026-07-19T09:09:12.538Z">
+<meta property="article:author" content="qjngbac">
+<meta property="article:tag" content="后端">
+<meta property="article:tag" content="面试">
+<meta property="article:tag" content="分布式">
+<meta property="article:tag" content="消息队列">
+<meta property="article:tag" content="Kafka">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://qjngbac.github.io/img/backend-09-kafka.jpg"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Kafka 核心原理：分区、副本、消费者组",
+  "url": "https://qjngbac.github.io/2026/04/20/kafka-guide/",
+  "image": "https://qjngbac.github.io/img/backend-09-kafka.jpg",
+  "datePublished": "2026-04-20T08:00:00.000Z",
+  "dateModified": "2026-07-19T09:09:12.538Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "qjngbac",
+      "url": "https://qjngbac.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://qjngbac.github.io/2026/04/20/kafka-guide/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.5.5"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        if (!ttl) return
+        const expiry = Date.now() + ttl * 86400000
+        localStorage.setItem(key, JSON.stringify({ value, expiry }))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return undefined
+        const { value, expiry } = JSON.parse(itemStr)
+        if (Date.now() > expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return value
+      }
+    }
+
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+        script.onload = script.onreadystatechange = () => {
+          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      }),
+      getCSS: (url, id) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onload = link.onreadystatechange = () => {
+          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+        }
+        link.onerror = reject
+        document.head.appendChild(link)
+      }),
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: true
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Kafka 核心原理：分区、副本、消费者组',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="generator" content="Hexo 7.3.0"></head><body><div id="loading-box"><div class="loading-left-bg"></div><div class="loading-right-bg"></div><div class="spinner-box"><div class="configure-border-1"><div class="configure-core"></div></div><div class="configure-border-2"><div class="configure-core"></div></div><div class="loading-word">加载中...</div></div></div><script>(()=>{
+  const $loadingBox = document.getElementById('loading-box')
+  const $body = document.body
+  const preloader = {
+    endLoading: () => {
+      if ($loadingBox.classList.contains('loaded')) return
+      $body.style.overflow = ''
+      $loadingBox.classList.add('loaded')
+    },
+    initLoading: () => {
+      $body.style.overflow = 'hidden'
+      $loadingBox.classList.remove('loaded')
+    }
+  }
+
+  preloader.initLoading()
+
+  if (document.readyState === 'complete') {
+    preloader.endLoading()
+  } else {
+    window.addEventListener('load', preloader.endLoading)
+    document.addEventListener('DOMContentLoaded', preloader.endLoading)
+    // Add timeout protection: force end after 7 seconds
+    setTimeout(preloader.endLoading, 7000)
+  }
+
+  if (false) {
+    btf.addGlobalFn('pjaxSend', preloader.initLoading, 'preloader_init')
+    btf.addGlobalFn('pjaxComplete', preloader.endLoading, 'preloader_end')
+  }
+})()</script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">42</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">139</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(/../img/backend-09-kafka.jpg);"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">Wait</span></a><a class="nav-page-title" href="/"><span class="site-name">Kafka 核心原理：分区、副本、消费者组</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">Kafka 核心原理：分区、副本、消费者组</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-04-20T08:00:00.000Z" title="发表于 2026-04-20 16:00:00">2026-04-20</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-07-19T09:09:12.538Z" title="更新于 2026-07-19 17:09:12">2026-07-19</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/%E5%90%8E%E7%AB%AF%E5%B7%A5%E7%A8%8B/">后端工程</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>在高吞吐事件流场景下，Kafka 是主流选择之一：顺序追加、分区并行、可回放日志和成熟流处理生态，让它广泛用于日志采集、数据集成与事件驱动架构。具体吞吐取决于消息大小、批量、确认级别、磁盘和集群拓扑，不能只背“单机十万级”这个数字。</p>
+<blockquote>
+<p>本文以 Kafka 4.3 的现状补充说明：Kafka 4.x 仅支持 KRaft 模式，不再依赖 ZooKeeper；经典消费者组仍然可用，同时还有新的 Consumer Rebalance Protocol 和 Share Groups。核心分区、副本与日志原理保持不变。</p>
+</blockquote>
+<p>但很多开发者对 Kafka 的认知停留在「发消息、收消息」的表层，说不清楚分区为什么能提升吞吐、ISR 副本是怎么同步的、消费者组 Rebalance 为什么会导致消费停滞，更说不清 Exactly-Once 语义到底怎么实现。</p>
+<p>Kafka 的高性能与高可靠，不是凭空而来的，它建立在「分区、副本、消费者组」三大核心设计之上。今天我们就从底层原理出发，逐层拆解分区存储机制、ISR 副本同步、消费者组重平衡、Exactly-Once 语义实现，彻底搞懂 Kafka 的核心骨架。</p>
+<hr>
+<h2 id="一、分区机制：高吞吐的基石"><a href="#一、分区机制：高吞吐的基石" class="headerlink" title="一、分区机制：高吞吐的基石"></a>一、分区机制：高吞吐的基石</h2><p>Kafka 的主题（Topic）只是一个逻辑概念，真正承载消息、决定性能上限的，是<strong>分区（Partition）</strong>。</p>
+<h3 id="1-1-什么是分区"><a href="#1-1-什么是分区" class="headerlink" title="1.1 什么是分区"></a>1.1 什么是分区</h3><p>一个 Topic 可以拆分成多个分区，分布在一个或多个 Broker 节点上，每个分区本质是一个<strong>有序的、追加写入的日志文件</strong>。</p>
+<ul>
+<li>消息写入时，只追加到分区日志的末尾，顺序写入磁盘，性能极高</li>
+<li>每个分区内的消息严格有序，分区之间不保证全局有序</li>
+<li>每条消息在分区内有一个唯一的偏移量（Offset），代表消息的位置</li>
+</ul>
+<p>简单说：Topic 是逻辑容器，分区是物理存储单元，也是 Kafka 并行能力的最小单位。</p>
+<h3 id="1-2-分区的核心价值"><a href="#1-2-分区的核心价值" class="headerlink" title="1.2 分区的核心价值"></a>1.2 分区的核心价值</h3><p>Kafka 之所以能做到超高吞吐，分区设计居功至伟，核心价值有三点：</p>
+<p><strong>1. 并行读写，扩展吞吐</strong></p>
+<p>单分区的读写能力受限于其 Leader 所在 Broker，但分区可以分散到集群节点。生产端和消费端能够跨分区并行；在磁盘、网络、控制面和客户端尚未成为瓶颈时，增加分区通常能提高吞吐，但不会无限线性增长。</p>
+<p><strong>2. 水平扩展存储</strong></p>
+<p>单台机器的磁盘容量有限，分区分散到多台 Broker 上，整个集群的存储容量可以随节点数线性增长，支撑 PB 级别的消息存储。</p>
+<p><strong>3. 单分区有序性</strong></p>
+<p>Kafka 保证<strong>同一个分区内的记录按追加顺序存储并返回给消费者</strong>。业务处理是否仍然有序，还取决于生产端发送顺序、重试配置以及消费端有没有把记录交给线程池乱序执行。</p>
+<h3 id="1-3-分区存储细节"><a href="#1-3-分区存储细节" class="headerlink" title="1.3 分区存储细节"></a>1.3 分区存储细节</h3><p>每个分区对应磁盘上的一个目录，内部由多个**日志段（Log Segment）**组成，避免单个文件过大，方便过期数据清理。</p>
+<p>每个日志段包含三类文件：</p>
+<ul>
+<li><code>.log</code>：实际存储消息内容的日志文件</li>
+<li><code>.index</code>：偏移量索引，记录 offset 与物理位置的映射</li>
+<li><code>.timeindex</code>：时间戳索引，支持按时间查找消息</li>
+</ul>
+<p>索引采用<strong>稀疏索引</strong>设计：不是每条消息都建索引，而是每隔一定字节量插入一条索引。既节省了索引的存储空间，又能通过二分法快速定位消息位置。</p>
+<h3 id="1-4-分区路由策略"><a href="#1-4-分区路由策略" class="headerlink" title="1.4 分区路由策略"></a>1.4 分区路由策略</h3><p>生产端发送消息时，通过分区器决定消息发到哪个分区：</p>
+<ol>
+<li><strong>默认粘性策略</strong>：不指定 key 和分区时，生产者会暂时把消息集中写入一个粘性分区，达到批量条件后再切换，以提升批处理效率</li>
+<li><strong>Key 哈希策略</strong>：指定 key 时，默认分区器会基于 key 和当前分区数选分区；分区数不变时，相同 key 通常进入同一分区。扩分区会改变映射，不能写成“永远不变”</li>
+<li><strong>自定义分区器</strong>：实现 Partitioner 接口，按业务规则自定义路由</li>
+</ol>
+<h3 id="1-5-误区：不是分区越多越好"><a href="#1-5-误区：不是分区越多越好" class="headerlink" title="1.5 误区：不是分区越多越好"></a>1.5 误区：不是分区越多越好</h3><p>分区数不是越多性能越好，过多的分区会带来副作用：</p>
+<ul>
+<li>每个分区对应文件句柄，占用系统资源</li>
+<li>分区越多，节点故障时恢复的时间越长</li>
+<li>分区元数据、故障恢复和消费者组 Rebalance 的开销都会上升</li>
+</ul>
+<p>不存在适用于所有 Kafka 版本和硬件的“单节点 1000 分区”硬上限。应根据目标吞吐、单分区速率、副本数、故障恢复时间、文件句柄和控制器压力压测规划，并预留扩容空间。</p>
+<hr>
+<h2 id="二、副本与-ISR：可靠性的保障"><a href="#二、副本与-ISR：可靠性的保障" class="headerlink" title="二、副本与 ISR：可靠性的保障"></a>二、副本与 ISR：可靠性的保障</h2><p>只有分区的话，单 Broker 宕机对应分区的数据就会丢失。为了解决单点故障问题，Kafka 引入了<strong>多副本机制</strong>。</p>
+<h3 id="2-1-Leader-Follower-副本架构"><a href="#2-1-Leader-Follower-副本架构" class="headerlink" title="2.1 Leader &#x2F; Follower 副本架构"></a>2.1 Leader &#x2F; Follower 副本架构</h3><p>每个分区可以配置多个副本（生产建议 3），副本分为两种角色：</p>
+<ul>
+<li><strong>Leader 副本</strong>：每个分区有且只有一个 Leader，默认情况下客户端读写都由 Leader 处理</li>
+<li><strong>Follower 副本</strong>：被动从 Leader 同步数据，默认不承接客户端读写，只做冗余备份</li>
+</ul>
+<p>正常情况下，Follower 持续拉取 Leader 的消息，保持数据同步。Leader 宕机时，会从 Follower 中选举出新的 Leader，继续提供服务。</p>
+<h3 id="2-2-ISR：同步副本集合"><a href="#2-2-ISR：同步副本集合" class="headerlink" title="2.2 ISR：同步副本集合"></a>2.2 ISR：同步副本集合</h3><p>Kafka 维护 <strong>ISR（In-Sync Replicas，同步副本集合）</strong>。正常且关闭非同步副本选举时，会从 ISR 中选择新 Leader；只有显式开启 unclean leader election，才可能从 ISR 外副本选举并承担数据丢失风险。</p>
+<p>判定「跟得上」的标准：Follower 必须持续向 Leader 拉取数据并保持同步；在 <code>replica.lag.time.max.ms</code>（默认 30 秒）内未能跟上或未能及时拉取的副本会被移出 ISR，追上后再重新加入。这个阈值衡量的是副本持续落后的时间窗口，而不是简单的 offset 差值。</p>
+<p>ISR 集合至少包含 Leader 副本，它是 Kafka 平衡「数据可靠性」与「写入性能」的核心设计。</p>
+<h3 id="2-3-HW-高水位与-LEO：可见性的边界"><a href="#2-3-HW-高水位与-LEO：可见性的边界" class="headerlink" title="2.3 HW 高水位与 LEO：可见性的边界"></a>2.3 HW 高水位与 LEO：可见性的边界</h3><p>这里有两个关键概念：</p>
+<ul>
+<li><strong>LEO（Log End Offset）</strong>：每个副本日志的最新消息偏移量，即下一条待写入的位置</li>
+<li><strong>HW（High Watermark，高水位）</strong>：所有 ISR 副本中最小的 LEO 值，代表消费者可见的最大偏移量</li>
+</ul>
+<p>消费者只能消费到 HW 之前的消息，HW 之后的消息属于「未确认状态」，对消费者不可见。只有当所有 ISR 副本都同步了某条消息，HW 才会向前推进，这条消息才算真正提交。</p>
+<p>这个机制保证了：即使 Leader 宕机，新选出的 Leader 也一定包含所有已提交的消息，不会出现数据丢失。</p>
+<p><img src="/../img/kafka-partition-replica.png" alt="Kafka 分区、副本与 ISR"></p>
+<h3 id="2-4-Leader-Epoch：防止数据丢失的额外保障"><a href="#2-4-Leader-Epoch：防止数据丢失的额外保障" class="headerlink" title="2.4 Leader Epoch：防止数据丢失的额外保障"></a>2.4 Leader Epoch：防止数据丢失的额外保障</h3><p>HW 机制在某些极端场景下仍可能导致数据丢失或数据不一致。Kafka 引入了 <strong>Leader Epoch</strong> 机制来解决这个问题：</p>
+<ul>
+<li>每次 Leader 变更时，epoch 值递增</li>
+<li>Follower 重新加入 ISR 时，向新 Leader 请求从正确的 epoch+offset 位置开始同步，而不是简单地截断到 HW</li>
+<li>避免了「已提交消息被截断」的问题</li>
+</ul>
+<p>Leader Epoch 已在较早版本中用于副本同步和截断保护；在生产环境中更重要的是保持 Broker 与客户端版本一致，并结合 <code>acks=all</code>、<code>min.insync.replicas</code> 等配置共同保证可靠性。</p>
+<h3 id="2-5-Leader-选举与可用性权衡"><a href="#2-5-Leader-选举与可用性权衡" class="headerlink" title="2.5 Leader 选举与可用性权衡"></a>2.5 Leader 选举与可用性权衡</h3><p>Leader 宕机后，Kafka 会优先从 ISR 集合中选举新的 Leader。只要 ISR 里还有存活副本，就能保证数据不丢。</p>
+<p>但如果极端情况下 ISR 里所有副本都挂了怎么办？这里有一个可配置的权衡开关 <code>unclean.leader.election.enable</code>：</p>
+<ul>
+<li><strong>false（默认推荐）</strong>：ISR 全挂则分区不可用，等待副本恢复，保证数据不丢</li>
+<li><strong>true</strong>：ISR 全挂时，从任意存活的副本中选新 Leader，可能丢失数据，但保证可用性</li>
+</ul>
+<p>核心业务建议关闭，优先保证数据可靠；非核心日志场景可以开启，优先保证可用性。</p>
+<h3 id="2-6-可靠性配置最佳实践"><a href="#2-6-可靠性配置最佳实践" class="headerlink" title="2.6 可靠性配置最佳实践"></a>2.6 可靠性配置最佳实践</h3><p>生产端的 <code>acks</code> 参数，决定了写入多少个副本才算发送成功：</p>
+<table>
+<thead>
+<tr>
+<th>acks 值</th>
+<th>含义</th>
+<th>可靠性</th>
+<th>性能</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>0</code></td>
+<td>发出去就不管，不等待任何确认</td>
+<td>最低</td>
+<td>最高</td>
+</tr>
+<tr>
+<td><code>1</code></td>
+<td>Leader 写入成功就返回确认</td>
+<td>中等</td>
+<td>中等</td>
+</tr>
+<tr>
+<td><code>all</code></td>
+<td>Leader + 所有 ISR 副本都写入成功才返回</td>
+<td>最高</td>
+<td>最低</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p><strong>Kafka 3.0+ 变化</strong>：<code>acks</code> 的默认值从 <code>1</code> 改为 <code>all</code>，生产者默认具备更强的副本确认语义；仍需搭配足够的副本数和 <code>min.insync.replicas</code>，不能只依赖一个默认参数。</p>
+</blockquote>
+<p>核心业务场景可以从下面的基线开始，再按可用性目标压测。注意这些配置分属不同位置：</p>
+<figure class="highlight properties"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># Producer</span></span><br><span class="line"><span class="attr">acks</span>=<span class="string">all</span></span><br><span class="line"><span class="attr">delivery.timeout.ms</span>=<span class="string">120000   # 控制单条消息在发送端允许重试的总时长</span></span><br><span class="line"><span class="attr">enable.idempotence</span>=<span class="string">true      # 开启幂等生产者</span></span><br><span class="line"><span class="comment"></span></span><br><span class="line"><span class="comment"># Topic 或 Broker，不是 Producer 参数</span></span><br><span class="line"><span class="attr">min.insync.replicas</span>=<span class="string">2        # ISR 少于2个副本时拒绝 acks=all 的写入</span></span><br><span class="line"><span class="comment"># Topic 创建时同时配置 replication.factor=3</span></span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="三、消费者组与-Rebalance：灵活的消费模型"><a href="#三、消费者组与-Rebalance：灵活的消费模型" class="headerlink" title="三、消费者组与 Rebalance：灵活的消费模型"></a>三、消费者组与 Rebalance：灵活的消费模型</h2><p>Kafka 的消费模型之所以灵活，核心在于**消费者组（Consumer Group）**的设计。</p>
+<h3 id="3-1-消费者组核心规则"><a href="#3-1-消费者组核心规则" class="headerlink" title="3.1 消费者组核心规则"></a>3.1 消费者组核心规则</h3><p>多个消费者实例可以组成一个消费者组，共同订阅一个或多个 Topic，分区会分配给组内的消费者消费。</p>
+<p>两条铁律：</p>
+<ol>
+<li><strong>一个分区在同一消费组内同一时刻只会分配给一个消费者</strong>，避免并发重复处理；故障恢复或位移提交时仍可能发生重复消费</li>
+<li><strong>不同消费组之间完全独立</strong>，互不影响，各自消费全量消息</li>
+</ol>
+<p>这个设计带来了两个直接好处：</p>
+<ul>
+<li><strong>横向扩展消费能力</strong>：增加组内消费者数量，就能线性提升消费速度（上限是分区数）</li>
+<li><strong>天然支持广播+单播</strong>：一个组就是单播消费，多个组就是广播消费</li>
+</ul>
+<blockquote>
+<p>重要结论：消费能力的上限由分区数决定。如果消费者数量超过分区数，多余的消费者会处于空闲状态。</p>
+</blockquote>
+<blockquote>
+<p><strong>Kafka 4.2+ 的 Share Groups 是例外模型</strong>：多个 Share Consumer 可以并发处理来自同一分区的不同记录，并逐条确认，适合工作队列；它不提供经典消费者组那种单分区单消费者顺序语义。本文以下仍聚焦经典 Consumer Group。</p>
+</blockquote>
+<h3 id="3-2-消费位移管理"><a href="#3-2-消费位移管理" class="headerlink" title="3.2 消费位移管理"></a>3.2 消费位移管理</h3><p>Kafka 的消费位移（offset）管理经历了两个阶段：</p>
+<p><strong>旧版本（0.8 之前）</strong>：位移存在 ZooKeeper 中，频繁更新 ZK 性能差。</p>
+<p><strong>新版本（0.9+）</strong>：位移存储在 Kafka 内部的 <code>__consumer_offsets</code> 主题中。消费者定期提交位移到这个内部主题，性能大幅提升。</p>
+<p>提交方式有两种：</p>
+<ul>
+<li><strong>自动提交</strong>：后台线程定期提交，简单但可能丢失消息或重复消费</li>
+<li><strong>手动提交</strong>：业务处理完后主动调用 <code>commitSync()</code> 或 <code>commitAsync()</code>，精确控制，生产推荐</li>
+</ul>
+<h3 id="3-3-分区分配策略"><a href="#3-3-分区分配策略" class="headerlink" title="3.3 分区分配策略"></a>3.3 分区分配策略</h3><p>消费者组启动时，需要按一定策略把分区分配给各个消费者：</p>
+<table>
+<thead>
+<tr>
+<th>策略</th>
+<th>原理</th>
+<th>特点</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>RangeAssignor</strong></td>
+<td>按主题维度，分区按范围分给消费者</td>
+<td>默认策略，单主题下分配均匀，多主题可能不均</td>
+</tr>
+<tr>
+<td><strong>RoundRobinAssignor</strong></td>
+<td>所有主题的分区轮询分配给所有消费者</td>
+<td>分配最均匀，适合多主题场景</td>
+</tr>
+<tr>
+<td><strong>StickyAssignor</strong></td>
+<td>粘性分配，尽量保留原有分配结果</td>
+<td>大幅减少 Rebalance 时的分区移动开销</td>
+</tr>
+<tr>
+<td><strong>CooperativeStickyAssignor</strong></td>
+<td>增量式粘性分配（Kafka 2.4+）</td>
+<td>仅撤销需要迁移的分区，显著缩小 Rebalance 影响范围</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p><strong>推荐使用 CooperativeStickyAssignor</strong>（Kafka 2.4+），它支持增量 Rebalance：只撤销需要重新分配的分区，其他分区可继续消费，能明显降低 Rebalance 对业务的影响。</p>
+</blockquote>
+<p>Kafka 4.0+ 还提供 GA 的新 Consumer Rebalance Protocol。客户端设置 <code>group.protocol=consumer</code> 后，分配在服务端完成且协议本身是增量式的，不再依赖经典协议的全局同步屏障；心跳、会话超时和 assignor 也改由服务端相关配置控制。未启用时仍按上面的 classic 协议工作。</p>
+<h3 id="3-4-Rebalance：重平衡全解析"><a href="#3-4-Rebalance：重平衡全解析" class="headerlink" title="3.4 Rebalance：重平衡全解析"></a>3.4 Rebalance：重平衡全解析</h3><p>Rebalance（重平衡）是消费者组最核心也最容易出问题的机制。它指的是：当组内消费者数量、订阅主题、分区数量发生变化时，重新分配分区与消费者对应关系的过程。</p>
+<h4 id="触发-Rebalance-的三种场景"><a href="#触发-Rebalance-的三种场景" class="headerlink" title="触发 Rebalance 的三种场景"></a>触发 Rebalance 的三种场景</h4><ol>
+<li><strong>组成员变化</strong>：消费者新增、宕机退出、主动离开</li>
+<li><strong>订阅主题变化</strong>：运行中动态增减订阅的主题</li>
+<li><strong>分区数量变化</strong>：给 Topic 增加了分区</li>
+</ol>
+<h4 id="经典消费者组协议下的-Rebalance-执行过程"><a href="#经典消费者组协议下的-Rebalance-执行过程" class="headerlink" title="经典消费者组协议下的 Rebalance 执行过程"></a>经典消费者组协议下的 Rebalance 执行过程</h4><p>整个过程由 Group Coordinator（Broker 端的协调者）主导：</p>
+<ol>
+<li><strong>JoinGroup 阶段</strong>：所有消费者向 Coordinator 发送加入请求，选举出一个消费者作为 Leader，由 Leader 负责制定分配方案</li>
+<li><strong>SyncGroup 阶段</strong>：Leader 把分配方案发给 Coordinator，Coordinator 再把方案同步给所有消费者</li>
+</ol>
+<h4 id="Rebalance-的痛点"><a href="#Rebalance-的痛点" class="headerlink" title="Rebalance 的痛点"></a>Rebalance 的痛点</h4><p>在传统的 eager Rebalance 中，组内分区会先被全部撤销，消费者暂停处理直到重平衡完成。CooperativeStickyAssignor 能把影响缩小到待迁移分区，但这些分区仍会短暂停止处理。频繁 Rebalance 会降低消费能力并造成积压。</p>
+<h4 id="优化建议"><a href="#优化建议" class="headerlink" title="优化建议"></a>优化建议</h4><ol>
+<li>合理设置 <code>session.timeout.ms</code> 和 <code>heartbeat.interval.ms</code>，避免误判消费者宕机</li>
+<li>消费逻辑不要太重，避免超过 <code>max.poll.interval.ms</code> 而被移出消费者组</li>
+<li>使用静态成员（<code>group.instance.id</code>），在会话超时前完成短暂重启时可减少不必要的 Rebalance</li>
+<li>优先使用 CooperativeStickyAssignor 分配策略</li>
+</ol>
+<hr>
+<h2 id="四、Exactly-Once-语义：从理论到工程实现"><a href="#四、Exactly-Once-语义：从理论到工程实现" class="headerlink" title="四、Exactly-Once 语义：从理论到工程实现"></a>四、Exactly-Once 语义：从理论到工程实现</h2><p>消息投递有三种语义：最多一次、至少一次、恰好一次。Kafka 的实际语义取决于生产重试、位移提交时机和事务配置；常见的“处理成功后再提交位移”模式是至少一次，可能出现重复消息。而 Exactly-Once（恰好一次），是很多人既好奇又容易误解的特性。</p>
+<h3 id="4-1-先明确：Exactly-Once-有边界"><a href="#4-1-先明确：Exactly-Once-有边界" class="headerlink" title="4.1 先明确：Exactly-Once 有边界"></a>4.1 先明确：Exactly-Once 有边界</h3><p>首先要澄清：不存在绝对的、全链路的恰好一次。Kafka 的 Exactly-Once 有前提、有范围，它解决的是 Kafka 内部的重复问题，业务侧的幂等依然需要自己保证。</p>
+<p>Kafka 的 Exactly-Once 分为两个层级：<strong>幂等生产者</strong>和<strong>事务</strong>。</p>
+<h3 id="4-2-幂等生产者：单分区不重复"><a href="#4-2-幂等生产者：单分区不重复" class="headerlink" title="4.2 幂等生产者：单分区不重复"></a>4.2 幂等生产者：单分区不重复</h3><p>这是最基础的 Exactly-Once 能力，开启非常简单：<code>enable.idempotence=true</code>。现代 Kafka 客户端在没有冲突配置时默认启用它。</p>
+<h4 id="实现原理"><a href="#实现原理" class="headerlink" title="实现原理"></a>实现原理</h4><ul>
+<li>每个生产者启动时，会分配一个唯一的 PID（生产者 ID）</li>
+<li>每条消息附带一个序列号（Sequence Number），每个分区对应一个序列号，从 0 开始递增</li>
+<li>Broker 端会记录每个 PID+分区的序列号；重试带来的重复消息不会再次追加写入，乱序序列则会返回错误，避免悄悄破坏分区顺序</li>
+</ul>
+<h4 id="能力边界"><a href="#能力边界" class="headerlink" title="能力边界"></a>能力边界</h4><ul>
+<li>能为同一生产者会话发往各分区的重试去重，并分别维护每个分区的序列号；并不要求生产者只能使用一个分区</li>
+<li>不能识别应用层主动把同一业务消息重新 <code>send()</code> 的重复；普通幂等生产者也不提供跨会话业务去重</li>
+<li>多分区写入之间的原子性仍需要 Kafka 事务</li>
+</ul>
+<h3 id="4-3-Kafka-事务：跨分区原子写入"><a href="#4-3-Kafka-事务：跨分区原子写入" class="headerlink" title="4.3 Kafka 事务：跨分区原子写入"></a>4.3 Kafka 事务：跨分区原子写入</h3><p>如果需要多个分区的写入操作要么全部成功、要么全部失败，就需要用到 Kafka 事务。</p>
+<p>事务可以保证：一个事务内发往多个分区的消息，要么全部对消费者可见，要么全部不可见。</p>
+<h4 id="核心组件"><a href="#核心组件" class="headerlink" title="核心组件"></a>核心组件</h4><ul>
+<li><strong>Transaction Coordinator</strong>：Broker 端的事务协调者，负责管理事务状态</li>
+<li><strong>Transactional ID</strong>：生产者配置的事务标识，跨会话保持一致，用于恢复未完成的事务</li>
+<li><strong>事务日志</strong>：<code>__transaction_state</code> 主题，持久化事务状态</li>
+</ul>
+<h4 id="使用方式"><a href="#使用方式" class="headerlink" title="使用方式"></a>使用方式</h4><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">producer.initTransactions();</span><br><span class="line"><span class="keyword">try</span> &#123;</span><br><span class="line">    producer.beginTransaction();</span><br><span class="line">    producer.send(record1);</span><br><span class="line">    producer.send(record2);</span><br><span class="line">    producer.commitTransaction();</span><br><span class="line">&#125; <span class="keyword">catch</span> (Exception e) &#123;</span><br><span class="line">    producer.abortTransaction();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h4 id="消费端配合"><a href="#消费端配合" class="headerlink" title="消费端配合"></a>消费端配合</h4><p>消费端设置 <code>isolation.level=read_committed</code>，只能读到已提交事务的消息，未提交的消息对消费端不可见。</p>
+<h3 id="4-4-端到端-Exactly-Once：读-处理-写全链路"><a href="#4-4-端到端-Exactly-Once：读-处理-写全链路" class="headerlink" title="4.4 端到端 Exactly-Once：读-处理-写全链路"></a>4.4 端到端 Exactly-Once：读-处理-写全链路</h3><p>在流处理场景中，Kafka Streams 可将“消费位移提交”和“结果写回 Kafka”纳入同一事务。Flink 等框架是否能做到端到端 Exactly-Once，还取决于检查点配置以及外部 Sink 是否支持相应的事务或幂等语义。</p>
+<p>核心思路是：把「消费位移提交」和「写回 Kafka 的结果」放到同一个事务里，要么一起提交，要么一起回滚。若结果写入数据库或其他外部系统，则需要该系统支持事务协调，或继续使用唯一键、状态机等幂等方案。</p>
+<h3 id="4-5-理性看待-Exactly-Once"><a href="#4-5-理性看待-Exactly-Once" class="headerlink" title="4.5 理性看待 Exactly-Once"></a>4.5 理性看待 Exactly-Once</h3><ul>
+<li>Exactly-Once 不是银弹，它有性能开销，事务模式的吞吐量会明显下降</li>
+<li>绝大多数业务场景，「至少一次投递 + 业务幂等」的方案性价比更高</li>
+<li>只有金融、对账等对数据一致性要求极高的场景，才需要上事务级别的 Exactly-Once</li>
+</ul>
+<hr>
+<h2 id="五、常见误区澄清"><a href="#五、常见误区澄清" class="headerlink" title="五、常见误区澄清"></a>五、常见误区澄清</h2><h3 id="1-“Kafka-只是个消息队列”"><a href="#1-“Kafka-只是个消息队列”" class="headerlink" title="1. “Kafka 只是个消息队列”"></a>1. “Kafka 只是个消息队列”</h3><p>不准确。Kafka 的官方定位是<strong>事件流平台（event streaming platform）</strong>，消息传递只是基础能力。它还提供 Kafka Streams、Kafka Connect，并拥有 ksqlDB 等周边生态。</p>
+<h3 id="2-“分区数越多吞吐量越高”"><a href="#2-“分区数越多吞吐量越高”" class="headerlink" title="2. “分区数越多吞吐量越高”"></a>2. “分区数越多吞吐量越高”</h3><p>在一定范围内成立。超过阈值后，文件句柄开销、故障恢复成本、Rebalance 开销都会上升，吞吐量反而下降。</p>
+<h3 id="3-“ISR-里的副本一定是全量同步的”"><a href="#3-“ISR-里的副本一定是全量同步的”" class="headerlink" title="3. “ISR 里的副本一定是全量同步的”"></a>3. “ISR 里的副本一定是全量同步的”</h3><p>不是。ISR 只保证落后时间在阈值内（默认 30 秒），不是完全同步。设置 <code>acks=all</code> 才能保证消息被所有 ISR 副本写入后才返回确认。</p>
+<h3 id="4-“Exactly-Once-就是完全不会重复”"><a href="#4-“Exactly-Once-就是完全不会重复”" class="headerlink" title="4. “Exactly-Once 就是完全不会重复”"></a>4. “Exactly-Once 就是完全不会重复”</h3><p>它只保证 Kafka 体系内的恰好一次。如果消费后还要操作外部系统（比如写数据库），依然需要业务侧做幂等。</p>
+<hr>
+<h2 id="六、面试高频问题"><a href="#六、面试高频问题" class="headerlink" title="六、面试高频问题"></a>六、面试高频问题</h2><p><strong>Q1：Kafka 为什么吞吐量这么高？</strong></p>
+<p>四个核心技术：顺序追加写（充分利用磁盘和页缓存）、零拷贝（Zero-Copy，减少用户态与内核态的数据复制）、批量发送（Batch，减少网络 IO 次数）、分区并行（多分区并发读写）。</p>
+<p><strong>Q2：什么是 ISR？有什么作用？</strong></p>
+<p>ISR（In-Sync Replicas）是同步副本集合，只有跟得上 Leader 进度的副本才在 ISR 中。Leader 选举只从 ISR 中选，保证数据不丢。acks&#x3D;all 时需要所有 ISR 确认才算写入成功。</p>
+<p><strong>Q3：HW 和 LEO 的区别？</strong></p>
+<p>LEO 是每个副本日志的最新偏移量（下一条待写入位置）。HW 是所有 ISR 中最小的 LEO，代表消费者可见的最大位置。HW 之前的消息才是已提交的。</p>
+<p><strong>Q4：消费者组 Rebalance 什么触发？有什么影响？</strong></p>
+<p>消费者数量变化、订阅主题变化、分区数量变化会触发。传统协议下可能暂停整个组；增量 Rebalance 主要影响待迁移分区，仍可能重复消费。优化：用 CooperativeStickyAssignor、设置静态成员、合理配置超时时间。</p>
+<p><strong>Q5：Kafka 的 Exactly-Once 怎么实现？</strong></p>
+<p>两层：幂等生产者（PID + 序列号，单分区内不重复）和事务（Transaction Coordinator + Transactional ID，跨分区原子写入）。业务端仍需配合幂等。</p>
+<p><strong>Q6：acks&#x3D;all 就一定能保证消息不丢吗？</strong></p>
+<p>不一定。还需要 <code>min.insync.replicas &gt;= 2</code>，否则 ISR 只剩 Leader 时 acks&#x3D;all 退化为 acks&#x3D;1。同时消费端要手动提交 offset，避免消费到一半就确认。</p>
+<hr>
+<h2 id="写在最后"><a href="#写在最后" class="headerlink" title="写在最后"></a>写在最后</h2><p>回顾 Kafka 的核心设计，你会发现它的每一个机制都充满了工程化的权衡：</p>
+<ul>
+<li>用分区拆分负载，换取线性提升的吞吐量</li>
+<li>用多副本 + ISR，在可靠性和性能之间找平衡点</li>
+<li>用消费者组实现灵活的消费模型，同时通过 Rebalance 保证动态扩缩容</li>
+<li>用幂等 + 事务，在性能基础上提供更强的一致性保证</li>
+</ul>
+<p>看懂了分区、副本、消费者组这三大支柱，你就理解了 Kafka 高性能与高可靠的底层逻辑。遇到消息积压、消费停滞、数据丢失等问题时，也能快速定位到是哪个环节出了问题，而不是只会重启消费者。</p>
+<hr>
+<blockquote>
+<p><strong>系列文章预告</strong>：</p>
+<ul>
+<li>上一篇：消息可靠性保证：消息丢失&#x2F;重复&#x2F;顺序问题</li>
+<li>下一篇：CAP 与 BASE 理论：分布式系统的基石</li>
+</ul>
+</blockquote>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://qjngbac.github.io">qjngbac</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://qjngbac.github.io/2026/04/20/kafka-guide/">https://qjngbac.github.io/2026/04/20/kafka-guide/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://qjngbac.github.io" target="_blank">Wait</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/%E5%90%8E%E7%AB%AF/">后端</a><a class="post-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><a class="post-meta__tags" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F/">分布式</a><a class="post-meta__tags" href="/tags/%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97/">消息队列</a><a class="post-meta__tags" href="/tags/Kafka/">Kafka</a></div><div class="post-share"><div class="social-share" data-image="/../img/backend-09-kafka.jpg" data-sites="facebook,x,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/2026/05/05/docker-guide/" title="Docker 实战：从 Dockerfile 到容器编排"><img class="cover" src="/../img/backend-13-docker.jpg" onerror="onerror=null;src='/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">Docker 实战：从 Dockerfile 到容器编排</div></div><div class="info-2"><div class="info-item-1">前言在没有容器化的年代，部署服务是件非常折腾的事：开发环境能跑，上线就报错；机器换一台，就要从头装一遍依赖、配一遍环境；多服务部署还要挨个处理端口冲突、依赖顺序，效率极低。 Docker 的出现改变了这一局面：把应用及其运行时依赖构建为镜像后，可以在兼容的容器运行时上以更一致的方式交付。它提升了部署效率和进程隔离能力，但容器仍然共享宿主机内核，并不等同于虚拟机级别的隔离。但很多人用了很久 Docker，依然只会抄 Dockerfile、敲 run 命令，说不清楚镜像为什么能复用、数据怎么持久化、多服务怎么编排。 本文就从底层原理到实战落地，完整覆盖镜像分层机制、Dockerfile 最佳实践、数据卷与网络、Docker Compose 多容器编排，带你从零掌握容器化的核心能力。  一、镜像底层：分层存储的核心逻辑Docker 镜像最精妙的设计就是分层存储，理解了分层，你就能看懂所有镜像优化技巧的本质。 1.1 什么是镜像分层Docker 镜像由一组只读文件系统层和镜像配置共同组成。RUN、COPY、ADD 等会改变文件系统的构建步骤通常会形成新的文件系统层；CMD、EXPOSE ...</div></div></div></a><a class="pagination-related" href="/2026/04/15/mq-reliability-guide/" title="消息可靠性保证：消息丢失/重复/顺序问题"><img class="cover" src="/../img/backend-08-mq-reliability.jpg" onerror="onerror=null;src='/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">消息可靠性保证：消息丢失/重复/顺序问题</div></div><div class="info-2"><div class="info-item-1">前言引入消息队列之后，很多团队都会踩同一类坑：下单成功了用户却没收到通知、统计数据总是对不上、库存重复扣减导致超卖、订单状态更新乱序出现业务异常。 很多人以为「把消息发出去、消费端拿到执行」就完事了，实际上不同 MQ 和客户端的默认语义并不相同，默认值也不能替代端到端设计。消息丢失、重复消费、顺序错乱，是必须明确处理的三类风险。 消息可靠性从来不是单点优化，而是一套覆盖生产端、Broker、消费端的全链路组合拳。本文就从三个经典问题切入，完整讲解生产确认、持久化刷盘、消费端 ACK、幂等设计、顺序消费的实现方案，帮你把消息可靠性从「随缘」变成「可控」。   一、先统一认知：消息投递的三个语义等级在讲方案之前，先明确消息投递的三个语义等级，不同等级对应的实现成本天差地别。    投递语义 含义 特点 适用场景    最多一次（At most once） 消息最多投递一次，丢了就丢了，绝不重复 性能最高，可靠性最差 日志、埋点、可丢失的非核心数据   至少一次（At least once） 消息保证至少投递到消费端一次，可能重复 不丢失，但可能重复，业界主流实现 绝大多数业务场景  ...</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/2026/04/15/mq-intro-guide/" title="消息队列入门：为什么需要 MQ"><img class="cover" src="/../img/backend-07-mq-intro.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-04-15</div><div class="info-item-2">消息队列入门：为什么需要 MQ</div></div><div class="info-2"><div class="info-item-1">前言很多刚接触后端开发的同学都会有一个疑问：好好的同步调用不用，为什么非要引入消息队列？平白多了一个中间件，系统复杂度上去了，还要处理消息丢失、重复消费、积压等一堆问题，这不是给自己找麻烦吗？ 有这个疑问太正常了。在业务量小、逻辑简单的阶段，同步调用确实简单直接、调试方便。但随着业务增长、系统拆分、流量上升，你会发现同步调用的天花板越来越明显：接口响应越来越慢、上下游改一处全链路都要改、活动峰值一来系统直接被打垮。 消息队列（Message Queue，简称 MQ）不是什么炫技的黑科技，它本质是解决「异步、解耦、削峰」三大问题的标准方案，是分布式系统的核心组件之一。 今天我们就从真实业务场景出发，讲清楚为什么需要 MQ，它的三大核心价值是什么，再对比三款最主流的 MQ 产品，帮你搞定选型难题。  一、没有 MQ 的日子：同步调用的三大痛点我们用最经典的「下单流程」举例，看看随着业务迭代，同步调用会遇到哪些无法回避的问题。 1. 初期：简单高效业务早期，下单逻辑很简单：创建订单 + 扣减库存。两个步骤同步串行执行，总耗时约 100ms，用户体验良好，代码也简单直观。 2. 迭代一：...</div></div></div></a><a class="pagination-related" href="/2026/04/15/mq-reliability-guide/" title="消息可靠性保证：消息丢失&#x2F;重复&#x2F;顺序问题"><img class="cover" src="/../img/backend-08-mq-reliability.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-04-15</div><div class="info-item-2">消息可靠性保证：消息丢失&#x2F;重复&#x2F;顺序问题</div></div><div class="info-2"><div class="info-item-1">前言引入消息队列之后，很多团队都会踩同一类坑：下单成功了用户却没收到通知、统计数据总是对不上、库存重复扣减导致超卖、订单状态更新乱序出现业务异常。 很多人以为「把消息发出去、消费端拿到执行」就完事了，实际上不同 MQ 和客户端的默认语义并不相同，默认值也不能替代端到端设计。消息丢失、重复消费、顺序错乱，是必须明确处理的三类风险。 消息可靠性从来不是单点优化，而是一套覆盖生产端、Broker、消费端的全链路组合拳。本文就从三个经典问题切入，完整讲解生产确认、持久化刷盘、消费端 ACK、幂等设计、顺序消费的实现方案，帮你把消息可靠性从「随缘」变成「可控」。   一、先统一认知：消息投递的三个语义等级在讲方案之前，先明确消息投递的三个语义等级，不同等级对应的实现成本天差地别。    投递语义 含义 特点 适用场景    最多一次（At most once） 消息最多投递一次，丢了就丢了，绝不重复 性能最高，可靠性最差 日志、埋点、可丢失的非核心数据   至少一次（At least once） 消息保证至少投递到消费端一次，可能重复 不丢失，但可能重复，业界主流实现 绝大多数业务场景  ...</div></div></div></a><a class="pagination-related" href="/2026/01/19/cap-base-guide/" title="CAP 与 BASE 理论：分布式系统的基石"><img class="cover" src="/../img/backend-10-cap-base.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-01-19</div><div class="info-item-2">CAP 与 BASE 理论：分布式系统的基石</div></div><div class="info-2"><div class="info-item-1">前言做分布式系统开发，绕不开 CAP 和 BASE 这两大基础理论。很多人面试时能背出「三选二」，但真到做技术选型时，却搞不清什么时候该追求强一致、什么时候该接受最终一致，也说不清楚 BASE 理论到底指导了哪些工程实践。 实际上，CAP 不是刻板的选择题，而是告诉我们一个客观事实：分布式系统必须为网络分区做好准备，分区发生时需要在一致性和可用性之间权衡。而 BASE 则提供了一种常见的工程思路：在业务允许的范围内接受暂时不一致，通过补偿和收敛换取更高的可用性与可扩展性。 今天我们就从底层逻辑到工程实践，彻底讲透 CAP 三要素的取舍、BASE 三大核心，以及最终一致性的常见落地方案。  一、CAP 定理：分布式系统的「不可能三角」CAP 猜想由计算机科学家 Eric Brewer 于 2000 年提出，2002 年由 Seth Gilbert 和 Nancy Lynch 在异步网络模型下形式化证明。更准确的结论是：当网络分区发生时，分布式系统无法同时提供线性一致性和对所有非故障节点请求的可用响应。 1.1 三要素分别是什么我们先把每个概念的真实含义讲透，避免只背定义。 一致性（...</div></div></div></a><a class="pagination-related" href="/2026/01/25/distributed-id-guide/" title="分布式 ID 生成：Snowflake 方案的取舍"><img class="cover" src="/../img/backend-12-distributed-id.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-01-25</div><div class="info-item-2">分布式 ID 生成：Snowflake 方案的取舍</div></div><div class="info-2"><div class="info-item-1">前言微服务与分库分表架构下，单库的自增主键已经无法满足需求：跨服务、跨库的业务需要全局唯一的 ID 来标识订单、流水、用户等数据。一个看似简单的「生成唯一编号」需求，背后却藏着不少工程化的权衡：全局唯一、趋势递增、高性能、高可用、信息安全，每个要求都在考验方案设计。 业界实现分布式 ID 的方案有很多：UUID、数据库自增、Redis 自增、雪花算法等等。其中 Snowflake 雪花算法凭借「本地生成、高性能、趋势递增」的特点，成为互联网公司的主流选择，但它也不是完美的——时钟回拨问题始终是绕不开的痛点。 本文就从主流方案对比出发，深入拆解 Snowflake 的原理与痛点，再延伸到美团 Leaf 这类工业级方案的优化思路，讲清楚每一种方案的取舍边界。  一、主流方案横向对比：四种实现的优劣在讲雪花算法之前，我们先把四类最常见的分布式 ID 方案放在一起对比，看看各自的适用场景和短板。 1.1 UUID：最简单，但要谨慎用作数据库主键UUID 是很多人第一个想到的方案，Java 自带 UUID.randomUUID() 就能生成，完全本地计算，无任何外部依赖。  优点：实现成本...</div></div></div></a><a class="pagination-related" href="/2026/03/16/seata-at-guide/" title="分布式事务实战：Seata 的 AT 模式原理"><img class="cover" src="/../img/backend-11-seata.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-03-16</div><div class="info-item-2">分布式事务实战：Seata 的 AT 模式原理</div></div><div class="info-2"><div class="info-item-1">前言微服务架构下，单体应用被拆成多个服务，数据库也随之按业务拆分。原本一个本地事务就能搞定的下单流程，现在变成了「订单服务建单 + 库存服务扣库 + 账户服务扣钱」跨三个服务、三个数据库的操作。单个服务的本地事务只能保证自己的数据正确，只要有一个环节失败，就会出现订单建了但库存没扣、钱扣了但订单没生成的数据不一致问题。 这就是分布式事务要解决的核心问题：跨服务、跨数据源场景下，如何保证多个操作要么全部成功、要么全部失败。 业界分布式事务方案有很多：TCC、Saga、可靠消息最终一致等等。Seata AT 模式通过代理 JDBC 数据源、自动记录数据镜像和生成补偿操作，把业务侵入降得很低；业务代码通常只需标记全局事务，但数据库表、SQL 类型、数据源代理和调用链透传仍需满足框架约束。 本文就从架构角色、核心原理到完整实战，一次性讲透 Seata AT 模式的底层逻辑与落地方法。  一、Seata 核心架构：三个角色 + 两个层级Seata 把分布式事务拆分为「全局事务」和「分支事务」，并通过三个核心角色协同完成整个事务的协调与执行。 1.1 两个事务层级 全局事务：贯穿整个业务链路...</div></div></div></a><a class="pagination-related" href="/2026/07/07/git-docker-linux-interview/" title="Git、Docker、Linux 面试高频问答：后端开发必会的三大基本功"><img class="cover" src="/img/git-docker-linux-cover.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-07</div><div class="info-item-2">Git、Docker、Linux 面试高频问答：后端开发必会的三大基本功</div></div><div class="info-2"><div class="info-item-1">前言面试中，Git、Docker、Linux 这三个工具几乎每场都会被问到。很多人觉得”会用就行”，但面试官问的不是”你会不会敲命令”，而是”你理不理解背后的原理”。 本文整理了这三个方向的高频面试题，每个问题都给出简洁但有深度的回答。不是命令手册，而是帮你建立知识框架。  一、Git 篇Q1：Git 的工作区域有哪些？Git 本地有三个核心区域，配合一个远程仓库： 1234567工作区（Working Directory）    ↓ git add暂存区（Stage / Index）    ↓ git commit本地仓库（Local Repository）    ↓ git push远程仓库（Remote Repository）   工作区：你正在编辑的文件目录 暂存区：git add 后文件的临时存储区，准备提交 本地仓库：git commit 后文件存储的地方，完整历史记录 远程仓库：GitHub&#x2F;GitLab 等托管平台  Q2：git merge 和 git rebase 有什么区别？   对比项 merge rebase    提交历史 保留已有提交；必要...</div></div></div></a></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">qjngbac</div><div class="author-info-description">一个正在学习的开发者</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">42</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">139</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/qjngbac"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/qjngbac" target="_blank" title="Github"><i class="fab fa-github"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到我的博客</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%89%8D%E8%A8%80"><span class="toc-number">1.</span> <span class="toc-text">前言</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%80%E3%80%81%E5%88%86%E5%8C%BA%E6%9C%BA%E5%88%B6%EF%BC%9A%E9%AB%98%E5%90%9E%E5%90%90%E7%9A%84%E5%9F%BA%E7%9F%B3"><span class="toc-number">2.</span> <span class="toc-text">一、分区机制：高吞吐的基石</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-1-%E4%BB%80%E4%B9%88%E6%98%AF%E5%88%86%E5%8C%BA"><span class="toc-number">2.1.</span> <span class="toc-text">1.1 什么是分区</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#1-2-%E5%88%86%E5%8C%BA%E7%9A%84%E6%A0%B8%E5%BF%83%E4%BB%B7%E5%80%BC"><span class="toc-number">2.2.</span> <span class="toc-text">1.2 分区的核心价值</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#1-3-%E5%88%86%E5%8C%BA%E5%AD%98%E5%82%A8%E7%BB%86%E8%8A%82"><span class="toc-number">2.3.</span> <span class="toc-text">1.3 分区存储细节</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#1-4-%E5%88%86%E5%8C%BA%E8%B7%AF%E7%94%B1%E7%AD%96%E7%95%A5"><span class="toc-number">2.4.</span> <span class="toc-text">1.4 分区路由策略</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#1-5-%E8%AF%AF%E5%8C%BA%EF%BC%9A%E4%B8%8D%E6%98%AF%E5%88%86%E5%8C%BA%E8%B6%8A%E5%A4%9A%E8%B6%8A%E5%A5%BD"><span class="toc-number">2.5.</span> <span class="toc-text">1.5 误区：不是分区越多越好</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%8C%E3%80%81%E5%89%AF%E6%9C%AC%E4%B8%8E-ISR%EF%BC%9A%E5%8F%AF%E9%9D%A0%E6%80%A7%E7%9A%84%E4%BF%9D%E9%9A%9C"><span class="toc-number">3.</span> <span class="toc-text">二、副本与 ISR：可靠性的保障</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#2-1-Leader-Follower-%E5%89%AF%E6%9C%AC%E6%9E%B6%E6%9E%84"><span class="toc-number">3.1.</span> <span class="toc-text">2.1 Leader &#x2F; Follower 副本架构</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-2-ISR%EF%BC%9A%E5%90%8C%E6%AD%A5%E5%89%AF%E6%9C%AC%E9%9B%86%E5%90%88"><span class="toc-number">3.2.</span> <span class="toc-text">2.2 ISR：同步副本集合</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-3-HW-%E9%AB%98%E6%B0%B4%E4%BD%8D%E4%B8%8E-LEO%EF%BC%9A%E5%8F%AF%E8%A7%81%E6%80%A7%E7%9A%84%E8%BE%B9%E7%95%8C"><span class="toc-number">3.3.</span> <span class="toc-text">2.3 HW 高水位与 LEO：可见性的边界</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-4-Leader-Epoch%EF%BC%9A%E9%98%B2%E6%AD%A2%E6%95%B0%E6%8D%AE%E4%B8%A2%E5%A4%B1%E7%9A%84%E9%A2%9D%E5%A4%96%E4%BF%9D%E9%9A%9C"><span class="toc-number">3.4.</span> <span class="toc-text">2.4 Leader Epoch：防止数据丢失的额外保障</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-5-Leader-%E9%80%89%E4%B8%BE%E4%B8%8E%E5%8F%AF%E7%94%A8%E6%80%A7%E6%9D%83%E8%A1%A1"><span class="toc-number">3.5.</span> <span class="toc-text">2.5 Leader 选举与可用性权衡</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-6-%E5%8F%AF%E9%9D%A0%E6%80%A7%E9%85%8D%E7%BD%AE%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5"><span class="toc-number">3.6.</span> <span class="toc-text">2.6 可靠性配置最佳实践</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%89%E3%80%81%E6%B6%88%E8%B4%B9%E8%80%85%E7%BB%84%E4%B8%8E-Rebalance%EF%BC%9A%E7%81%B5%E6%B4%BB%E7%9A%84%E6%B6%88%E8%B4%B9%E6%A8%A1%E5%9E%8B"><span class="toc-number">4.</span> <span class="toc-text">三、消费者组与 Rebalance：灵活的消费模型</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#3-1-%E6%B6%88%E8%B4%B9%E8%80%85%E7%BB%84%E6%A0%B8%E5%BF%83%E8%A7%84%E5%88%99"><span class="toc-number">4.1.</span> <span class="toc-text">3.1 消费者组核心规则</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-2-%E6%B6%88%E8%B4%B9%E4%BD%8D%E7%A7%BB%E7%AE%A1%E7%90%86"><span class="toc-number">4.2.</span> <span class="toc-text">3.2 消费位移管理</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-3-%E5%88%86%E5%8C%BA%E5%88%86%E9%85%8D%E7%AD%96%E7%95%A5"><span class="toc-number">4.3.</span> <span class="toc-text">3.3 分区分配策略</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-4-Rebalance%EF%BC%9A%E9%87%8D%E5%B9%B3%E8%A1%A1%E5%85%A8%E8%A7%A3%E6%9E%90"><span class="toc-number">4.4.</span> <span class="toc-text">3.4 Rebalance：重平衡全解析</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E8%A7%A6%E5%8F%91-Rebalance-%E7%9A%84%E4%B8%89%E7%A7%8D%E5%9C%BA%E6%99%AF"><span class="toc-number">4.4.1.</span> <span class="toc-text">触发 Rebalance 的三种场景</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E7%BB%8F%E5%85%B8%E6%B6%88%E8%B4%B9%E8%80%85%E7%BB%84%E5%8D%8F%E8%AE%AE%E4%B8%8B%E7%9A%84-Rebalance-%E6%89%A7%E8%A1%8C%E8%BF%87%E7%A8%8B"><span class="toc-number">4.4.2.</span> <span class="toc-text">经典消费者组协议下的 Rebalance 执行过程</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#Rebalance-%E7%9A%84%E7%97%9B%E7%82%B9"><span class="toc-number">4.4.3.</span> <span class="toc-text">Rebalance 的痛点</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%BC%98%E5%8C%96%E5%BB%BA%E8%AE%AE"><span class="toc-number">4.4.4.</span> <span class="toc-text">优化建议</span></a></li></ol></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9B%9B%E3%80%81Exactly-Once-%E8%AF%AD%E4%B9%89%EF%BC%9A%E4%BB%8E%E7%90%86%E8%AE%BA%E5%88%B0%E5%B7%A5%E7%A8%8B%E5%AE%9E%E7%8E%B0"><span class="toc-number">5.</span> <span class="toc-text">四、Exactly-Once 语义：从理论到工程实现</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#4-1-%E5%85%88%E6%98%8E%E7%A1%AE%EF%BC%9AExactly-Once-%E6%9C%89%E8%BE%B9%E7%95%8C"><span class="toc-number">5.1.</span> <span class="toc-text">4.1 先明确：Exactly-Once 有边界</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-2-%E5%B9%82%E7%AD%89%E7%94%9F%E4%BA%A7%E8%80%85%EF%BC%9A%E5%8D%95%E5%88%86%E5%8C%BA%E4%B8%8D%E9%87%8D%E5%A4%8D"><span class="toc-number">5.2.</span> <span class="toc-text">4.2 幂等生产者：单分区不重复</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%AE%9E%E7%8E%B0%E5%8E%9F%E7%90%86"><span class="toc-number">5.2.1.</span> <span class="toc-text">实现原理</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E8%83%BD%E5%8A%9B%E8%BE%B9%E7%95%8C"><span class="toc-number">5.2.2.</span> <span class="toc-text">能力边界</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-3-Kafka-%E4%BA%8B%E5%8A%A1%EF%BC%9A%E8%B7%A8%E5%88%86%E5%8C%BA%E5%8E%9F%E5%AD%90%E5%86%99%E5%85%A5"><span class="toc-number">5.3.</span> <span class="toc-text">4.3 Kafka 事务：跨分区原子写入</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%A0%B8%E5%BF%83%E7%BB%84%E4%BB%B6"><span class="toc-number">5.3.1.</span> <span class="toc-text">核心组件</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%BD%BF%E7%94%A8%E6%96%B9%E5%BC%8F"><span class="toc-number">5.3.2.</span> <span class="toc-text">使用方式</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%B6%88%E8%B4%B9%E7%AB%AF%E9%85%8D%E5%90%88"><span class="toc-number">5.3.3.</span> <span class="toc-text">消费端配合</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-4-%E7%AB%AF%E5%88%B0%E7%AB%AF-Exactly-Once%EF%BC%9A%E8%AF%BB-%E5%A4%84%E7%90%86-%E5%86%99%E5%85%A8%E9%93%BE%E8%B7%AF"><span class="toc-number">5.4.</span> <span class="toc-text">4.4 端到端 Exactly-Once：读-处理-写全链路</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-5-%E7%90%86%E6%80%A7%E7%9C%8B%E5%BE%85-Exactly-Once"><span class="toc-number">5.5.</span> <span class="toc-text">4.5 理性看待 Exactly-Once</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%94%E3%80%81%E5%B8%B8%E8%A7%81%E8%AF%AF%E5%8C%BA%E6%BE%84%E6%B8%85"><span class="toc-number">6.</span> <span class="toc-text">五、常见误区澄清</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-%E2%80%9CKafka-%E5%8F%AA%E6%98%AF%E4%B8%AA%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97%E2%80%9D"><span class="toc-number">6.1.</span> <span class="toc-text">1. “Kafka 只是个消息队列”</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-%E2%80%9C%E5%88%86%E5%8C%BA%E6%95%B0%E8%B6%8A%E5%A4%9A%E5%90%9E%E5%90%90%E9%87%8F%E8%B6%8A%E9%AB%98%E2%80%9D"><span class="toc-number">6.2.</span> <span class="toc-text">2. “分区数越多吞吐量越高”</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-%E2%80%9CISR-%E9%87%8C%E7%9A%84%E5%89%AF%E6%9C%AC%E4%B8%80%E5%AE%9A%E6%98%AF%E5%85%A8%E9%87%8F%E5%90%8C%E6%AD%A5%E7%9A%84%E2%80%9D"><span class="toc-number">6.3.</span> <span class="toc-text">3. “ISR 里的副本一定是全量同步的”</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-%E2%80%9CExactly-Once-%E5%B0%B1%E6%98%AF%E5%AE%8C%E5%85%A8%E4%B8%8D%E4%BC%9A%E9%87%8D%E5%A4%8D%E2%80%9D"><span class="toc-number">6.4.</span> <span class="toc-text">4. “Exactly-Once 就是完全不会重复”</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%AD%E3%80%81%E9%9D%A2%E8%AF%95%E9%AB%98%E9%A2%91%E9%97%AE%E9%A2%98"><span class="toc-number">7.</span> <span class="toc-text">六、面试高频问题</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%86%99%E5%9C%A8%E6%9C%80%E5%90%8E"><span class="toc-number">8.</span> <span class="toc-text">写在最后</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"><img src="/../img/ai-10-ollama.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"/></a><div class="content"><a class="title" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成">Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成</a><time datetime="2026-07-22T02:00:00.000Z" title="发表于 2026-07-22 10:00:00">2026-07-22</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"><img src="/../img/ai-09-spring-ai.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"/></a><div class="content"><a class="title" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling">Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling</a><time datetime="2026-07-17T02:00:00.000Z" title="发表于 2026-07-17 10:00:00">2026-07-17</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"><img src="/../img/ai-08-vector-database.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"/></a><div class="content"><a class="title" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比">向量数据库选型实战：Chroma、Milvus 与 pgvector 对比</a><time datetime="2026-07-13T02:00:00.000Z" title="发表于 2026-07-13 10:00:00">2026-07-13</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度"><img src="/../img/ai-07-rag-evaluation.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 评估实战：Recall@K、MRR 与回答忠实度"/></a><div class="content"><a class="title" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度">RAG 评估实战：Recall@K、MRR 与回答忠实度</a><time datetime="2026-07-12T02:00:00.000Z" title="发表于 2026-07-12 10:00:00">2026-07-12</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"><img src="/../img/ai-06-rag-retrieval.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"/></a><div class="content"><a class="title" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker">RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker</a><time datetime="2026-07-09T02:00:00.000Z" title="发表于 2026-07-09 10:00:00">2026-07-09</time></div></div></div></div></div></div></main><footer id="footer"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2024 - 2026 By qjngbac</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 7.3.0</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.5.5</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.5.5"></script><script src="/js/main.js?v=5.5.5"></script><div class="js-pjax"></div><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

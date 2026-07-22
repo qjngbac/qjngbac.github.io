@@ -1,0 +1,663 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>手机屏幕技术深度解析：以OLED为例 | Wait</title><meta name="author" content="qjngbac"><meta name="copyright" content="qjngbac"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="你每天看手机屏幕超过 6 小时，但你真的了解它吗？  一、屏幕基础概念  1.1 像素与分辨率  屏幕是由无数个像素（Pixel）组成的，每个像素可以独立发光或显示颜色。     术语 含义 示例    分辨率 水平与垂直方向的像素数量 2796×1290（iPhone 14 Pro Max）   PPI 每英寸像素数，数值越高越细腻 460 PPI   FHD+ 非统一标准，通常指纵向像素多于">
+<meta property="og:type" content="article">
+<meta property="og:title" content="手机屏幕技术深度解析：以OLED为例">
+<meta property="og:url" content="https://qjngbac.github.io/2026/07/05/oled-screen-guide/index.html">
+<meta property="og:site_name" content="Wait">
+<meta property="og:description" content="你每天看手机屏幕超过 6 小时，但你真的了解它吗？  一、屏幕基础概念  1.1 像素与分辨率  屏幕是由无数个像素（Pixel）组成的，每个像素可以独立发光或显示颜色。     术语 含义 示例    分辨率 水平与垂直方向的像素数量 2796×1290（iPhone 14 Pro Max）   PPI 每英寸像素数，数值越高越细腻 460 PPI   FHD+ 非统一标准，通常指纵向像素多于">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://qjngbac.github.io/img/oled-cover.jpg">
+<meta property="article:published_time" content="2026-07-05T15:00:00.000Z">
+<meta property="article:modified_time" content="2026-07-19T07:13:46.878Z">
+<meta property="article:author" content="qjngbac">
+<meta property="article:tag" content="手机硬件">
+<meta property="article:tag" content="OLED">
+<meta property="article:tag" content="屏幕技术">
+<meta property="article:tag" content="显示技术">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://qjngbac.github.io/img/oled-cover.jpg"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "手机屏幕技术深度解析：以OLED为例",
+  "url": "https://qjngbac.github.io/2026/07/05/oled-screen-guide/",
+  "image": "https://qjngbac.github.io/img/oled-cover.jpg",
+  "datePublished": "2026-07-05T15:00:00.000Z",
+  "dateModified": "2026-07-19T07:13:46.878Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "qjngbac",
+      "url": "https://qjngbac.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://qjngbac.github.io/2026/07/05/oled-screen-guide/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.5.5"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        if (!ttl) return
+        const expiry = Date.now() + ttl * 86400000
+        localStorage.setItem(key, JSON.stringify({ value, expiry }))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return undefined
+        const { value, expiry } = JSON.parse(itemStr)
+        if (Date.now() > expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return value
+      }
+    }
+
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+        script.onload = script.onreadystatechange = () => {
+          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      }),
+      getCSS: (url, id) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onload = link.onreadystatechange = () => {
+          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+        }
+        link.onerror = reject
+        document.head.appendChild(link)
+      }),
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: true
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: '手机屏幕技术深度解析：以OLED为例',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="generator" content="Hexo 7.3.0"></head><body><div id="loading-box"><div class="loading-left-bg"></div><div class="loading-right-bg"></div><div class="spinner-box"><div class="configure-border-1"><div class="configure-core"></div></div><div class="configure-border-2"><div class="configure-core"></div></div><div class="loading-word">加载中...</div></div></div><script>(()=>{
+  const $loadingBox = document.getElementById('loading-box')
+  const $body = document.body
+  const preloader = {
+    endLoading: () => {
+      if ($loadingBox.classList.contains('loaded')) return
+      $body.style.overflow = ''
+      $loadingBox.classList.add('loaded')
+    },
+    initLoading: () => {
+      $body.style.overflow = 'hidden'
+      $loadingBox.classList.remove('loaded')
+    }
+  }
+
+  preloader.initLoading()
+
+  if (document.readyState === 'complete') {
+    preloader.endLoading()
+  } else {
+    window.addEventListener('load', preloader.endLoading)
+    document.addEventListener('DOMContentLoaded', preloader.endLoading)
+    // Add timeout protection: force end after 7 seconds
+    setTimeout(preloader.endLoading, 7000)
+  }
+
+  if (false) {
+    btf.addGlobalFn('pjaxSend', preloader.initLoading, 'preloader_init')
+    btf.addGlobalFn('pjaxComplete', preloader.endLoading, 'preloader_end')
+  }
+})()</script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">42</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">139</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(/img/oled-cover.jpg);"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">Wait</span></a><a class="nav-page-title" href="/"><span class="site-name">手机屏幕技术深度解析：以OLED为例</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">手机屏幕技术深度解析：以OLED为例</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-07-05T15:00:00.000Z" title="发表于 2026-07-05 23:00:00">2026-07-05</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-07-19T07:13:46.878Z" title="更新于 2026-07-19 15:13:46">2026-07-19</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/%E6%8A%80%E6%9C%AF%E7%A7%91%E6%99%AE/">技术科普</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><blockquote>你每天看手机屏幕超过 6 小时，但你真的了解它吗？</blockquote>
+
+<h2>一、屏幕基础概念</h2>
+
+<h3>1.1 像素与分辨率</h3>
+
+<p>屏幕是由无数个<strong>像素（Pixel）</strong>组成的，每个像素可以独立发光或显示颜色。</p>
+
+<table>
+<thead>
+<tr>
+<th>术语</th>
+<th>含义</th>
+<th>示例</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>分辨率</td>
+<td>水平与垂直方向的像素数量</td>
+<td>2796×1290（iPhone 14 Pro Max）</td>
+</tr>
+<tr>
+<td>PPI</td>
+<td>每英寸像素数，数值越高越细腻</td>
+<td>460 PPI</td>
+</tr>
+<tr>
+<td>FHD+</td>
+<td>非统一标准，通常指纵向像素多于 1920 的 1080P 屏</td>
+<td>2400×1080</td>
+</tr>
+<tr>
+<td>QHD &#x2F; QHD+</td>
+<td>约 2560×1440 或更长比例，手机宣传中常称“2K”</td>
+<td>3200×1440（QHD+ 示例）</td>
+</tr>
+</tbody></table>
+<p><strong>PPI 的计算公式：</strong></p>
+
+<p><code>PPI = √(水平像素² + 垂直像素²) / 屏幕尺寸(英寸)</code></p>
+<p>PPI 是否“足够”与观看距离、视力、子像素排列和显示内容有关。300 PPI 常被当作印刷或较远距离观看的经验参考，但在约 25cm 的手机观看距离下，部分用户仍能分辨更高像素密度带来的差异；因此不能只凭一个 PPI 数字判断清晰度。</p>
+
+<h3>1.2 色域与色准</h3>
+
+<p><strong>色域（Color Gamut）</strong>是屏幕能显示的颜色范围：</p>
+
+<table>
+<thead>
+<tr>
+<th>色域标准</th>
+<th>说明</th>
+<th>应用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>sRGB</td>
+<td>常见网络与消费级内容标准</td>
+<td>网页、日常使用</td>
+</tr>
+<tr>
+<td>DCI-P3 &#x2F; Display P3</td>
+<td>比 sRGB 覆盖更宽的红、绿色范围</td>
+<td>影院、手机与创作设备</td>
+</tr>
+<tr>
+<td>Rec.2020</td>
+<td>面向超高清电视的宽色域标准</td>
+<td>UHD&#x2F;HDR 内容与专业制作</td>
+</tr>
+</tbody></table>
+<p><strong>色准</strong>用 <strong>ΔE（Delta E）</strong>衡量：</p>
+
+<p>ΔE 越小通常表示实测颜色越接近参考值，但结论必须同时说明采用的公式（如 ΔE2000）、测试色样、亮度和白点。笼统地把“ΔE &lt; 1”写成所有人都无法分辨并不严谨；选购时应比较同一测试方法下的平均值、最大值与灰阶表现。</p>
+
+<h3>1.3 刷新率与触控采样率</h3>
+
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>含义</th>
+<th>主流值</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>刷新率</td>
+<td>每秒画面更新次数</td>
+<td>60Hz &#x2F; 90Hz &#x2F; 120Hz &#x2F; 144Hz</td>
+</tr>
+<tr>
+<td>触控采样率</td>
+<td>每秒检测触控的次数</td>
+<td>240Hz &#x2F; 480Hz &#x2F; 720Hz</td>
+</tr>
+</tbody></table>
+<p>刷新率越高，动画通常越流畅，但面板、显示驱动与应用渲染也会共同影响功耗。LTPO 背板有利于扩大可变刷新率范围；具体能否降到 1Hz、支持哪些档位，仍取决于面板和整机方案。</p>
+
+<h2>二、OLED 的工作原理</h2>
+
+<h3>2.1 什么是 OLED</h3>
+
+<p><strong>OLED（Organic Light-Emitting Diode）</strong>= 有机发光二极管。</p>
+
+<p>核心特点：<strong>自发光</strong>。每个像素自己就是光源，不需要背光模组。这和 LCD 完全不同——LCD 需要一整块背光板，再通过液晶分子控制光的通过量。</p>
+
+<pre><code>LCD 结构（从下到上）：
+┌─────────────────────┐
+│      偏光片          │
+├─────────────────────┤
+│      彩色滤光片      │
+├─────────────────────┤
+│      液晶层          │ ← 控制光的通过
+├─────────────────────┤
+│      背光模组        │ ← 整块发光
+└─────────────────────┘
+
+OLED 结构（从下到上）：
+┌─────────────────────┐
+│      封装层          │
+├─────────────────────┤
+│   有机发光层         │ ← 每个像素独立发光
+├─────────────────────┤
+│      TFT 驱动层     │
+└─────────────────────┘</code></pre>
+
+<h3>2.2 OLED 的发光原理</h3>
+
+<p>OLED 的核心是<strong>有机材料层</strong>，通电后电子和空穴在有机层中复合，释放能量以光的形式发出。</p>
+
+<p>一个 OLED 像素的典型结构：</p>
+
+<pre><code>阴极（金属）
+   ↓
+电子传输层（ETL）
+   ↓
+发光层（EML）  ← 红/绿/蓝有机材料
+   ↓
+空穴传输层（HTL）
+   ↓
+阳极（ITO 透明导电层）
+   ↓
+基板（玻璃/塑料）</code></pre>
+
+<p>不同有机材料发出不同颜色的光：</p>
+
+<ul>
+<li><strong>红色</strong>：磷光铱配合物</li>
+<li><strong>绿色</strong>：磷光铱配合物（效率最高）</li>
+<li><strong>蓝色</strong>：荧光材料（寿命最短，是技术瓶颈）</li>
+</ul>
+
+<h3>2.3 AMOLED vs PMOLED</h3>
+
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>驱动方式</th>
+<th>应用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>PMOLED（被动矩阵）</td>
+<td>逐行扫描，简单但低效</td>
+<td>小型设备、手环</td>
+</tr>
+<tr>
+<td>AMOLED（主动矩阵）</td>
+<td>每个像素有独立 TFT 驱动</td>
+<td>手机、电视</td>
+</tr>
+</tbody></table>
+<p>当前智能手机使用的 OLED 面板绝大多数属于 <strong>AMOLED</strong>；PMOLED 更常见于尺寸较小、显示内容较简单的设备。</p>
+
+<h2>三、OLED 的关键参数</h2>
+
+<h3>3.1 亮度</h3>
+
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>含义</th>
+<th>旗舰水平</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>典型亮度</td>
+<td>常规模式下的参考亮度</td>
+<td>需结合厂商测试条件</td>
+</tr>
+<tr>
+<td>峰值亮度</td>
+<td>小窗口 HDR 高光或特定场景的瞬时亮度</td>
+<td>不能代表全屏持续亮度</td>
+</tr>
+<tr>
+<td>全屏亮度</td>
+<td>高 APL（平均画面亮度）下的持续亮度</td>
+<td>通常明显低于局部峰值</td>
+</tr>
+</tbody></table>
+<p><strong>为什么峰值亮度比全屏亮度高？</strong></p>
+
+<p>因为 OLED 每个像素独立供电，局部高亮时电流集中，散热可控。全屏高亮时功耗和发热都会成为瓶颈。</p>
+
+<h3>3.2 PWM 调光</h3>
+
+<p>OLED 调节亮度有两种方式：</p>
+
+<table>
+<thead>
+<tr>
+<th>方式</th>
+<th>原理</th>
+<th>优缺点</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>DC 调光</td>
+<td>直接改变电流大小</td>
+<td>低亮度时色偏严重</td>
+</tr>
+<tr>
+<td>PWM 调光</td>
+<td>周期性调节发光时间占比</td>
+<td>部分敏感用户在特定条件下可能不适</td>
+</tr>
+</tbody></table>
+<p><strong>PWM 频率</strong>：</p>
+
+<p>频闪体验不能只看频率，还要同时看调制深度、占空比、波形、屏幕亮度和个人敏感程度。较高频率通常有利于降低可感知频闪，但“1920Hz 就一定无感或安全”并不成立；类 DC 调光也可能在低亮度色准、灰阶或均匀性之间做取舍。</p>
+
+<h3>3.3 LTPO 技术</h3>
+
+<p><strong>LTPO（Low-Temperature Polycrystalline Oxide）</strong>是一类结合低温多晶硅与氧化物 TFT 特性的背板方案，可降低低刷新率下的驱动功耗，并支持更宽的可变刷新率范围。1Hz~120Hz 是部分产品的实现，并非 LTPO 本身保证的固定范围。</p>
+
+<pre><code>场景 → 刷新率：
+滑动列表 → 120Hz（流畅）
+看静态图片 → 1Hz（省电）
+播放视频 → 匹配帧率（24/30/60Hz）
+息屏显示 → 1Hz（极低功耗）</code></pre>
+
+<p>市场上常见的“LTPO 2.0、3.0”等名称多为厂商营销口径，并不是统一行业标准。比较产品时，更应关注最低刷新率、切换策略、触控场景是否锁高刷，以及实测功耗。</p>
+
+<h3>3.4 排列方式</h3>
+
+<p>OLED 子像素的排列方式直接影响清晰度：</p>
+
+<table>
+<thead>
+<tr>
+<th>排列</th>
+<th>特点</th>
+<th>代表</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>RGB Stripe</td>
+<td>标准排列，最清晰</td>
+<td>LCD 屏幕</td>
+</tr>
+<tr>
+<td>Pentile（钻石排列）</td>
+<td>绿色像素多，红蓝共享</td>
+<td>三星 AMOLED</td>
+</tr>
+<tr>
+<td>类钻排列</td>
+<td>各厂商变体</td>
+<td>京东方、维信诺</td>
+</tr>
+<tr>
+<td>Delta 排列</td>
+<td>三角形排列</td>
+<td>少数 OLED 面板</td>
+</tr>
+</tbody></table>
+<p><strong>为什么 Pentile 排列争议大？</strong></p>
+
+<p>同样标称分辨率下，Pentile 排列的红、蓝子像素数量通常少于 RGB Stripe，细小文字和彩色边缘的观感可能不同。但不存在适用于所有面板和内容的固定“70%~80% 等效清晰度”，还要结合像素密度、渲染算法与观看距离判断。</p>
+
+<h2>四、OLED vs LCD</h2>
+
+<table>
+<thead>
+<tr>
+<th>对比项</th>
+<th>OLED</th>
+<th>LCD</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>发光方式</td>
+<td>自发光</td>
+<td>需要背光</td>
+</tr>
+<tr>
+<td>黑色表现</td>
+<td>纯黑（像素关闭）</td>
+<td>灰黑（背光漏光）</td>
+</tr>
+<tr>
+<td>对比度</td>
+<td>暗室静态对比度极高</td>
+<td>受面板类型与背光分区影响</td>
+</tr>
+<tr>
+<td>厚度</td>
+<td>更薄（无背光层）</td>
+<td>较厚</td>
+</tr>
+<tr>
+<td>可弯折</td>
+<td>柔性基板产品可以弯折</td>
+<td>常规手机 LCD 较难弯折</td>
+</tr>
+<tr>
+<td>功耗</td>
+<td>与画面内容和亮度强相关</td>
+<td>主要受背光亮度影响</td>
+</tr>
+<tr>
+<td>寿命</td>
+<td>蓝色有机材料衰减快</td>
+<td>相对更长</td>
+</tr>
+<tr>
+<td>烧屏风险</td>
+<td>有（长时间显示固定画面）</td>
+<td>几乎没有</td>
+</tr>
+<tr>
+<td>成本</td>
+<td>较高</td>
+<td>较低</td>
+</tr>
+</tbody></table>
+<h2>五、OLED 的技术分支</h2>
+
+<h3>5.1 柔性 OLED（Flexible OLED）</h3>
+
+<p>基板从玻璃换成<strong>聚酰亚胺（PI）塑料</strong>，可以弯折、卷曲。</p>
+
+<p>应用：</p>
+
+<ul>
+<li>曲面屏（三星 Galaxy Edge 系列）</li>
+<li>折叠屏（Galaxy Z Fold、华为 Mate X）</li>
+<li>卷轴屏（概念产品）</li>
+</ul>
+
+<h3>5.2 Micro OLED / Micro LED</h3>
+
+<table>
+<thead>
+<tr>
+<th>技术</th>
+<th>特点</th>
+<th>应用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Micro OLED</td>
+<td>硅基 OLED（OLED-on-Silicon），超高 PPI</td>
+<td>Apple Vision Pro</td>
+</tr>
+<tr>
+<td>Micro LED</td>
+<td>无机自发光、亮度和寿命潜力高</td>
+<td>量产与巨量转移难度高</td>
+</tr>
+</tbody></table>
+<p>Micro LED 被视为重要的下一代显示路线，但仍可能发生像素老化、亮度不均与坏点等问题；其成本也受尺寸、良率和制造方式影响，不能用固定的“OLED 十倍”概括。</p>
+
+<h2>六、屏幕供应商</h2>
+
+<table>
+<thead>
+<tr>
+<th>供应商</th>
+<th>特点</th>
+<th>客户</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>三星显示（SDC）</td>
+<td>中小尺寸 OLED 量产经验丰富</td>
+<td>手机、穿戴与 IT 设备</td>
+</tr>
+<tr>
+<td>LG Display（LGD）</td>
+<td>大尺寸 OLED 与车载显示布局较深</td>
+<td>电视、手机与车载设备</td>
+</tr>
+<tr>
+<td>京东方（BOE）</td>
+<td>LCD 与柔性 OLED 产品线广</td>
+<td>手机、IT 与车载设备</td>
+</tr>
+<tr>
+<td>维信诺（Visionox）</td>
+<td>柔性 OLED 与新型显示布局</td>
+<td>手机与穿戴设备</td>
+</tr>
+<tr>
+<td>天马微电子（Tianma）</td>
+<td>中小尺寸显示覆盖面广</td>
+<td>手机、车载与工业设备</td>
+</tr>
+<tr>
+<td>华星光电（CSOT）</td>
+<td>大尺寸显示与 OLED 持续投入</td>
+<td>电视、手机与 IT 设备</td>
+</tr>
+</tbody></table>
+<p><strong>"屏幕混用"现象</strong>：部分机型可能按批次采用不同供应商或不同版本的面板，但都应满足整机厂的规格要求。具体供应关系会随型号和批次变化，不宜仅凭品牌表格推断手中设备的面板。</p>
+
+<h2>七、选购建议</h2>
+
+<h3>7.1 关键参数优先级</h3>
+
+<p>参数没有适用于所有人的固定优先级。户外使用者应先看持续高亮与反射率，内容创作者重视色准与色彩管理，游戏用户关注刷新率、响应时间和触控延迟，频闪敏感用户则应优先查看完整调光实测。</p>
+
+<h3>7.2 不同需求的侧重点</h3>
+
+<table>
+<thead>
+<tr>
+<th>需求</th>
+<th>重点关注</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>户外使用</td>
+<td>关注高亮模式下的持续亮度、反射率与温控</td>
+</tr>
+<tr>
+<td>频闪敏感</td>
+<td>结合频率、调制深度和低亮度实测，最好亲自体验</td>
+</tr>
+<tr>
+<td>看视频</td>
+<td>DCI-P3 色域、HDR10+ &#x2F; Dolby Vision</td>
+</tr>
+<tr>
+<td>游戏</td>
+<td>120Hz+、低触控延迟</td>
+</tr>
+<tr>
+<td>折叠屏</td>
+<td>关注折痕、UTG 玻璃厚度</td>
+</tr>
+</tbody></table>
+<h2>八、常见问题</h2>
+
+<p><strong>Q：OLED 烧屏怎么办？</strong></p>
+<p>A：避免在高亮度下长时间显示固定画面，使用自动亮度并让系统保持像素偏移、补偿等保护机制开启。烧屏取决于累计亮度、温度、内容与面板老化，无法承诺固定年限内一定不会发生。</p>
+
+<p><strong>Q：PWM 调光真的伤眼吗？</strong></p>
+<p>A：频闪可能令部分敏感用户在低亮度下感到眼疲劳、头痛或不适，但不能用单一频率判断影响。选购时应查看频率与调制深度的完整实测，并亲自测试常用亮度；“护眼模式”主要调节色温，也不等同于消除频闪。</p>
+
+<p><strong>Q：2K 屏幕比 1080P 耗电多少？</strong></p>
+<p>A：没有固定比例。更高分辨率会增加 GPU 渲染和部分显示链路负担，但实际差异还取决于应用是否原生渲染、刷新率、面板、亮度和 SoC。应以具体机型在相同条件下的续航测试为准。</p>
+
+<hr>
+
+<p><em>参考资料：三星显示技术白皮书、DisplayMate 屏幕评测、DXOMARK 显示评分标准</em></p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://qjngbac.github.io">qjngbac</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://qjngbac.github.io/2026/07/05/oled-screen-guide/">https://qjngbac.github.io/2026/07/05/oled-screen-guide/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://qjngbac.github.io" target="_blank">Wait</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/%E6%89%8B%E6%9C%BA%E7%A1%AC%E4%BB%B6/">手机硬件</a><a class="post-meta__tags" href="/tags/OLED/">OLED</a><a class="post-meta__tags" href="/tags/%E5%B1%8F%E5%B9%95%E6%8A%80%E6%9C%AF/">屏幕技术</a><a class="post-meta__tags" href="/tags/%E6%98%BE%E7%A4%BA%E6%8A%80%E6%9C%AF/">显示技术</a></div><div class="post-share"><div class="social-share" data-image="/img/oled-cover.jpg" data-sites="facebook,x,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/2026/07/07/git-docker-linux-interview/" title="Git、Docker、Linux 面试高频问答：后端开发必会的三大基本功"><img class="cover" src="/img/git-docker-linux-cover.jpg" onerror="onerror=null;src='/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">Git、Docker、Linux 面试高频问答：后端开发必会的三大基本功</div></div><div class="info-2"><div class="info-item-1">前言面试中，Git、Docker、Linux 这三个工具几乎每场都会被问到。很多人觉得”会用就行”，但面试官问的不是”你会不会敲命令”，而是”你理不理解背后的原理”。 本文整理了这三个方向的高频面试题，每个问题都给出简洁但有深度的回答。不是命令手册，而是帮你建立知识框架。  一、Git 篇Q1：Git 的工作区域有哪些？Git 本地有三个核心区域，配合一个远程仓库： 1234567工作区（Working Directory）    ↓ git add暂存区（Stage / Index）    ↓ git commit本地仓库（Local Repository）    ↓ git push远程仓库（Remote Repository）   工作区：你正在编辑的文件目录 暂存区：git add 后文件的临时存储区，准备提交 本地仓库：git commit 后文件存储的地方，完整历史记录 远程仓库：GitHub&#x2F;GitLab 等托管平台  Q2：git merge 和 git rebase 有什么区别？   对比项 merge rebase    提交历史 保留已有提交；必要...</div></div></div></a><a class="pagination-related" href="/2026/07/04/05-langchain-rag/" title="LangChain RAG 实战：从文档入库到可追溯问答"><img class="cover" src="/../img/ai-05-langchain-rag.jpg" onerror="onerror=null;src='/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">LangChain RAG 实战：从文档入库到可追溯问答</div></div><div class="info-2"><div class="info-item-1">前言大模型能够回答大量通用问题，但它不知道你的私有文档，也可能使用过时知识或生成没有依据的内容。RAG（Retrieval-Augmented Generation，检索增强生成）通过“先检索、再生成”把外部知识放进模型上下文，使回答能够参考知识库并附带来源。 RAG 不能彻底消除幻觉。检索可能漏掉正确文档，切分可能破坏语义，生成模型也可能误读上下文。因此，一个合格的 RAG 系统不仅要能回答，还要保存稳定文档标识、展示引用，并在资料不足时明确降级。 本文使用 LangChain、Chroma 和 Markdown 文档搭建一条可运行的基础链路：文档加载、标题感知切分、Embedding、向量入库、Top-K 检索、带引用生成和无资料拒答。  一、RAG 的完整链路12345离线入库：文档 → 解析 → 切分 → 元数据 → Embedding → 向量库在线问答：问题 → Embedding → 相似度检索 → 上下文组装 → LLM → 答案 + 引用  两条链路要分开设计：文档更新不应阻塞每次问答；在线请求也不应临时重新切分整个知识库。  基础问答通常采用确定的“两步 RA...</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/2026/07/02/android-hardware-guide/" title="安卓手机硬件全解析：从芯片到屏幕，一文看懂所有配置"><img class="cover" src="/img/android-hardware-cover.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-02</div><div class="info-item-2">安卓手机硬件全解析：从芯片到屏幕，一文看懂所有配置</div></div><div class="info-2"><div class="info-item-1">前言  每次看到手机发布会，满屏的参数让人眼花缭乱：骁龙8 Gen3、LPDDR5X、UFS 4.0、1/1.3英寸大底、2K LTPO……这些参数到底意味着什么？哪个更重要？  这篇文章将从硬件工程师的视角，带你逐个拆解安卓手机的每一个核心硬件模块。看完之后，你将能够独立判断一部手机的硬件水平。  一、处理器（SoC）—— 手机的大脑  1.1 什么是 SoC  手机里的"CPU"其实不是单纯的 CPU，而是一颗 SoC（System on Chip，片上系统）。它把多个模块集成在一颗芯片上：  SoC 内部结构： ┌──────────────────────────────────────┐ │           SoC（片上系统）              │ │                                      │ │  ┌─────────┐  ┌─────────┐            │ │  │  CPU    │  │  GPU    │            │ │  │ 大中小核 │  │ 图形处理  │            ...</div></div></div></a></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">qjngbac</div><div class="author-info-description">一个正在学习的开发者</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">42</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">139</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/qjngbac"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/qjngbac" target="_blank" title="Github"><i class="fab fa-github"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到我的博客</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link"><span class="toc-number">1.</span> <span class="toc-text">一、屏幕基础概念</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link"><span class="toc-number">1.1.</span> <span class="toc-text">1.1 像素与分辨率</span></a></li><li class="toc-item toc-level-3"><a class="toc-link"><span class="toc-number">1.2.</span> <span class="toc-text">1.2 色域与色准</span></a></li><li class="toc-item toc-level-3"><a class="toc-link"><span class="toc-number">1.3.</span> <span class="toc-text">1.3 刷新率与触控采样率</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link"><span class="toc-number">2.</span> <span class="toc-text">二、OLED 的工作原理</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link"><span class="toc-number">2.1.</span> <span class="toc-text">2.1 什么是 OLED</span></a></li><li class="toc-item toc-level-3"><a class="toc-link"><span class="toc-number">2.2.</span> <span class="toc-text">2.2 OLED 的发光原理</span></a></li><li class="toc-item toc-level-3"><a class="toc-link"><span class="toc-number">2.3.</span> <span class="toc-text">2.3 AMOLED vs PMOLED</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link"><span class="toc-number">3.</span> <span class="toc-text">三、OLED 的关键参数</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link"><span class="toc-number">3.1.</span> <span class="toc-text">3.1 亮度</span></a></li><li class="toc-item toc-level-3"><a class="toc-link"><span class="toc-number">3.2.</span> <span class="toc-text">3.2 PWM 调光</span></a></li><li class="toc-item toc-level-3"><a class="toc-link"><span class="toc-number">3.3.</span> <span class="toc-text">3.3 LTPO 技术</span></a></li><li class="toc-item toc-level-3"><a class="toc-link"><span class="toc-number">3.4.</span> <span class="toc-text">3.4 排列方式</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link"><span class="toc-number">4.</span> <span class="toc-text">四、OLED vs LCD</span></a></li><li class="toc-item toc-level-2"><a class="toc-link"><span class="toc-number">5.</span> <span class="toc-text">五、OLED 的技术分支</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link"><span class="toc-number">5.1.</span> <span class="toc-text">5.1 柔性 OLED（Flexible OLED）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link"><span class="toc-number">5.2.</span> <span class="toc-text">5.2 Micro OLED &#x2F; Micro LED</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link"><span class="toc-number">6.</span> <span class="toc-text">六、屏幕供应商</span></a></li><li class="toc-item toc-level-2"><a class="toc-link"><span class="toc-number">7.</span> <span class="toc-text">七、选购建议</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link"><span class="toc-number">7.1.</span> <span class="toc-text">7.1 关键参数优先级</span></a></li><li class="toc-item toc-level-3"><a class="toc-link"><span class="toc-number">7.2.</span> <span class="toc-text">7.2 不同需求的侧重点</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link"><span class="toc-number">8.</span> <span class="toc-text">八、常见问题</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"><img src="/../img/ai-10-ollama.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"/></a><div class="content"><a class="title" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成">Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成</a><time datetime="2026-07-22T02:00:00.000Z" title="发表于 2026-07-22 10:00:00">2026-07-22</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"><img src="/../img/ai-09-spring-ai.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"/></a><div class="content"><a class="title" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling">Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling</a><time datetime="2026-07-17T02:00:00.000Z" title="发表于 2026-07-17 10:00:00">2026-07-17</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"><img src="/../img/ai-08-vector-database.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"/></a><div class="content"><a class="title" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比">向量数据库选型实战：Chroma、Milvus 与 pgvector 对比</a><time datetime="2026-07-13T02:00:00.000Z" title="发表于 2026-07-13 10:00:00">2026-07-13</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度"><img src="/../img/ai-07-rag-evaluation.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 评估实战：Recall@K、MRR 与回答忠实度"/></a><div class="content"><a class="title" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度">RAG 评估实战：Recall@K、MRR 与回答忠实度</a><time datetime="2026-07-12T02:00:00.000Z" title="发表于 2026-07-12 10:00:00">2026-07-12</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"><img src="/../img/ai-06-rag-retrieval.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"/></a><div class="content"><a class="title" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker">RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker</a><time datetime="2026-07-09T02:00:00.000Z" title="发表于 2026-07-09 10:00:00">2026-07-09</time></div></div></div></div></div></div></main><footer id="footer"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2024 - 2026 By qjngbac</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 7.3.0</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.5.5</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.5.5"></script><script src="/js/main.js?v=5.5.5"></script><div class="js-pjax"></div><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

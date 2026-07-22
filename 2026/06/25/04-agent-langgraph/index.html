@@ -1,0 +1,429 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>AI Agent 工程化实战：从工具调用到 LangGraph 状态工作流 | Wait</title><meta name="author" content="qjngbac"><meta name="copyright" content="qjngbac"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="前言Function Calling 解决了“模型如何请求工具”，但一个完整任务往往不止一次调用：先判断是否需要检索，再查询知识库；检索结果不足时改写问题；涉及写操作时暂停等待用户确认；工具失败后决定重试、降级还是结束。 这时仅靠一个 while 循环会越来越难维护。AI Agent 的工程价值，就是把模型、工具、状态和执行循环组织起来。LangChain 提供较高层的 Agent 接口，Lang">
+<meta property="og:type" content="article">
+<meta property="og:title" content="AI Agent 工程化实战：从工具调用到 LangGraph 状态工作流">
+<meta property="og:url" content="https://qjngbac.github.io/2026/06/25/04-agent-langgraph/index.html">
+<meta property="og:site_name" content="Wait">
+<meta property="og:description" content="前言Function Calling 解决了“模型如何请求工具”，但一个完整任务往往不止一次调用：先判断是否需要检索，再查询知识库；检索结果不足时改写问题；涉及写操作时暂停等待用户确认；工具失败后决定重试、降级还是结束。 这时仅靠一个 while 循环会越来越难维护。AI Agent 的工程价值，就是把模型、工具、状态和执行循环组织起来。LangChain 提供较高层的 Agent 接口，Lang">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://qjngbac.github.io/img/ai-04-agent-langgraph.jpg">
+<meta property="article:published_time" content="2026-06-25T02:00:00.000Z">
+<meta property="article:modified_time" content="2026-07-19T09:12:37.624Z">
+<meta property="article:author" content="qjngbac">
+<meta property="article:tag" content="AI工程">
+<meta property="article:tag" content="面试">
+<meta property="article:tag" content="AI Agent">
+<meta property="article:tag" content="LangChain">
+<meta property="article:tag" content="LangGraph">
+<meta property="article:tag" content="ReAct">
+<meta property="article:tag" content="状态机">
+<meta property="article:tag" content="工具调用">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://qjngbac.github.io/img/ai-04-agent-langgraph.jpg"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "AI Agent 工程化实战：从工具调用到 LangGraph 状态工作流",
+  "url": "https://qjngbac.github.io/2026/06/25/04-agent-langgraph/",
+  "image": "https://qjngbac.github.io/img/ai-04-agent-langgraph.jpg",
+  "datePublished": "2026-06-25T02:00:00.000Z",
+  "dateModified": "2026-07-19T09:12:37.624Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "qjngbac",
+      "url": "https://qjngbac.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://qjngbac.github.io/2026/06/25/04-agent-langgraph/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.5.5"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        if (!ttl) return
+        const expiry = Date.now() + ttl * 86400000
+        localStorage.setItem(key, JSON.stringify({ value, expiry }))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return undefined
+        const { value, expiry } = JSON.parse(itemStr)
+        if (Date.now() > expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return value
+      }
+    }
+
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+        script.onload = script.onreadystatechange = () => {
+          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      }),
+      getCSS: (url, id) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onload = link.onreadystatechange = () => {
+          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+        }
+        link.onerror = reject
+        document.head.appendChild(link)
+      }),
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: true
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'AI Agent 工程化实战：从工具调用到 LangGraph 状态工作流',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="generator" content="Hexo 7.3.0"></head><body><div id="loading-box"><div class="loading-left-bg"></div><div class="loading-right-bg"></div><div class="spinner-box"><div class="configure-border-1"><div class="configure-core"></div></div><div class="configure-border-2"><div class="configure-core"></div></div><div class="loading-word">加载中...</div></div></div><script>(()=>{
+  const $loadingBox = document.getElementById('loading-box')
+  const $body = document.body
+  const preloader = {
+    endLoading: () => {
+      if ($loadingBox.classList.contains('loaded')) return
+      $body.style.overflow = ''
+      $loadingBox.classList.add('loaded')
+    },
+    initLoading: () => {
+      $body.style.overflow = 'hidden'
+      $loadingBox.classList.remove('loaded')
+    }
+  }
+
+  preloader.initLoading()
+
+  if (document.readyState === 'complete') {
+    preloader.endLoading()
+  } else {
+    window.addEventListener('load', preloader.endLoading)
+    document.addEventListener('DOMContentLoaded', preloader.endLoading)
+    // Add timeout protection: force end after 7 seconds
+    setTimeout(preloader.endLoading, 7000)
+  }
+
+  if (false) {
+    btf.addGlobalFn('pjaxSend', preloader.initLoading, 'preloader_init')
+    btf.addGlobalFn('pjaxComplete', preloader.endLoading, 'preloader_end')
+  }
+})()</script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">42</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">139</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(/../img/ai-04-agent-langgraph.jpg);"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">Wait</span></a><a class="nav-page-title" href="/"><span class="site-name">AI Agent 工程化实战：从工具调用到 LangGraph 状态工作流</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">AI Agent 工程化实战：从工具调用到 LangGraph 状态工作流</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-06-25T02:00:00.000Z" title="发表于 2026-06-25 10:00:00">2026-06-25</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-07-19T09:12:37.624Z" title="更新于 2026-07-19 17:12:37">2026-07-19</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/AI%E5%B7%A5%E7%A8%8B/">AI工程</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>Function Calling 解决了“模型如何请求工具”，但一个完整任务往往不止一次调用：先判断是否需要检索，再查询知识库；检索结果不足时改写问题；涉及写操作时暂停等待用户确认；工具失败后决定重试、降级还是结束。</p>
+<p>这时仅靠一个 while 循环会越来越难维护。AI Agent 的工程价值，就是把模型、工具、状态和执行循环组织起来。LangChain 提供较高层的 Agent 接口，LangGraph 则提供低层、状态化、可持久化的图工作流，适合需要明确节点、分支、恢复和人工介入的场景。</p>
+<p>本文不追求“万能自主 Agent”，而是以一个后端知识助手为例，讲清 Workflow 与 Agent、ReAct、工具调用、状态管理、LangGraph 图结构、持久化和安全边界。</p>
+<hr>
+<h2 id="一、Workflow-和-Agent-的区别"><a href="#一、Workflow-和-Agent-的区别" class="headerlink" title="一、Workflow 和 Agent 的区别"></a>一、Workflow 和 Agent 的区别</h2><table>
+<thead>
+<tr>
+<th>维度</th>
+<th>Workflow</th>
+<th>Agent</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>执行路径</td>
+<td>代码预先定义</td>
+<td>模型在运行时参与决定</td>
+</tr>
+<tr>
+<td>可预测性</td>
+<td>较高</td>
+<td>较低</td>
+</tr>
+<tr>
+<td>调试难度</td>
+<td>较低</td>
+<td>较高</td>
+</tr>
+<tr>
+<td>适用场景</td>
+<td>固定审批、ETL、确定性流程</td>
+<td>开放问题、多工具选择</td>
+</tr>
+<tr>
+<td>成本控制</td>
+<td>容易</td>
+<td>需要步数和预算限制</td>
+</tr>
+</tbody></table>
+<p>例如：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">上传文档 → 解析 → 切分 → Embedding → 入库</span><br></pre></td></tr></table></figure>
+
+<p>这是确定性 Workflow，不需要 Agent 决定下一步。</p>
+<p>而用户问：</p>
+<blockquote>
+<p>Redis 分布式锁有哪些问题？如果知识库没有，就说明资料不足。</p>
+</blockquote>
+<p>系统需要判断是否检索、检索什么、是否二次检索，再组织答案，适合有限 Agent 或带模型路由的工作流。</p>
+<blockquote>
+<p>不要把所有业务流程都 Agent 化。路径明确时，普通代码和状态机通常更稳定、更便宜。</p>
+</blockquote>
+<hr>
+<h2 id="二、Agent-的基本组成"><a href="#二、Agent-的基本组成" class="headerlink" title="二、Agent 的基本组成"></a>二、Agent 的基本组成</h2><p>可以把 Agent 理解为：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Agent = Model + Tools + State + Execution Loop + Guardrails</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><strong>Model</strong>：理解任务、选择工具或生成答案</li>
+<li><strong>Tools</strong>：检索、数据库查询、业务 API</li>
+<li><strong>State</strong>：消息、用户身份、检索结果、步骤计数</li>
+<li><strong>Loop</strong>：调用模型、执行工具、继续判断</li>
+<li><strong>Guardrails</strong>：权限、预算、步数、超时和人工确认</li>
+</ul>
+<h3 id="2-1-ReAct-是什么"><a href="#2-1-ReAct-是什么" class="headerlink" title="2.1 ReAct 是什么"></a>2.1 ReAct 是什么</h3><p>ReAct 的核心思想是让模型在推理和行动之间循环：观察当前信息，决定一个动作，读取动作结果，再决定下一步。</p>
+<p>工程实现中，不必把模型的完整内部推理展示给用户。更重要的是记录可观测事件：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">模型选择了哪个工具</span><br><span class="line">传入了什么经过校验的参数</span><br><span class="line">工具返回什么结果</span><br><span class="line">下一步走向哪个节点</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="三、用-LangChain-快速创建一个工具-Agent"><a href="#三、用-LangChain-快速创建一个工具-Agent" class="headerlink" title="三、用 LangChain 快速创建一个工具 Agent"></a>三、用 LangChain 快速创建一个工具 Agent</h2><p>当前 LangChain 高层 Agent 可以通过 <code>create_agent</code> 创建。示例：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">pip install langchain langchain-openai</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> os</span><br><span class="line"><span class="keyword">from</span> langchain.agents <span class="keyword">import</span> create_agent</span><br><span class="line"><span class="keyword">from</span> langchain.tools <span class="keyword">import</span> tool</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="meta">@tool</span></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">search_knowledge_base</span>(<span class="params">query: <span class="built_in">str</span></span>) -&gt; <span class="built_in">str</span>:</span><br><span class="line">    <span class="string">&quot;&quot;&quot;检索后端技术知识库，返回相关片段及来源。&quot;&quot;&quot;</span></span><br><span class="line">    <span class="keyword">return</span> <span class="string">&quot;[示例] Redis SET NX PX 可用于原子加锁，但仍需考虑误删和续期。&quot;</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line">agent = create_agent(</span><br><span class="line">    model=os.environ[<span class="string">&quot;LANGCHAIN_MODEL&quot;</span>],</span><br><span class="line">    tools=[search_knowledge_base],</span><br><span class="line">    system_prompt=(</span><br><span class="line">        <span class="string">&quot;你是后端技术助手。技术问题优先使用知识库工具；&quot;</span></span><br><span class="line">        <span class="string">&quot;资料不足时明确说明，不要虚构来源。&quot;</span></span><br><span class="line">    ),</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">result = agent.invoke(&#123;</span><br><span class="line">    <span class="string">&quot;messages&quot;</span>: [</span><br><span class="line">        &#123;<span class="string">&quot;role&quot;</span>: <span class="string">&quot;user&quot;</span>, <span class="string">&quot;content&quot;</span>: <span class="string">&quot;Redis 分布式锁有什么风险？&quot;</span>&#125;</span><br><span class="line">    ]</span><br><span class="line">&#125;)</span><br><span class="line"></span><br><span class="line"><span class="built_in">print</span>(result[<span class="string">&quot;messages&quot;</span>][-<span class="number">1</span>].content)</span><br></pre></td></tr></table></figure>
+
+<p>工具函数的 docstring 会影响模型是否正确选择工具，应写清楚用途、输入和边界。</p>
+<p>高层 Agent 适合快速搭建；当你需要固定审核节点、复杂分支和恢复能力时，再使用 LangGraph 自定义图。</p>
+<hr>
+<h2 id="四、LangGraph-的核心：状态、节点和边"><a href="#四、LangGraph-的核心：状态、节点和边" class="headerlink" title="四、LangGraph 的核心：状态、节点和边"></a>四、LangGraph 的核心：状态、节点和边</h2><p>LangGraph 将流程表示为图：</p>
+<ul>
+<li><strong>State</strong>：整个流程共享的数据</li>
+<li><strong>Node</strong>：执行一个步骤的函数</li>
+<li><strong>Edge</strong>：节点之间的固定或条件跳转</li>
+</ul>
+<p>一个简化 RAG Agent：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">START</span><br><span class="line">  ↓</span><br><span class="line">判断是否需要检索</span><br><span class="line">  ├─ 否 → 直接回答 → END</span><br><span class="line">  └─ 是 → 检索</span><br><span class="line">             ↓</span><br><span class="line">        判断检索质量</span><br><span class="line">          ├─ 足够 → 生成答案 → END</span><br><span class="line">          └─ 不足 → 改写查询 → 再检索</span><br></pre></td></tr></table></figure>
+
+<p><img src="/../img/ai-langgraph-state-workflow.png" alt="LangGraph 状态工作流与中断恢复"></p>
+<h3 id="4-1-定义状态"><a href="#4-1-定义状态" class="headerlink" title="4.1 定义状态"></a>4.1 定义状态</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> typing <span class="keyword">import</span> NotRequired, TypedDict</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">AgentState</span>(<span class="title class_ inherited__">TypedDict</span>):</span><br><span class="line">    question: <span class="built_in">str</span></span><br><span class="line">    rewritten_query: NotRequired[<span class="built_in">str</span>]</span><br><span class="line">    documents: NotRequired[<span class="built_in">list</span>[<span class="built_in">dict</span>]]</span><br><span class="line">    answer: NotRequired[<span class="built_in">str</span>]</span><br><span class="line">    approved: NotRequired[<span class="built_in">bool</span>]</span><br><span class="line">    retry_count: <span class="built_in">int</span></span><br></pre></td></tr></table></figure>
+
+<p>状态中只保存后续节点真正需要的数据。不要无上限保存所有日志、原始文档和模型响应。</p>
+<h3 id="4-2-定义节点"><a href="#4-2-定义节点" class="headerlink" title="4.2 定义节点"></a>4.2 定义节点</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">retrieve</span>(<span class="params">state: AgentState</span>) -&gt; <span class="built_in">dict</span>:</span><br><span class="line">    query = state.get(<span class="string">&quot;rewritten_query&quot;</span>) <span class="keyword">or</span> state[<span class="string">&quot;question&quot;</span>]</span><br><span class="line">    documents = retriever.search(query, top_k=<span class="number">8</span>)</span><br><span class="line">    <span class="keyword">return</span> &#123;<span class="string">&quot;documents&quot;</span>: documents&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">rewrite_query</span>(<span class="params">state: AgentState</span>) -&gt; <span class="built_in">dict</span>:</span><br><span class="line">    rewritten = query_rewriter.rewrite(state[<span class="string">&quot;question&quot;</span>])</span><br><span class="line">    <span class="keyword">return</span> &#123;</span><br><span class="line">        <span class="string">&quot;rewritten_query&quot;</span>: rewritten,</span><br><span class="line">        <span class="string">&quot;retry_count&quot;</span>: state[<span class="string">&quot;retry_count&quot;</span>] + <span class="number">1</span>,</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">generate_answer</span>(<span class="params">state: AgentState</span>) -&gt; <span class="built_in">dict</span>:</span><br><span class="line">    answer = answer_service.generate(</span><br><span class="line">        question=state[<span class="string">&quot;question&quot;</span>],</span><br><span class="line">        documents=state[<span class="string">&quot;documents&quot;</span>],</span><br><span class="line">    )</span><br><span class="line">    <span class="keyword">return</span> &#123;<span class="string">&quot;answer&quot;</span>: answer&#125;</span><br></pre></td></tr></table></figure>
+
+<p>节点返回状态增量，而不是随意修改全局变量，便于测试和恢复。</p>
+<h3 id="4-3-条件路由"><a href="#4-3-条件路由" class="headerlink" title="4.3 条件路由"></a>4.3 条件路由</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">route_after_retrieval</span>(<span class="params">state: AgentState</span>) -&gt; <span class="built_in">str</span>:</span><br><span class="line">    <span class="keyword">if</span> retrieval_is_sufficient(state[<span class="string">&quot;documents&quot;</span>]):</span><br><span class="line">        <span class="keyword">return</span> <span class="string">&quot;generate&quot;</span></span><br><span class="line">    <span class="keyword">if</span> state[<span class="string">&quot;retry_count&quot;</span>] &gt;= <span class="number">1</span>:</span><br><span class="line">        <span class="keyword">return</span> <span class="string">&quot;generate_insufficient&quot;</span></span><br><span class="line">    <span class="keyword">return</span> <span class="string">&quot;rewrite&quot;</span></span><br></pre></td></tr></table></figure>
+
+<p>这里的“检索充分”不能只凭模型直觉，应结合 Top-K 分数、来源覆盖、答案支持度或人工标注数据校准阈值。最大重试次数要写在代码中，不能让模型无限决定“再试一次”。</p>
+<h3 id="4-4-连接并编译图"><a href="#4-4-连接并编译图" class="headerlink" title="4.4 连接并编译图"></a>4.4 连接并编译图</h3><p>节点和路由只有加入图并编译后才会执行：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> langgraph.graph <span class="keyword">import</span> END, START, StateGraph</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">generate_insufficient</span>(<span class="params">state: AgentState</span>) -&gt; <span class="built_in">dict</span>:</span><br><span class="line">    <span class="keyword">return</span> &#123;<span class="string">&quot;answer&quot;</span>: <span class="string">&quot;现有知识库资料不足，暂时无法可靠回答。&quot;</span>&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">builder = StateGraph(AgentState)</span><br><span class="line">builder.add_node(<span class="string">&quot;retrieve&quot;</span>, retrieve)</span><br><span class="line">builder.add_node(<span class="string">&quot;rewrite&quot;</span>, rewrite_query)</span><br><span class="line">builder.add_node(<span class="string">&quot;generate&quot;</span>, generate_answer)</span><br><span class="line">builder.add_node(<span class="string">&quot;generate_insufficient&quot;</span>, generate_insufficient)</span><br><span class="line"></span><br><span class="line">builder.add_edge(START, <span class="string">&quot;retrieve&quot;</span>)</span><br><span class="line">builder.add_conditional_edges(</span><br><span class="line">    <span class="string">&quot;retrieve&quot;</span>,</span><br><span class="line">    route_after_retrieval,</span><br><span class="line">    &#123;</span><br><span class="line">        <span class="string">&quot;generate&quot;</span>: <span class="string">&quot;generate&quot;</span>,</span><br><span class="line">        <span class="string">&quot;rewrite&quot;</span>: <span class="string">&quot;rewrite&quot;</span>,</span><br><span class="line">        <span class="string">&quot;generate_insufficient&quot;</span>: <span class="string">&quot;generate_insufficient&quot;</span>,</span><br><span class="line">    &#125;,</span><br><span class="line">)</span><br><span class="line">builder.add_edge(<span class="string">&quot;rewrite&quot;</span>, <span class="string">&quot;retrieve&quot;</span>)</span><br><span class="line">builder.add_edge(<span class="string">&quot;generate&quot;</span>, END)</span><br><span class="line">builder.add_edge(<span class="string">&quot;generate_insufficient&quot;</span>, END)</span><br><span class="line"></span><br><span class="line">graph = builder.<span class="built_in">compile</span>()</span><br><span class="line">result = graph.invoke(&#123;<span class="string">&quot;question&quot;</span>: <span class="string">&quot;Redis 锁如何避免误删？&quot;</span>, <span class="string">&quot;retry_count&quot;</span>: <span class="number">0</span>&#125;)</span><br><span class="line"><span class="built_in">print</span>(result[<span class="string">&quot;answer&quot;</span>])</span><br></pre></td></tr></table></figure>
+
+<p>为保证图一定结束，所有循环边都要有可验证的计数器或预算条件。节点最好接收依赖接口，避免在函数内部偷偷访问全局客户端，这样才能单独测试路由和失败分支。</p>
+<hr>
+<h2 id="五、为什么状态持久化很重要"><a href="#五、为什么状态持久化很重要" class="headerlink" title="五、为什么状态持久化很重要"></a>五、为什么状态持久化很重要</h2><p>普通内存循环一旦进程崩溃，执行进度就丢失。LangGraph 的持久化层可以通过 checkpointer 保存图状态，使流程具备：</p>
+<ul>
+<li>对话短期记忆</li>
+<li>中断后恢复</li>
+<li>Human-in-the-loop</li>
+<li>从历史检查点重放或分叉</li>
+<li>故障排查</li>
+</ul>
+<p>一个需要人工确认的删除流程：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">模型提出删除计划</span><br><span class="line">→ 节点生成影响摘要</span><br><span class="line">→ 图中断</span><br><span class="line">→ 用户确认或拒绝</span><br><span class="line">→ 从检查点恢复</span><br><span class="line">→ 执行或结束</span><br></pre></td></tr></table></figure>
+
+<p>持久化不是把所有对话永久存储。应明确保留期限、租户隔离、加密和删除机制。</p>
+<p>开发环境可以使用内存 checkpointer，生产环境应换成数据库等持久化实现，并为每次调用提供稳定的 <code>thread_id</code>：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> langgraph.checkpoint.memory <span class="keyword">import</span> InMemorySaver</span><br><span class="line"></span><br><span class="line">graph = builder.<span class="built_in">compile</span>(checkpointer=InMemorySaver())</span><br><span class="line">config = &#123;<span class="string">&quot;configurable&quot;</span>: &#123;<span class="string">&quot;thread_id&quot;</span>: <span class="string">&quot;tenant-7:user-18:task-42&quot;</span>&#125;&#125;</span><br><span class="line">result = graph.invoke(</span><br><span class="line">    &#123;<span class="string">&quot;question&quot;</span>: <span class="string">&quot;比较两个文档版本&quot;</span>, <span class="string">&quot;retry_count&quot;</span>: <span class="number">0</span>&#125;,</span><br><span class="line">    config=config,</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+
+<p><code>thread_id</code> 是状态定位键，不等于访问凭证。读取或恢复检查点前仍要校验租户和用户权限，不能允许客户端枚举其他线程。</p>
+<h3 id="5-1-中断与人工确认"><a href="#5-1-中断与人工确认" class="headerlink" title="5.1 中断与人工确认"></a>5.1 中断与人工确认</h3><p>LangGraph 的 <code>interrupt()</code> 会保存当前状态并把待确认信息返回调用方，之后使用同一 <code>thread_id</code> 和 <code>Command(resume=...)</code> 恢复：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> langgraph.types <span class="keyword">import</span> Command, interrupt</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">approve_delete</span>(<span class="params">state: AgentState</span>) -&gt; <span class="built_in">dict</span>:</span><br><span class="line">    approved = interrupt(&#123;<span class="string">&quot;action&quot;</span>: <span class="string">&quot;delete&quot;</span>, <span class="string">&quot;summary&quot;</span>: <span class="string">&quot;删除文档 42&quot;</span>&#125;)</span><br><span class="line">    <span class="keyword">return</span> &#123;<span class="string">&quot;approved&quot;</span>: <span class="built_in">bool</span>(approved)&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="comment"># 用户确认后恢复，而不是重新创建一次任务</span></span><br><span class="line">graph.invoke(Command(resume=<span class="literal">True</span>), config=config)</span><br></pre></td></tr></table></figure>
+
+<p>恢复时节点可能从头重放，检查点也不会回滚已经发生的外部写入。因此，中断前的副作用必须幂等，支付、删除等动作应放在确认后的独立节点，并配合执行账本。</p>
+<p><img src="/../img/ai-langgraph-checkpoint-interrupt-resume.png" alt="LangGraph 检查点、中断与恢复"></p>
+<hr>
+<h2 id="六、短期记忆和长期记忆不要混为一谈"><a href="#六、短期记忆和长期记忆不要混为一谈" class="headerlink" title="六、短期记忆和长期记忆不要混为一谈"></a>六、短期记忆和长期记忆不要混为一谈</h2><h3 id="6-1-短期记忆"><a href="#6-1-短期记忆" class="headerlink" title="6.1 短期记忆"></a>6.1 短期记忆</h3><p>服务于当前会话或任务，例如：</p>
+<ul>
+<li>当前文档 ID</li>
+<li>最近几轮消息</li>
+<li>工具调用结果</li>
+<li>当前执行步骤</li>
+</ul>
+<p>通常与 thread&#x2F;session 绑定。</p>
+<h3 id="6-2-长期记忆"><a href="#6-2-长期记忆" class="headerlink" title="6.2 长期记忆"></a>6.2 长期记忆</h3><p>跨会话保存的用户偏好或业务事实，例如：</p>
+<ul>
+<li>用户偏好的回答语言</li>
+<li>项目技术栈</li>
+<li>经用户确认需要长期保存的设置</li>
+</ul>
+<p>长期记忆应有明确写入条件，不能把模型推断自动当成事实。敏感信息需要更严格的授权和治理。</p>
+<hr>
+<h2 id="七、错误恢复与终止条件"><a href="#七、错误恢复与终止条件" class="headerlink" title="七、错误恢复与终止条件"></a>七、错误恢复与终止条件</h2><p>Agent 必须有边界：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">最大模型调用次数</span><br><span class="line">最大工具调用次数</span><br><span class="line">最大总时长</span><br><span class="line">最大 Token/成本预算</span><br><span class="line">单工具超时</span><br><span class="line">允许重试的错误类型</span><br><span class="line">最终降级答案</span><br></pre></td></tr></table></figure>
+
+<p>工具错误可分为：</p>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>处理方式</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>参数格式错误</td>
+<td>允许模型修正一次</td>
+</tr>
+<tr>
+<td>临时网络错误</td>
+<td>后端有限重试</td>
+</tr>
+<tr>
+<td>权限拒绝</td>
+<td>直接返回，不让模型绕过</td>
+</tr>
+<tr>
+<td>业务状态冲突</td>
+<td>返回明确错误并结束或询问用户</td>
+</tr>
+<tr>
+<td>未知工具</td>
+<td>记录异常并终止当前步骤</td>
+</tr>
+</tbody></table>
+<p>模型不能决定忽略权限错误。</p>
+<hr>
+<h2 id="八、可观测性：不要只保存最终答案"><a href="#八、可观测性：不要只保存最终答案" class="headerlink" title="八、可观测性：不要只保存最终答案"></a>八、可观测性：不要只保存最终答案</h2><p>一次 Agent 请求至少要能看到：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">用户输入</span><br><span class="line">→ 模型决策</span><br><span class="line">→ 工具调用</span><br><span class="line">→ 工具耗时和状态</span><br><span class="line">→ 条件路由</span><br><span class="line">→ 最终答案</span><br></pre></td></tr></table></figure>
+
+<p>推荐指标：</p>
+<ul>
+<li>平均步骤数</li>
+<li>工具调用成功率</li>
+<li>每种工具使用频率</li>
+<li>超过最大步骤比例</li>
+<li>人工确认比例</li>
+<li>单请求 Token 和成本</li>
+<li>最终任务成功率</li>
+<li>无意义循环率</li>
+</ul>
+<p>Trace 中的 Prompt、工具参数和结果可能包含敏感数据，应做脱敏和访问控制。</p>
+<p>除了线上 Trace，还应对节点和图做自动化测试：节点测试输入状态与返回增量，路由测试边界阈值，整图测试正常、检索不足、工具超时和人工拒绝等路径。模型节点可以用固定响应替身，避免单元测试依赖随机输出。</p>
+<hr>
+<h2 id="九、单-Agent-还是多-Agent"><a href="#九、单-Agent-还是多-Agent" class="headerlink" title="九、单 Agent 还是多 Agent"></a>九、单 Agent 还是多 Agent</h2><p>多 Agent 并不天然更高级。它会增加：</p>
+<ul>
+<li>模型调用次数</li>
+<li>上下文传递成本</li>
+<li>调试难度</li>
+<li>角色间误解</li>
+<li>循环和责任不清</li>
+</ul>
+<p>只有在子任务确实需要不同工具、不同权限、独立上下文或并行处理时，才考虑：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">主 Agent</span><br><span class="line">├── 检索子 Agent</span><br><span class="line">├── 代码分析子 Agent</span><br><span class="line">└── 报告生成子 Agent</span><br></pre></td></tr></table></figure>
+
+<p>工具数量少、流程简单时，一个 Agent 加明确 Workflow 更合适。</p>
+<hr>
+<h2 id="十、面试高频问题"><a href="#十、面试高频问题" class="headerlink" title="十、面试高频问题"></a>十、面试高频问题</h2><p><strong>Q1：Workflow 和 Agent 的区别？</strong></p>
+<p>Workflow 的路径由代码预先定义；Agent 会让模型在运行时参与工具和步骤选择。前者可预测，后者更灵活但更难控制。</p>
+<p><strong>Q2：LangChain 和 LangGraph 的定位？</strong></p>
+<p>LangChain 提供模型、工具和高层 Agent 等组件；LangGraph 提供低层状态图编排，适合持久化、分支、恢复和人工介入的复杂流程。</p>
+<p><strong>Q3：Agent 为什么要限制最大步数？</strong></p>
+<p>模型可能反复调用工具或重试。最大步数可以限制延迟、成本和失控风险。</p>
+<p><strong>Q4：Agent 记忆有哪些类型？</strong></p>
+<p>短期记忆服务当前线程和任务；长期记忆跨会话保存经确认的偏好或事实。二者的生命周期、权限和存储方式不同。</p>
+<p><strong>Q5：什么时候不应该使用 Agent？</strong></p>
+<p>流程固定、规则清晰、强一致性要求高时，普通代码、工作流或状态机更可靠。</p>
+<hr>
+<h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a>参考资料</h2><ul>
+<li>LangChain Agents：<a target="_blank" rel="noopener" href="https://docs.langchain.com/oss/python/langchain/agents">https://docs.langchain.com/oss/python/langchain/agents</a></li>
+<li>LangGraph Overview：<a target="_blank" rel="noopener" href="https://docs.langchain.com/oss/python/langgraph/overview">https://docs.langchain.com/oss/python/langgraph/overview</a></li>
+<li>LangGraph Workflows and Agents：<a target="_blank" rel="noopener" href="https://docs.langchain.com/oss/python/langgraph/workflows-agents">https://docs.langchain.com/oss/python/langgraph/workflows-agents</a></li>
+<li>LangGraph Persistence：<a target="_blank" rel="noopener" href="https://docs.langchain.com/oss/python/langgraph/persistence">https://docs.langchain.com/oss/python/langgraph/persistence</a></li>
+<li>LangGraph Interrupts：<a target="_blank" rel="noopener" href="https://docs.langchain.com/oss/python/langgraph/interrupts">https://docs.langchain.com/oss/python/langgraph/interrupts</a></li>
+</ul>
+<hr>
+<h2 id="写在最后"><a href="#写在最后" class="headerlink" title="写在最后"></a>写在最后</h2><p>Agent 的重点不是让模型“自由发挥”，而是在有限工具、有限状态和明确边界中完成任务。高质量 Agent 往往同时包含确定性 Workflow 与少量模型决策，而不是把所有控制权都交给模型。</p>
+<p>从单工具调用开始，逐步增加状态、条件路由、持久化和人工确认，比一开始就设计复杂多 Agent 系统更容易获得可靠结果。</p>
+<p>对于后端知识库项目，当前“判断是否检索并调用一个知识库工具”的实现属于有限路由，不必为了名称升级而强行改成多 Agent。等到确实需要查询改写、检索质量判断、人工审核和可恢复写操作时，再把这些步骤显式迁移为状态图。</p>
+<hr>
+<blockquote>
+<p><strong>AI 工程系列文章预告</strong>：</p>
+<ul>
+<li>上一篇：Function Calling 实战：让大模型安全调用 Java 业务能力</li>
+<li>下一篇：LangChain RAG 实战：从文档入库到可追溯问答</li>
+</ul>
+</blockquote>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://qjngbac.github.io">qjngbac</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://qjngbac.github.io/2026/06/25/04-agent-langgraph/">https://qjngbac.github.io/2026/06/25/04-agent-langgraph/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://qjngbac.github.io" target="_blank">Wait</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/AI%E5%B7%A5%E7%A8%8B/">AI工程</a><a class="post-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><a class="post-meta__tags" href="/tags/AI-Agent/">AI Agent</a><a class="post-meta__tags" href="/tags/LangChain/">LangChain</a><a class="post-meta__tags" href="/tags/LangGraph/">LangGraph</a><a class="post-meta__tags" href="/tags/ReAct/">ReAct</a><a class="post-meta__tags" href="/tags/%E7%8A%B6%E6%80%81%E6%9C%BA/">状态机</a><a class="post-meta__tags" href="/tags/%E5%B7%A5%E5%85%B7%E8%B0%83%E7%94%A8/">工具调用</a></div><div class="post-share"><div class="social-share" data-image="/../img/ai-04-agent-langgraph.jpg" data-sites="facebook,x,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/2026/07/02/android-hardware-guide/" title="安卓手机硬件全解析：从芯片到屏幕，一文看懂所有配置"><img class="cover" src="/img/android-hardware-cover.jpg" onerror="onerror=null;src='/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">安卓手机硬件全解析：从芯片到屏幕，一文看懂所有配置</div></div><div class="info-2"><div class="info-item-1">前言  每次看到手机发布会，满屏的参数让人眼花缭乱：骁龙8 Gen3、LPDDR5X、UFS 4.0、1/1.3英寸大底、2K LTPO……这些参数到底意味着什么？哪个更重要？  这篇文章将从硬件工程师的视角，带你逐个拆解安卓手机的每一个核心硬件模块。看完之后，你将能够独立判断一部手机的硬件水平。  一、处理器（SoC）—— 手机的大脑  1.1 什么是 SoC  手机里的"CPU"其实不是单纯的 CPU，而是一颗 SoC（System on Chip，片上系统）。它把多个模块集成在一颗芯片上：  SoC 内部结构： ┌──────────────────────────────────────┐ │           SoC（片上系统）              │ │                                      │ │  ┌─────────┐  ┌─────────┐            │ │  │  CPU    │  │  GPU    │            │ │  │ 大中小核 │  │ 图形处理  │            ...</div></div></div></a><a class="pagination-related" href="/2026/06/23/03-function-calling-java/" title="Function Calling 实战：让大模型安全调用 Java 业务能力"><img class="cover" src="/../img/ai-03-function-calling.jpg" onerror="onerror=null;src='/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Function Calling 实战：让大模型安全调用 Java 业务能力</div></div><div class="info-2"><div class="info-item-1">前言普通聊天模型只能根据输入生成文字。如果用户问“文档 42 的最新版本是谁创建的”，模型并不知道你的数据库内容；如果用户说“帮我把文档设为只读”，模型也没有权限直接修改业务数据。 Function Calling（也叫 Tool Calling）提供了一座桥梁：应用把可用工具的名称、描述和参数 Schema 告诉模型；模型在需要时返回“调用哪个工具、传什么参数”；真正执行函数的仍然是你的 Java 服务；执行结果再交给模型生成最终回答。 它不是让模型直接访问数据库，更不是绕过后端权限。正确的理解是：模型负责选择与生成参数，应用负责校验、授权、执行、审计和返回结果。  一、Function Calling 的完整流程12345678910111213用户问题   ↓应用把问题 + 工具定义发给模型   ↓模型返回 tool call（工具名 + JSON 参数）   ↓应用校验参数、权限和风险   ↓Java 方法执行真实业务   ↓应用把工具结果返回模型   ↓模型生成最终自然语言回答  关键点：模型返回的是请求，不是执行结果。无论模型声称“已删除成功”还是“已退款”，只有后端...</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/2026/07/04/05-langchain-rag/" title="LangChain RAG 实战：从文档入库到可追溯问答"><img class="cover" src="/../img/ai-05-langchain-rag.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-04</div><div class="info-item-2">LangChain RAG 实战：从文档入库到可追溯问答</div></div><div class="info-2"><div class="info-item-1">前言大模型能够回答大量通用问题，但它不知道你的私有文档，也可能使用过时知识或生成没有依据的内容。RAG（Retrieval-Augmented Generation，检索增强生成）通过“先检索、再生成”把外部知识放进模型上下文，使回答能够参考知识库并附带来源。 RAG 不能彻底消除幻觉。检索可能漏掉正确文档，切分可能破坏语义，生成模型也可能误读上下文。因此，一个合格的 RAG 系统不仅要能回答，还要保存稳定文档标识、展示引用，并在资料不足时明确降级。 本文使用 LangChain、Chroma 和 Markdown 文档搭建一条可运行的基础链路：文档加载、标题感知切分、Embedding、向量入库、Top-K 检索、带引用生成和无资料拒答。  一、RAG 的完整链路12345离线入库：文档 → 解析 → 切分 → 元数据 → Embedding → 向量库在线问答：问题 → Embedding → 相似度检索 → 上下文组装 → LLM → 答案 + 引用  两条链路要分开设计：文档更新不应阻塞每次问答；在线请求也不应临时重新切分整个知识库。  基础问答通常采用确定的“两步 RA...</div></div></div></a><a class="pagination-related" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"><img class="cover" src="/../img/ai-06-rag-retrieval.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-09</div><div class="info-item-2">RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker</div></div><div class="info-2"><div class="info-item-1">前言基础 RAG 通常使用一个 Embedding 模型，把问题转成向量，再做 Top-K 相似度检索。这条链路简单，但很快会遇到问题：搜索 SETNX 时找不到包含精确命令的片段；用户说“它为什么会失效”，单独拿这句话无法检索；向量结果语义相近，却没有真正回答问题；正确片段排在第 8 名，最终只取了前 4 名。 检索优化的核心不是盲目增加模型，而是分阶段解决： 12345让查询更适合检索→ 多路召回扩大候选集→ 融合不同排序→ 对候选做精细重排→ 只把高质量上下文交给生成模型  本文依次介绍 Query Rewrite、BM25 + 向量混合检索、RRF 融合、Reranker 与降级策略，并说明为什么所有优化都必须通过固定评估集验证。   一、先定位检索失败属于哪一类   失败类型 示例 常见方案    查询缺少上下文 “它为什么会失效？” 对话指代消解、查询改写   精确词召回失败 SETNX、错误码、类名 BM25&#x2F;关键词检索   同义表达不一致 “缓存雪崩”与“批量过期” 向量检索   正确文档排序靠后 Top-10 有，Top-4 无 RRF、Reranke...</div></div></div></a><a class="pagination-related" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"><img class="cover" src="/../img/ai-08-vector-database.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-13</div><div class="info-item-2">向量数据库选型实战：Chroma、Milvus 与 pgvector 对比</div></div><div class="info-2"><div class="info-item-1">前言做 RAG 时经常会看到三类建议：个人项目用 Chroma，海量向量用 Milvus，已有 PostgreSQL 就用 pgvector。这个结论方向上没有问题，但真正选型不能只看一句话。 向量数据库不仅负责“存一个 float 数组”。它还要处理向量索引、Top-K 搜索、metadata 过滤、增删改、并发、备份恢复、监控和客户端接入。不同产品的定位不同：Chroma 更偏 AI 应用快速检索，Milvus 是专用、可扩展的向量数据库，pgvector 则把向量能力放进 PostgreSQL 生态。 本文从架构、索引、过滤、运维和适用场景比较三者，并给出一套公平的性能测试方法。   一、向量检索在做什么Embedding 模型把文本映射为固定维度向量： 1“Redis 分布式锁” → [0.12, -0.34, ...]  查询时，把用户问题也转换到同一向量空间，再按距离或相似度寻找邻居。 常见度量：    度量 含义 注意点    Cosine 比较方向相似度 常用于文本向量   Inner Product 点积 是否需归一化取决于模型   L2 欧氏距离 距离越小通常...</div></div></div></a><a class="pagination-related" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"><img class="cover" src="/../img/ai-10-ollama.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-22</div><div class="info-item-2">Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成</div></div><div class="info-2"><div class="info-item-1">前言云端模型 API 上手快、能力强，但有持续费用、网络依赖和数据出网限制。Ollama 提供了一套简单的本地模型管理与 API 服务，可以在 Windows、macOS 和 Linux 上拉取并运行支持的模型，再通过本地 HTTP 接口接入 Python、Java 或 AI 框架。 本地部署不等于“零成本”。模型需要磁盘、内存或显存，CPU 推理速度可能较慢，升级、并发和监控都需要自己承担。它更准确的价值是：降低按次 API 费用、提高数据本地性，并为开发测试提供可控模型服务。 本文介绍 Ollama 的安装验证、模型选择、CPU&#x2F;GPU 运行、REST API、Embedding、Spring Boot 接入、上下文和内存优化，以及本地部署的适用边界。  一、Ollama 的基本架构安装后，Ollama 在本机提供模型管理和推理服务： 1234567CLI / Python / Spring Boot / LangChain                ↓       http://localhost:11434/api                ↓     ...</div></div></div></a><a class="pagination-related" href="/2026/06/19/02-prompt-context-engineering/" title="Prompt 与上下文工程实战：稳定输出、结构化响应与注入防护"><img class="cover" src="/../img/ai-02-prompt-context.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-06-19</div><div class="info-item-2">Prompt 与上下文工程实战：稳定输出、结构化响应与注入防护</div></div><div class="info-2"><div class="info-item-1">前言很多大模型应用效果不稳定，并不是模型能力不足，而是输入没有把任务讲清楚：目标模糊、上下文混乱、格式只靠自然语言约束、示例互相冲突，甚至把用户上传文档中的指令当成系统命令执行。 Prompt 工程不等于堆砌“你是一位顶级专家”。它真正解决的是：如何把任务、规则、数据和输出契约组织成模型更容易遵循的输入。随着应用变复杂，还要进一步考虑上下文选择、长对话裁剪、检索结果排序、工具结果注入和安全边界，这就是上下文工程。 本文从消息层级、零样本与少样本、结构化输出、模板版本管理、长上下文治理和 Prompt Injection 防护几个方面，给出一套适合后端项目的实战方法。  一、一个高质量 Prompt 的基本结构推荐把 Prompt 拆成五部分： 12345角色与目标→ 输入数据说明→ 必须遵守的约束→ 输出格式→ 必要的示例  示例： 1234567891011121314151617181920212223242526你是 Java 后端面试题整理助手。任务：根据提供的知识片段回答问题。约束：1. 只使用知识片段中能够支持的内容。2. 资料不足时明确回答“现有资料无法确定”。3....</div></div></div></a><a class="pagination-related" href="/2026/06/18/01-llm-api-engineering/" title="大模型 API 工程化实战：从 curl 到流式调用、重试与成本治理"><img class="cover" src="/../img/ai-01-llm-api.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-06-18</div><div class="info-item-2">大模型 API 工程化实战：从 curl 到流式调用、重试与成本治理</div></div><div class="info-2"><div class="info-item-1">前言很多人第一次接入大模型，只需要几行代码：传入一段文字，等待模型返回答案。但一旦把它放进真实后端系统，问题会立刻变多：请求超时怎么办？限流后是否重试？流式响应中途断开怎么处理？如何统计 Token 和费用？怎样在多个模型之间切换？日志里又该记录什么，哪些内容不能记录？ 因此，大模型 API 接入不能只停留在“能调用”。真正的工程目标是把不稳定、成本可变、响应时间较长的外部模型服务，封装成一个可超时、可重试、可观测、可降级、可替换的基础能力。 本文以 OpenAI Responses API 的通用调用方式为例，从 curl 开始，逐步搭建同步调用、流式输出、异常处理、统一网关与成本治理方案。示例中的模型名统一从环境变量读取，实际使用时应替换为账号当前可用的模型。  一、一次大模型请求到底包含什么大模型 API 本质上仍然是 HTTP API。一次请求通常包含四部分：    部分 作用 常见内容    URL 指定服务和接口 /v1/responses   Header 身份认证与请求格式 Authorization、Content-Type   Body 模型、输入和生成参数 ...</div></div></div></a></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">qjngbac</div><div class="author-info-description">一个正在学习的开发者</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">42</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">139</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/qjngbac"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/qjngbac" target="_blank" title="Github"><i class="fab fa-github"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到我的博客</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%89%8D%E8%A8%80"><span class="toc-number">1.</span> <span class="toc-text">前言</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%80%E3%80%81Workflow-%E5%92%8C-Agent-%E7%9A%84%E5%8C%BA%E5%88%AB"><span class="toc-number">2.</span> <span class="toc-text">一、Workflow 和 Agent 的区别</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%8C%E3%80%81Agent-%E7%9A%84%E5%9F%BA%E6%9C%AC%E7%BB%84%E6%88%90"><span class="toc-number">3.</span> <span class="toc-text">二、Agent 的基本组成</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#2-1-ReAct-%E6%98%AF%E4%BB%80%E4%B9%88"><span class="toc-number">3.1.</span> <span class="toc-text">2.1 ReAct 是什么</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%89%E3%80%81%E7%94%A8-LangChain-%E5%BF%AB%E9%80%9F%E5%88%9B%E5%BB%BA%E4%B8%80%E4%B8%AA%E5%B7%A5%E5%85%B7-Agent"><span class="toc-number">4.</span> <span class="toc-text">三、用 LangChain 快速创建一个工具 Agent</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9B%9B%E3%80%81LangGraph-%E7%9A%84%E6%A0%B8%E5%BF%83%EF%BC%9A%E7%8A%B6%E6%80%81%E3%80%81%E8%8A%82%E7%82%B9%E5%92%8C%E8%BE%B9"><span class="toc-number">5.</span> <span class="toc-text">四、LangGraph 的核心：状态、节点和边</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#4-1-%E5%AE%9A%E4%B9%89%E7%8A%B6%E6%80%81"><span class="toc-number">5.1.</span> <span class="toc-text">4.1 定义状态</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-2-%E5%AE%9A%E4%B9%89%E8%8A%82%E7%82%B9"><span class="toc-number">5.2.</span> <span class="toc-text">4.2 定义节点</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-3-%E6%9D%A1%E4%BB%B6%E8%B7%AF%E7%94%B1"><span class="toc-number">5.3.</span> <span class="toc-text">4.3 条件路由</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-4-%E8%BF%9E%E6%8E%A5%E5%B9%B6%E7%BC%96%E8%AF%91%E5%9B%BE"><span class="toc-number">5.4.</span> <span class="toc-text">4.4 连接并编译图</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%94%E3%80%81%E4%B8%BA%E4%BB%80%E4%B9%88%E7%8A%B6%E6%80%81%E6%8C%81%E4%B9%85%E5%8C%96%E5%BE%88%E9%87%8D%E8%A6%81"><span class="toc-number">6.</span> <span class="toc-text">五、为什么状态持久化很重要</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#5-1-%E4%B8%AD%E6%96%AD%E4%B8%8E%E4%BA%BA%E5%B7%A5%E7%A1%AE%E8%AE%A4"><span class="toc-number">6.1.</span> <span class="toc-text">5.1 中断与人工确认</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%AD%E3%80%81%E7%9F%AD%E6%9C%9F%E8%AE%B0%E5%BF%86%E5%92%8C%E9%95%BF%E6%9C%9F%E8%AE%B0%E5%BF%86%E4%B8%8D%E8%A6%81%E6%B7%B7%E4%B8%BA%E4%B8%80%E8%B0%88"><span class="toc-number">7.</span> <span class="toc-text">六、短期记忆和长期记忆不要混为一谈</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#6-1-%E7%9F%AD%E6%9C%9F%E8%AE%B0%E5%BF%86"><span class="toc-number">7.1.</span> <span class="toc-text">6.1 短期记忆</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#6-2-%E9%95%BF%E6%9C%9F%E8%AE%B0%E5%BF%86"><span class="toc-number">7.2.</span> <span class="toc-text">6.2 长期记忆</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%83%E3%80%81%E9%94%99%E8%AF%AF%E6%81%A2%E5%A4%8D%E4%B8%8E%E7%BB%88%E6%AD%A2%E6%9D%A1%E4%BB%B6"><span class="toc-number">8.</span> <span class="toc-text">七、错误恢复与终止条件</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%AB%E3%80%81%E5%8F%AF%E8%A7%82%E6%B5%8B%E6%80%A7%EF%BC%9A%E4%B8%8D%E8%A6%81%E5%8F%AA%E4%BF%9D%E5%AD%98%E6%9C%80%E7%BB%88%E7%AD%94%E6%A1%88"><span class="toc-number">9.</span> <span class="toc-text">八、可观测性：不要只保存最终答案</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B9%9D%E3%80%81%E5%8D%95-Agent-%E8%BF%98%E6%98%AF%E5%A4%9A-Agent"><span class="toc-number">10.</span> <span class="toc-text">九、单 Agent 还是多 Agent</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8D%81%E3%80%81%E9%9D%A2%E8%AF%95%E9%AB%98%E9%A2%91%E9%97%AE%E9%A2%98"><span class="toc-number">11.</span> <span class="toc-text">十、面试高频问题</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99"><span class="toc-number">12.</span> <span class="toc-text">参考资料</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%86%99%E5%9C%A8%E6%9C%80%E5%90%8E"><span class="toc-number">13.</span> <span class="toc-text">写在最后</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"><img src="/../img/ai-10-ollama.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"/></a><div class="content"><a class="title" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成">Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成</a><time datetime="2026-07-22T02:00:00.000Z" title="发表于 2026-07-22 10:00:00">2026-07-22</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"><img src="/../img/ai-09-spring-ai.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"/></a><div class="content"><a class="title" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling">Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling</a><time datetime="2026-07-17T02:00:00.000Z" title="发表于 2026-07-17 10:00:00">2026-07-17</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"><img src="/../img/ai-08-vector-database.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"/></a><div class="content"><a class="title" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比">向量数据库选型实战：Chroma、Milvus 与 pgvector 对比</a><time datetime="2026-07-13T02:00:00.000Z" title="发表于 2026-07-13 10:00:00">2026-07-13</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度"><img src="/../img/ai-07-rag-evaluation.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 评估实战：Recall@K、MRR 与回答忠实度"/></a><div class="content"><a class="title" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度">RAG 评估实战：Recall@K、MRR 与回答忠实度</a><time datetime="2026-07-12T02:00:00.000Z" title="发表于 2026-07-12 10:00:00">2026-07-12</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"><img src="/../img/ai-06-rag-retrieval.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"/></a><div class="content"><a class="title" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker">RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker</a><time datetime="2026-07-09T02:00:00.000Z" title="发表于 2026-07-09 10:00:00">2026-07-09</time></div></div></div></div></div></div></main><footer id="footer"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2024 - 2026 By qjngbac</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 7.3.0</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.5.5</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.5.5"></script><script src="/js/main.js?v=5.5.5"></script><div class="js-pjax"></div><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

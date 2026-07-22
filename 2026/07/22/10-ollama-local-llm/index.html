@@ -1,0 +1,413 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成 | Wait</title><meta name="author" content="qjngbac"><meta name="copyright" content="qjngbac"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="前言云端模型 API 上手快、能力强，但有持续费用、网络依赖和数据出网限制。Ollama 提供了一套简单的本地模型管理与 API 服务，可以在 Windows、macOS 和 Linux 上拉取并运行支持的模型，再通过本地 HTTP 接口接入 Python、Java 或 AI 框架。 本地部署不等于“零成本”。模型需要磁盘、内存或显存，CPU 推理速度可能较慢，升级、并发和监控都需要自己承担。它更">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成">
+<meta property="og:url" content="https://qjngbac.github.io/2026/07/22/10-ollama-local-llm/index.html">
+<meta property="og:site_name" content="Wait">
+<meta property="og:description" content="前言云端模型 API 上手快、能力强，但有持续费用、网络依赖和数据出网限制。Ollama 提供了一套简单的本地模型管理与 API 服务，可以在 Windows、macOS 和 Linux 上拉取并运行支持的模型，再通过本地 HTTP 接口接入 Python、Java 或 AI 框架。 本地部署不等于“零成本”。模型需要磁盘、内存或显存，CPU 推理速度可能较慢，升级、并发和监控都需要自己承担。它更">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://qjngbac.github.io/img/ai-10-ollama.jpg">
+<meta property="article:published_time" content="2026-07-22T02:00:00.000Z">
+<meta property="article:modified_time" content="2026-07-19T09:14:00.137Z">
+<meta property="article:author" content="qjngbac">
+<meta property="article:tag" content="AI工程">
+<meta property="article:tag" content="面试">
+<meta property="article:tag" content="Spring Boot">
+<meta property="article:tag" content="Ollama">
+<meta property="article:tag" content="本地大模型">
+<meta property="article:tag" content="LLM">
+<meta property="article:tag" content="CPU推理">
+<meta property="article:tag" content="GPU">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://qjngbac.github.io/img/ai-10-ollama.jpg"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成",
+  "url": "https://qjngbac.github.io/2026/07/22/10-ollama-local-llm/",
+  "image": "https://qjngbac.github.io/img/ai-10-ollama.jpg",
+  "datePublished": "2026-07-22T02:00:00.000Z",
+  "dateModified": "2026-07-19T09:14:00.137Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "qjngbac",
+      "url": "https://qjngbac.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://qjngbac.github.io/2026/07/22/10-ollama-local-llm/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.5.5"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        if (!ttl) return
+        const expiry = Date.now() + ttl * 86400000
+        localStorage.setItem(key, JSON.stringify({ value, expiry }))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return undefined
+        const { value, expiry } = JSON.parse(itemStr)
+        if (Date.now() > expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return value
+      }
+    }
+
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+        script.onload = script.onreadystatechange = () => {
+          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      }),
+      getCSS: (url, id) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onload = link.onreadystatechange = () => {
+          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+        }
+        link.onerror = reject
+        document.head.appendChild(link)
+      }),
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: true
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="generator" content="Hexo 7.3.0"></head><body><div id="loading-box"><div class="loading-left-bg"></div><div class="loading-right-bg"></div><div class="spinner-box"><div class="configure-border-1"><div class="configure-core"></div></div><div class="configure-border-2"><div class="configure-core"></div></div><div class="loading-word">加载中...</div></div></div><script>(()=>{
+  const $loadingBox = document.getElementById('loading-box')
+  const $body = document.body
+  const preloader = {
+    endLoading: () => {
+      if ($loadingBox.classList.contains('loaded')) return
+      $body.style.overflow = ''
+      $loadingBox.classList.add('loaded')
+    },
+    initLoading: () => {
+      $body.style.overflow = 'hidden'
+      $loadingBox.classList.remove('loaded')
+    }
+  }
+
+  preloader.initLoading()
+
+  if (document.readyState === 'complete') {
+    preloader.endLoading()
+  } else {
+    window.addEventListener('load', preloader.endLoading)
+    document.addEventListener('DOMContentLoaded', preloader.endLoading)
+    // Add timeout protection: force end after 7 seconds
+    setTimeout(preloader.endLoading, 7000)
+  }
+
+  if (false) {
+    btf.addGlobalFn('pjaxSend', preloader.initLoading, 'preloader_init')
+    btf.addGlobalFn('pjaxComplete', preloader.endLoading, 'preloader_end')
+  }
+})()</script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">42</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">139</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(/../img/ai-10-ollama.jpg);"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">Wait</span></a><a class="nav-page-title" href="/"><span class="site-name">Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-07-22T02:00:00.000Z" title="发表于 2026-07-22 10:00:00">2026-07-22</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-07-19T09:14:00.137Z" title="更新于 2026-07-19 17:14:00">2026-07-19</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/AI%E5%B7%A5%E7%A8%8B/">AI工程</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>云端模型 API 上手快、能力强，但有持续费用、网络依赖和数据出网限制。Ollama 提供了一套简单的本地模型管理与 API 服务，可以在 Windows、macOS 和 Linux 上拉取并运行支持的模型，再通过本地 HTTP 接口接入 Python、Java 或 AI 框架。</p>
+<p>本地部署不等于“零成本”。模型需要磁盘、内存或显存，CPU 推理速度可能较慢，升级、并发和监控都需要自己承担。它更准确的价值是：<strong>降低按次 API 费用、提高数据本地性，并为开发测试提供可控模型服务</strong>。</p>
+<p>本文介绍 Ollama 的安装验证、模型选择、CPU&#x2F;GPU 运行、REST API、Embedding、Spring Boot 接入、上下文和内存优化，以及本地部署的适用边界。</p>
+<hr>
+<h2 id="一、Ollama-的基本架构"><a href="#一、Ollama-的基本架构" class="headerlink" title="一、Ollama 的基本架构"></a>一、Ollama 的基本架构</h2><p>安装后，Ollama 在本机提供模型管理和推理服务：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">CLI / Python / Spring Boot / LangChain</span><br><span class="line">                ↓</span><br><span class="line">       http://localhost:11434/api</span><br><span class="line">                ↓</span><br><span class="line">            Ollama 服务</span><br><span class="line">                ↓</span><br><span class="line">       本地模型文件 + CPU/GPU</span><br></pre></td></tr></table></figure>
+
+<p><img src="/../img/ai-ollama-local-inference-flow.png" alt="Ollama 本地推理资源与请求链路"></p>
+<p>常用命令：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">ollama pull &lt;model&gt;</span><br><span class="line">ollama run &lt;model&gt;</span><br><span class="line">ollama list</span><br><span class="line">ollama ps</span><br><span class="line">ollama show &lt;model&gt;</span><br><span class="line">ollama <span class="built_in">rm</span> &lt;model&gt;</span><br></pre></td></tr></table></figure>
+
+<p>模型名称和标签以 Ollama 模型库当前页面为准。不同标签可能代表不同参数规模、量化方式或版本，下载前应检查大小、许可证和硬件要求。</p>
+<hr>
+<h2 id="二、没有独立-GPU-能不能运行"><a href="#二、没有独立-GPU-能不能运行" class="headerlink" title="二、没有独立 GPU 能不能运行"></a>二、没有独立 GPU 能不能运行</h2><p>可以。Ollama 能在 CPU 上运行支持的量化模型，但速度通常明显慢于合适的 GPU。是否可用主要取决于：</p>
+<ul>
+<li>模型文件大小</li>
+<li>系统内存</li>
+<li>上下文长度</li>
+<li>CPU 性能与内存带宽</li>
+<li>并发数</li>
+</ul>
+<p>没有独立 GPU 时建议：</p>
+<ol>
+<li>从较小模型开始</li>
+<li>选择合理量化版本</li>
+<li>将上下文控制在实际需要范围</li>
+<li>单用户、低并发验证</li>
+<li>不在同一机器同时加载多个大模型</li>
+</ol>
+<blockquote>
+<p>能加载不代表体验良好。模型权重、KV Cache 和运行时还会占用额外内存，应为操作系统和应用保留空间。</p>
+</blockquote>
+<h3 id="2-1-GPU-的作用"><a href="#2-1-GPU-的作用" class="headerlink" title="2.1 GPU 的作用"></a>2.1 GPU 的作用</h3><p>支持的 GPU 可以加速模型推理。模型无法完全放入显存时，可能发生部分卸载或回退，速度取决于硬件和运行时支持。</p>
+<p>使用：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">ollama ps</span><br></pre></td></tr></table></figure>
+
+<p>查看当前模型、占用和处理器信息，并结合系统监控观察 CPU、内存、GPU 和显存。</p>
+<hr>
+<h2 id="三、如何选择模型"><a href="#三、如何选择模型" class="headerlink" title="三、如何选择模型"></a>三、如何选择模型</h2><p>不要只看参数量。至少关注：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>任务</td>
+<td>通用聊天、代码、Embedding、工具调用</td>
+</tr>
+<tr>
+<td>参数规模</td>
+<td>通常越大越占资源，不保证所有任务都更好</td>
+</tr>
+<tr>
+<td>量化</td>
+<td>降低内存，但可能损失部分质量</td>
+</tr>
+<tr>
+<td>上下文长度</td>
+<td>越长通常需要更多 KV Cache</td>
+</tr>
+<tr>
+<td>语言</td>
+<td>中文和代码能力是否满足需求</td>
+</tr>
+<tr>
+<td>Tool 支持</td>
+<td>模型模板与能力是否支持工具调用</td>
+</tr>
+<tr>
+<td>许可证</td>
+<td>是否允许目标用途</td>
+</tr>
+</tbody></table>
+<p>建议用固定测试集比较：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">回答正确性</span><br><span class="line">指令遵循</span><br><span class="line">中文表达</span><br><span class="line">代码质量</span><br><span class="line">首 Token 延迟</span><br><span class="line">生成速度</span><br><span class="line">内存占用</span><br></pre></td></tr></table></figure>
+
+<p>不要仅凭模型排行榜决定生产选型。</p>
+<hr>
+<h2 id="四、调用-Ollama-REST-API"><a href="#四、调用-Ollama-REST-API" class="headerlink" title="四、调用 Ollama REST API"></a>四、调用 Ollama REST API</h2><p>Ollama 本地 API 默认地址：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">http://localhost:11434/api</span><br></pre></td></tr></table></figure>
+
+<h3 id="4-1-Chat-API"><a href="#4-1-Chat-API" class="headerlink" title="4.1 Chat API"></a>4.1 Chat API</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">curl http://localhost:11434/api/chat -d <span class="string">&#x27;&#123;</span></span><br><span class="line"><span class="string">  &quot;model&quot;: &quot;replace-with-your-model&quot;,</span></span><br><span class="line"><span class="string">  &quot;messages&quot;: [</span></span><br><span class="line"><span class="string">    &#123;</span></span><br><span class="line"><span class="string">      &quot;role&quot;: &quot;user&quot;,</span></span><br><span class="line"><span class="string">      &quot;content&quot;: &quot;解释 Java 中的 CompletableFuture。&quot;</span></span><br><span class="line"><span class="string">    &#125;</span></span><br><span class="line"><span class="string">  ],</span></span><br><span class="line"><span class="string">  &quot;stream&quot;: false</span></span><br><span class="line"><span class="string">&#125;&#x27;</span></span><br></pre></td></tr></table></figure>
+
+<p>默认接口通常支持流式返回；示例显式设置 <code>stream: false</code>，便于先观察完整 JSON。</p>
+<p>Python：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> requests</span><br><span class="line"></span><br><span class="line">response = requests.post(</span><br><span class="line">    <span class="string">&quot;http://localhost:11434/api/chat&quot;</span>,</span><br><span class="line">    json=&#123;</span><br><span class="line">        <span class="string">&quot;model&quot;</span>: <span class="string">&quot;replace-with-your-model&quot;</span>,</span><br><span class="line">        <span class="string">&quot;messages&quot;</span>: [</span><br><span class="line">            &#123;</span><br><span class="line">                <span class="string">&quot;role&quot;</span>: <span class="string">&quot;user&quot;</span>,</span><br><span class="line">                <span class="string">&quot;content&quot;</span>: <span class="string">&quot;解释 Java 中的 CompletableFuture。&quot;</span>,</span><br><span class="line">            &#125;</span><br><span class="line">        ],</span><br><span class="line">        <span class="string">&quot;stream&quot;</span>: <span class="literal">False</span>,</span><br><span class="line">    &#125;,</span><br><span class="line">    timeout=<span class="number">120</span>,</span><br><span class="line">)</span><br><span class="line">response.raise_for_status()</span><br><span class="line"><span class="built_in">print</span>(response.json()[<span class="string">&quot;message&quot;</span>][<span class="string">&quot;content&quot;</span>])</span><br></pre></td></tr></table></figure>
+
+<p>本地模型首次加载可能较慢，超时时间应结合硬件设置。</p>
+<hr>
+<h2 id="五、流式输出"><a href="#五、流式输出" class="headerlink" title="五、流式输出"></a>五、流式输出</h2><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> json</span><br><span class="line"><span class="keyword">import</span> requests</span><br><span class="line"></span><br><span class="line"><span class="keyword">with</span> requests.post(</span><br><span class="line">    <span class="string">&quot;http://localhost:11434/api/chat&quot;</span>,</span><br><span class="line">    json=&#123;</span><br><span class="line">        <span class="string">&quot;model&quot;</span>: <span class="string">&quot;replace-with-your-model&quot;</span>,</span><br><span class="line">        <span class="string">&quot;messages&quot;</span>: [</span><br><span class="line">            &#123;<span class="string">&quot;role&quot;</span>: <span class="string">&quot;user&quot;</span>, <span class="string">&quot;content&quot;</span>: <span class="string">&quot;写一个 Redis 分布式锁检查清单。&quot;</span>&#125;</span><br><span class="line">        ],</span><br><span class="line">        <span class="string">&quot;stream&quot;</span>: <span class="literal">True</span>,</span><br><span class="line">    &#125;,</span><br><span class="line">    stream=<span class="literal">True</span>,</span><br><span class="line">    timeout=<span class="number">120</span>,</span><br><span class="line">) <span class="keyword">as</span> response:</span><br><span class="line">    response.raise_for_status()</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> line <span class="keyword">in</span> response.iter_lines():</span><br><span class="line">        <span class="keyword">if</span> <span class="keyword">not</span> line:</span><br><span class="line">            <span class="keyword">continue</span></span><br><span class="line">        event = json.loads(line)</span><br><span class="line">        <span class="built_in">print</span>(event.get(<span class="string">&quot;message&quot;</span>, &#123;&#125;).get(<span class="string">&quot;content&quot;</span>, <span class="string">&quot;&quot;</span>), end=<span class="string">&quot;&quot;</span>, flush=<span class="literal">True</span>)</span><br><span class="line">        <span class="keyword">if</span> event.get(<span class="string">&quot;done&quot;</span>):</span><br><span class="line">            <span class="keyword">break</span></span><br></pre></td></tr></table></figure>
+
+<p>Ollama 原生流通常是逐行 JSON 事件，不应直接假设它与浏览器 SSE 格式完全相同。对前端暴露时，可以由 Spring Boot 转换为自己的 SSE 协议。</p>
+<p>最后一个 <code>done=true</code> 事件还包含加载、Prompt 处理、生成耗时以及 <code>prompt_eval_count</code>、<code>eval_count</code> 等统计。性能分析应读取这些字段，区分模型加载慢、首轮 Prompt 计算慢和生成速度慢，而不是只记录整个 HTTP 请求耗时。</p>
+<hr>
+<h2 id="六、生成-Embedding"><a href="#六、生成-Embedding" class="headerlink" title="六、生成 Embedding"></a>六、生成 Embedding</h2><p>Embedding 模型和聊天模型不是同一种用途。用于 RAG 时，应选择专门的 Embedding 模型，并保证文档与查询使用同一模型。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">curl http://localhost:11434/api/embed -d <span class="string">&#x27;&#123;</span></span><br><span class="line"><span class="string">  &quot;model&quot;: &quot;replace-with-an-embedding-model&quot;,</span></span><br><span class="line"><span class="string">  &quot;input&quot;: [</span></span><br><span class="line"><span class="string">    &quot;Redis 分布式锁&quot;,</span></span><br><span class="line"><span class="string">    &quot;MySQL B+ 树索引&quot;</span></span><br><span class="line"><span class="string">  ]</span></span><br><span class="line"><span class="string">&#125;&#x27;</span></span><br></pre></td></tr></table></figure>
+
+<p>注意：</p>
+<ul>
+<li>记录模型名和版本</li>
+<li>更换模型后重建向量索引</li>
+<li>检查向量维度</li>
+<li>用真实检索集评估 Recall@K</li>
+<li>不要拿聊天模型输出的隐藏状态随意当 Embedding</li>
+</ul>
+<p>Ollama 也支持用 JSON Schema 约束结构化输出。Schema 解决格式问题，不保证事实正确；本地模型对复杂 Schema 的遵循能力差异较大，应用仍需校验、限制重试，并为不支持的模型准备普通 JSON 或文本降级。</p>
+<hr>
+<h2 id="七、Spring-Boot-调用-Ollama"><a href="#七、Spring-Boot-调用-Ollama" class="headerlink" title="七、Spring Boot 调用 Ollama"></a>七、Spring Boot 调用 Ollama</h2><p>可以直接使用 <code>WebClient</code>：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Configuration</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">OllamaConfig</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Bean</span></span><br><span class="line">    WebClient <span class="title function_">ollamaWebClient</span><span class="params">(WebClient.Builder builder)</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> builder</span><br><span class="line">                .baseUrl(<span class="string">&quot;http://localhost:11434&quot;</span>)</span><br><span class="line">                .build();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>请求 DTO：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">record</span> <span class="title class_">OllamaChatRequest</span><span class="params">(</span></span><br><span class="line"><span class="params">        String model,</span></span><br><span class="line"><span class="params">        List&lt;Message&gt; messages,</span></span><br><span class="line"><span class="params">        <span class="type">boolean</span> stream</span></span><br><span class="line"><span class="params">)</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">record</span> <span class="title class_">Message</span><span class="params">(String role, String content)</span> &#123;&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>Service：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Service</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">OllamaService</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> WebClient client;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> String model;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="title function_">OllamaService</span><span class="params">(</span></span><br><span class="line"><span class="params">            WebClient ollamaWebClient,</span></span><br><span class="line"><span class="params">            <span class="meta">@Value(&quot;$&#123;app.ollama.model&#125;&quot;)</span> String model)</span> &#123;</span><br><span class="line">        <span class="built_in">this</span>.client = ollamaWebClient;</span><br><span class="line">        <span class="built_in">this</span>.model = model;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> Mono&lt;String&gt; <span class="title function_">chat</span><span class="params">(String question)</span> &#123;</span><br><span class="line">        <span class="type">var</span> <span class="variable">request</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">OllamaChatRequest</span>(</span><br><span class="line">                model,</span><br><span class="line">                List.of(<span class="keyword">new</span> <span class="title class_">OllamaChatRequest</span>.Message(<span class="string">&quot;user&quot;</span>, question)),</span><br><span class="line">                <span class="literal">false</span></span><br><span class="line">        );</span><br><span class="line"></span><br><span class="line">        <span class="keyword">return</span> client.post()</span><br><span class="line">                .uri(<span class="string">&quot;/api/chat&quot;</span>)</span><br><span class="line">                .bodyValue(request)</span><br><span class="line">                .retrieve()</span><br><span class="line">                .bodyToMono(JsonNode.class)</span><br><span class="line">                .map(json -&gt; json.path(<span class="string">&quot;message&quot;</span>).path(<span class="string">&quot;content&quot;</span>).asText());</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>配置：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">app:</span></span><br><span class="line">  <span class="attr">ollama:</span></span><br><span class="line">    <span class="attr">model:</span> <span class="string">$&#123;OLLAMA_MODEL&#125;</span></span><br></pre></td></tr></table></figure>
+
+<p>还可以使用 Spring AI 的 Ollama 模型集成，获得 <code>ChatClient</code> 等统一抽象。具体 starter 和属性名应以当前 Spring AI 文档为准。</p>
+<p>生产代码还应配置连接、响应和总请求超时，限制响应大小，并使用 <code>onStatus</code> 把 4xx、5xx 转成稳定业务错误。请求取消时要停止下游订阅；对生成类请求不要进行无条件自动重试，以免同一任务重复消耗资源。</p>
+<hr>
+<h2 id="八、OpenAI-兼容接口的使用边界"><a href="#八、OpenAI-兼容接口的使用边界" class="headerlink" title="八、OpenAI 兼容接口的使用边界"></a>八、OpenAI 兼容接口的使用边界</h2><p>Ollama 提供部分 OpenAI API 兼容能力，便于某些现有客户端切换 <code>base_url</code>。但“兼容”不代表所有端点、参数、工具行为和事件格式完全一致。</p>
+<p>当前兼容层包含 <code>/v1/chat/completions</code> 和 <code>/v1/responses</code> 等端点；其中 Responses 只支持无状态调用，不支持用 <code>previous_response_id</code> 或 conversation 延续服务端状态。OpenAI 客户端通常要求填写 API Key，但本地 Ollama 会忽略该值，它不是业务鉴权机制。</p>
+<p>生产接入前应逐项验证：</p>
+<ul>
+<li>Chat&#x2F;Responses 支持范围</li>
+<li>Tool Calling</li>
+<li>Structured Output</li>
+<li>流式事件格式</li>
+<li>Usage 字段</li>
+<li>错误码</li>
+<li>多模态能力</li>
+</ul>
+<p>需要 Ollama 完整能力时，优先使用原生 REST API 或官方客户端；统一模型网关则应在自己的适配层消化差异。</p>
+<hr>
+<h2 id="九、上下文长度、内存与性能"><a href="#九、上下文长度、内存与性能" class="headerlink" title="九、上下文长度、内存与性能"></a>九、上下文长度、内存与性能</h2><p>上下文长度是模型在一次请求中能够处理的 Token 范围。增加上下文会扩大 KV Cache 和计算量，通常会增加内存占用、首 Token 延迟和总耗时。</p>
+<p>Ollama 当前会根据可用显存选择默认上下文：低于 24 GiB 通常为 4K，24～48 GiB 为 32K，48 GiB 及以上为 256K；该默认值可能随版本变化，可通过配置或模型参数调整。模型声明的最大上下文不代表当前机器应直接使用最大值。</p>
+<p>不要因为模型“支持长上下文”就始终设为最大值。RAG 更应该通过检索选择少量相关片段，而不是把全部知识库塞进 Prompt。</p>
+<p>优化顺序：</p>
+<ol>
+<li>选择与硬件匹配的模型规模</li>
+<li>控制上下文长度</li>
+<li>控制输出长度</li>
+<li>避免同时加载多个模型</li>
+<li>使用 <code>keep_alive</code> 平衡冷启动与内存占用</li>
+<li>限制并发和请求队列</li>
+<li>记录加载时间、首 Token 和 tokens&#x2F;s</li>
+</ol>
+<p>Ollama API 的 <code>keep_alive</code> 可控制请求后模型在内存中保留多久。保留更久能减少再次加载延迟，但会持续占用内存。</p>
+<p>并发还受 <code>OLLAMA_MAX_LOADED_MODELS</code>、<code>OLLAMA_NUM_PARALLEL</code> 和 <code>OLLAMA_MAX_QUEUE</code> 等配置影响。粗略理解，单个模型的内存需求会随“并行请求数 × 上下文长度”增加；队列超过上限时服务会返回 503。应先在目标硬件上测单并发基线，再逐步增加并发，并同时观察吞吐、P95 延迟和内存，而不是只调大队列。</p>
+<p><img src="/../img/ai-ollama-memory-concurrency-model.png" alt="Ollama 内存占用与并发关系"></p>
+<hr>
+<h2 id="十、本地部署的安全问题"><a href="#十、本地部署的安全问题" class="headerlink" title="十、本地部署的安全问题"></a>十、本地部署的安全问题</h2><p>本地运行不等于自动安全：</p>
+<ul>
+<li>默认监听范围是否只限本机</li>
+<li>是否通过反向代理暴露公网</li>
+<li>是否配置鉴权和 TLS</li>
+<li>哪些用户可以拉取或删除模型</li>
+<li>Prompt 和文档是否记录日志</li>
+<li>模型文件和许可证如何管理</li>
+</ul>
+<p>不要把未鉴权的 Ollama 端口直接暴露到公网。需要远程访问时，应放在受控网络后，通过 API Gateway、VPN 或带鉴权的后端代理访问。</p>
+<p>本地 API 本身不提供面向业务用户的认证授权。即使只监听内网，也要由网关或应用层限制调用者、模型列表、最大上下文、并发和费用等价资源；模型文件还应记录来源、版本哈希和许可证，升级后重新运行质量与性能测试。</p>
+<hr>
+<h2 id="十一、Ollama-适合和不适合的场景"><a href="#十一、Ollama-适合和不适合的场景" class="headerlink" title="十一、Ollama 适合和不适合的场景"></a>十一、Ollama 适合和不适合的场景</h2><h3 id="适合"><a href="#适合" class="headerlink" title="适合"></a>适合</h3><ul>
+<li>本地学习和原型</li>
+<li>隐私敏感的内部文档测试</li>
+<li>无网络或弱网络环境</li>
+<li>小规模、低并发应用</li>
+<li>云模型的开发降级方案</li>
+</ul>
+<h3 id="不一定适合"><a href="#不一定适合" class="headerlink" title="不一定适合"></a>不一定适合</h3><ul>
+<li>对高并发和稳定 SLA 有严格要求</li>
+<li>单机资源不足但要运行大模型</li>
+<li>需要顶级模型质量</li>
+<li>不具备模型运维和安全能力</li>
+<li>需要频繁使用超长上下文</li>
+</ul>
+<p>此时应评估云 API、专用推理平台或托管服务。</p>
+<hr>
+<h2 id="十二、面试高频问题"><a href="#十二、面试高频问题" class="headerlink" title="十二、面试高频问题"></a>十二、面试高频问题</h2><p><strong>Q1：没有 GPU 能运行 Ollama 吗？</strong></p>
+<p>可以使用 CPU 运行支持的模型，但速度较慢，需要选择较小或合理量化的模型，并控制上下文和并发。</p>
+<p><strong>Q2：参数量和量化分别影响什么？</strong></p>
+<p>参数量影响模型容量和资源需求；量化降低权重精度以减少内存和提高可运行性，但可能带来质量损失。</p>
+<p><strong>Q3：为什么上下文越长越占内存？</strong></p>
+<p>除模型权重外，推理还要保存与上下文相关的 KV Cache；上下文增加会带来额外内存和计算开销。</p>
+<p><strong>Q4：Ollama 原生 API 和 OpenAI 兼容 API 如何选？</strong></p>
+<p>需要完整 Ollama 能力时使用原生 API；迁移已有客户端时可评估兼容接口，但要验证实际支持范围。</p>
+<p><strong>Q5：本地部署就没有成本吗？</strong></p>
+<p>不是。仍有硬件、电力、磁盘、维护和性能成本，只是减少了按调用付费和数据出网依赖。</p>
+<hr>
+<h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a>参考资料</h2><ul>
+<li>Ollama API Introduction：<a target="_blank" rel="noopener" href="https://docs.ollama.com/api/introduction">https://docs.ollama.com/api/introduction</a></li>
+<li>Ollama Hardware Support：<a target="_blank" rel="noopener" href="https://docs.ollama.com/gpu">https://docs.ollama.com/gpu</a></li>
+<li>Ollama Context Length：<a target="_blank" rel="noopener" href="https://docs.ollama.com/context-length">https://docs.ollama.com/context-length</a></li>
+<li>Ollama Streaming：<a target="_blank" rel="noopener" href="https://docs.ollama.com/api/streaming">https://docs.ollama.com/api/streaming</a></li>
+<li>Ollama Python Library：<a target="_blank" rel="noopener" href="https://github.com/ollama/ollama-python">https://github.com/ollama/ollama-python</a></li>
+<li>Ollama OpenAI Compatibility：<a target="_blank" rel="noopener" href="https://docs.ollama.com/api/openai-compatibility">https://docs.ollama.com/api/openai-compatibility</a></li>
+<li>Ollama Structured Outputs：<a target="_blank" rel="noopener" href="https://docs.ollama.com/capabilities/structured-outputs">https://docs.ollama.com/capabilities/structured-outputs</a></li>
+</ul>
+<hr>
+<h2 id="写在最后"><a href="#写在最后" class="headerlink" title="写在最后"></a>写在最后</h2><p>Ollama 让本地模型的安装、管理和 API 调用变得简单，但它不是把云端模型“免费搬到本机”。硬件能力、模型规模、上下文、并发和安全决定了最终体验。</p>
+<p>对个人学习来说，选择一个能在现有机器稳定运行的小模型，跑通 Chat、Embedding 和 Spring Boot 接入，比追求最大参数量更有价值。再通过固定测试集比较本地模型与云 API，才能做出合理选型。</p>
+<hr>
+<blockquote>
+<p><strong>AI 工程系列文章预告</strong>：</p>
+<ul>
+<li>上一篇：Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling</li>
+<li>本篇为 AI 工程系列第 10 篇，后续可继续扩展模型网关、MCP、微调与可观测性专题</li>
+</ul>
+</blockquote>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://qjngbac.github.io">qjngbac</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://qjngbac.github.io/2026/07/22/10-ollama-local-llm/">https://qjngbac.github.io/2026/07/22/10-ollama-local-llm/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://qjngbac.github.io" target="_blank">Wait</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/AI%E5%B7%A5%E7%A8%8B/">AI工程</a><a class="post-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><a class="post-meta__tags" href="/tags/Spring-Boot/">Spring Boot</a><a class="post-meta__tags" href="/tags/Ollama/">Ollama</a><a class="post-meta__tags" href="/tags/%E6%9C%AC%E5%9C%B0%E5%A4%A7%E6%A8%A1%E5%9E%8B/">本地大模型</a><a class="post-meta__tags" href="/tags/LLM/">LLM</a><a class="post-meta__tags" href="/tags/CPU%E6%8E%A8%E7%90%86/">CPU推理</a><a class="post-meta__tags" href="/tags/GPU/">GPU</a></div><div class="post-share"><div class="social-share" data-image="/../img/ai-10-ollama.jpg" data-sites="facebook,x,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related full-width" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"><img class="cover" src="/../img/ai-09-spring-ai.jpg" onerror="onerror=null;src='/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling</div></div><div class="info-2"><div class="info-item-1">前言Python 生态在大模型应用中非常丰富，但对于已经使用 Spring Boot 的团队，鉴权、配置、数据库、日志、监控和部署体系都在 Java 侧。为了接入模型而重新搭建一套独立 Python 服务，并不总是最合适的选择。 Spring AI 为 Java 应用提供统一的模型、Embedding、向量库、Tool Calling、Chat Memory、RAG Advisor 和可观测性抽象。它的价值不是“用 Java 重新实现模型”，而是让 AI 能力进入熟悉的 Spring 配置和依赖注入体系。 本文基于 Spring AI 当前的核心抽象，搭建同步&#x2F;流式聊天、结构化输出、Tool Calling 和简单 RAG，并说明生产项目中的配置、安全和可观测性问题。  一、Spring AI 的核心抽象   抽象 作用    ChatModel 与聊天模型交互的底层统一接口   ChatClient 面向应用的流畅 API，支持同步、流式、Prompt、Advisor 和 Tool   EmbeddingModel 把文本转换为向量   VectorStore 保存文...</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/2026/06/23/03-function-calling-java/" title="Function Calling 实战：让大模型安全调用 Java 业务能力"><img class="cover" src="/../img/ai-03-function-calling.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-06-23</div><div class="info-item-2">Function Calling 实战：让大模型安全调用 Java 业务能力</div></div><div class="info-2"><div class="info-item-1">前言普通聊天模型只能根据输入生成文字。如果用户问“文档 42 的最新版本是谁创建的”，模型并不知道你的数据库内容；如果用户说“帮我把文档设为只读”，模型也没有权限直接修改业务数据。 Function Calling（也叫 Tool Calling）提供了一座桥梁：应用把可用工具的名称、描述和参数 Schema 告诉模型；模型在需要时返回“调用哪个工具、传什么参数”；真正执行函数的仍然是你的 Java 服务；执行结果再交给模型生成最终回答。 它不是让模型直接访问数据库，更不是绕过后端权限。正确的理解是：模型负责选择与生成参数，应用负责校验、授权、执行、审计和返回结果。  一、Function Calling 的完整流程12345678910111213用户问题   ↓应用把问题 + 工具定义发给模型   ↓模型返回 tool call（工具名 + JSON 参数）   ↓应用校验参数、权限和风险   ↓Java 方法执行真实业务   ↓应用把工具结果返回模型   ↓模型生成最终自然语言回答  关键点：模型返回的是请求，不是执行结果。无论模型声称“已删除成功”还是“已退款”，只有后端...</div></div></div></a><a class="pagination-related" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"><img class="cover" src="/../img/ai-09-spring-ai.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-17</div><div class="info-item-2">Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling</div></div><div class="info-2"><div class="info-item-1">前言Python 生态在大模型应用中非常丰富，但对于已经使用 Spring Boot 的团队，鉴权、配置、数据库、日志、监控和部署体系都在 Java 侧。为了接入模型而重新搭建一套独立 Python 服务，并不总是最合适的选择。 Spring AI 为 Java 应用提供统一的模型、Embedding、向量库、Tool Calling、Chat Memory、RAG Advisor 和可观测性抽象。它的价值不是“用 Java 重新实现模型”，而是让 AI 能力进入熟悉的 Spring 配置和依赖注入体系。 本文基于 Spring AI 当前的核心抽象，搭建同步&#x2F;流式聊天、结构化输出、Tool Calling 和简单 RAG，并说明生产项目中的配置、安全和可观测性问题。  一、Spring AI 的核心抽象   抽象 作用    ChatModel 与聊天模型交互的底层统一接口   ChatClient 面向应用的流畅 API，支持同步、流式、Prompt、Advisor 和 Tool   EmbeddingModel 把文本转换为向量   VectorStore 保存文...</div></div></div></a><a class="pagination-related" href="/2025/10/07/spring-boot-autoconfigure-guide/" title="Spring Boot 自动装配原理：@SpringBootApplication 背后做了什么"><img class="cover" src="/img/java-series-07-spring-boot.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2025-10-07</div><div class="info-item-2">Spring Boot 自动装配原理：@SpringBootApplication 背后做了什么</div></div><div class="info-2"><div class="info-item-1">前言做 Spring Boot 开发的人，每天都会写 @SpringBootApplication 注解。点一下启动类，服务就能跑起来；引入一个 mybatis-spring-boot-starter，不用写 SqlSessionFactory 配置，直接就能注入 Mapper 使用。 我们常说 Spring Boot “开箱即用”，这份便利的背后，核心就是自动装配机制。但很多人对它的认知停留在”面试要背的八股”层面，既说不清楚 @EnableAutoConfiguration 到底干了什么，也讲不明白自动配置候选类是怎么被加载的，遇到 starter 不生效的问题只能瞎试。 自动装配不是什么黑魔法，它是一套设计精巧的组件扩展机制。今天我们就从最熟悉的启动注解切入，逐层拆解 @SpringBootApplication 的内部构成，把自动配置候选加载机制、条件注解筛选逻辑、完整装配流程一次性讲透。  一、@SpringBootApplication：原来是个组合注解很多人以为它是一个全新的魔法注解，其实点开源码就会发现，它本质是一个组合注解，封装了三个核心注解： 12345678...</div></div></div></a><a class="pagination-related" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度"><img class="cover" src="/../img/ai-07-rag-evaluation.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-12</div><div class="info-item-2">RAG 评估实战：Recall@K、MRR 与回答忠实度</div></div><div class="info-2"><div class="info-item-1">前言很多 RAG 项目的优化方式是：改一个参数，随便问几个问题，感觉回答比以前好，就宣布“准确率提升”。这种方法无法复现，也无法判断提升来自检索、Prompt、模型还是偶然性。 RAG 是一条组合链路，至少包含文档处理、检索、排序和生成。评估也应拆开：检索阶段判断正确文档有没有被找回来、排在什么位置；生成阶段判断回答是否忠于上下文、是否真正回答问题；端到端阶段再看用户任务是否完成、延迟和成本是否可接受。 本文从构建评估集开始，实现 Recall@K、Hit Rate、MRR，并说明 Faithfulness、Answer Relevance、无答案识别和线上反馈应该如何组合。  一、RAG 评估要拆成三层12345678检索评估→ 正确文档是否被召回、排名是否合理生成评估→ 回答是否忠于上下文、是否相关、是否完整端到端评估→ 用户任务是否完成、延迟和成本是否可接受  只看最终答案有两个问题：  模型可能靠自身知识答对，掩盖检索失败 检索正确但生成失败时，不知道应该改哪一层    二、构建一份可用的评估集每条测试数据至少包含： 123456789101112&#123;  &quo...</div></div></div></a><a class="pagination-related" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"><img class="cover" src="/../img/ai-08-vector-database.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-13</div><div class="info-item-2">向量数据库选型实战：Chroma、Milvus 与 pgvector 对比</div></div><div class="info-2"><div class="info-item-1">前言做 RAG 时经常会看到三类建议：个人项目用 Chroma，海量向量用 Milvus，已有 PostgreSQL 就用 pgvector。这个结论方向上没有问题，但真正选型不能只看一句话。 向量数据库不仅负责“存一个 float 数组”。它还要处理向量索引、Top-K 搜索、metadata 过滤、增删改、并发、备份恢复、监控和客户端接入。不同产品的定位不同：Chroma 更偏 AI 应用快速检索，Milvus 是专用、可扩展的向量数据库，pgvector 则把向量能力放进 PostgreSQL 生态。 本文从架构、索引、过滤、运维和适用场景比较三者，并给出一套公平的性能测试方法。   一、向量检索在做什么Embedding 模型把文本映射为固定维度向量： 1“Redis 分布式锁” → [0.12, -0.34, ...]  查询时，把用户问题也转换到同一向量空间，再按距离或相似度寻找邻居。 常见度量：    度量 含义 注意点    Cosine 比较方向相似度 常用于文本向量   Inner Product 点积 是否需归一化取决于模型   L2 欧氏距离 距离越小通常...</div></div></div></a><a class="pagination-related" href="/2026/06/19/02-prompt-context-engineering/" title="Prompt 与上下文工程实战：稳定输出、结构化响应与注入防护"><img class="cover" src="/../img/ai-02-prompt-context.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-06-19</div><div class="info-item-2">Prompt 与上下文工程实战：稳定输出、结构化响应与注入防护</div></div><div class="info-2"><div class="info-item-1">前言很多大模型应用效果不稳定，并不是模型能力不足，而是输入没有把任务讲清楚：目标模糊、上下文混乱、格式只靠自然语言约束、示例互相冲突，甚至把用户上传文档中的指令当成系统命令执行。 Prompt 工程不等于堆砌“你是一位顶级专家”。它真正解决的是：如何把任务、规则、数据和输出契约组织成模型更容易遵循的输入。随着应用变复杂，还要进一步考虑上下文选择、长对话裁剪、检索结果排序、工具结果注入和安全边界，这就是上下文工程。 本文从消息层级、零样本与少样本、结构化输出、模板版本管理、长上下文治理和 Prompt Injection 防护几个方面，给出一套适合后端项目的实战方法。  一、一个高质量 Prompt 的基本结构推荐把 Prompt 拆成五部分： 12345角色与目标→ 输入数据说明→ 必须遵守的约束→ 输出格式→ 必要的示例  示例： 1234567891011121314151617181920212223242526你是 Java 后端面试题整理助手。任务：根据提供的知识片段回答问题。约束：1. 只使用知识片段中能够支持的内容。2. 资料不足时明确回答“现有资料无法确定”。3....</div></div></div></a></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">qjngbac</div><div class="author-info-description">一个正在学习的开发者</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">42</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">139</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/qjngbac"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/qjngbac" target="_blank" title="Github"><i class="fab fa-github"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到我的博客</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%89%8D%E8%A8%80"><span class="toc-number">1.</span> <span class="toc-text">前言</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%80%E3%80%81Ollama-%E7%9A%84%E5%9F%BA%E6%9C%AC%E6%9E%B6%E6%9E%84"><span class="toc-number">2.</span> <span class="toc-text">一、Ollama 的基本架构</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%8C%E3%80%81%E6%B2%A1%E6%9C%89%E7%8B%AC%E7%AB%8B-GPU-%E8%83%BD%E4%B8%8D%E8%83%BD%E8%BF%90%E8%A1%8C"><span class="toc-number">3.</span> <span class="toc-text">二、没有独立 GPU 能不能运行</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#2-1-GPU-%E7%9A%84%E4%BD%9C%E7%94%A8"><span class="toc-number">3.1.</span> <span class="toc-text">2.1 GPU 的作用</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%89%E3%80%81%E5%A6%82%E4%BD%95%E9%80%89%E6%8B%A9%E6%A8%A1%E5%9E%8B"><span class="toc-number">4.</span> <span class="toc-text">三、如何选择模型</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9B%9B%E3%80%81%E8%B0%83%E7%94%A8-Ollama-REST-API"><span class="toc-number">5.</span> <span class="toc-text">四、调用 Ollama REST API</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#4-1-Chat-API"><span class="toc-number">5.1.</span> <span class="toc-text">4.1 Chat API</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%94%E3%80%81%E6%B5%81%E5%BC%8F%E8%BE%93%E5%87%BA"><span class="toc-number">6.</span> <span class="toc-text">五、流式输出</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%AD%E3%80%81%E7%94%9F%E6%88%90-Embedding"><span class="toc-number">7.</span> <span class="toc-text">六、生成 Embedding</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%83%E3%80%81Spring-Boot-%E8%B0%83%E7%94%A8-Ollama"><span class="toc-number">8.</span> <span class="toc-text">七、Spring Boot 调用 Ollama</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%AB%E3%80%81OpenAI-%E5%85%BC%E5%AE%B9%E6%8E%A5%E5%8F%A3%E7%9A%84%E4%BD%BF%E7%94%A8%E8%BE%B9%E7%95%8C"><span class="toc-number">9.</span> <span class="toc-text">八、OpenAI 兼容接口的使用边界</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B9%9D%E3%80%81%E4%B8%8A%E4%B8%8B%E6%96%87%E9%95%BF%E5%BA%A6%E3%80%81%E5%86%85%E5%AD%98%E4%B8%8E%E6%80%A7%E8%83%BD"><span class="toc-number">10.</span> <span class="toc-text">九、上下文长度、内存与性能</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8D%81%E3%80%81%E6%9C%AC%E5%9C%B0%E9%83%A8%E7%BD%B2%E7%9A%84%E5%AE%89%E5%85%A8%E9%97%AE%E9%A2%98"><span class="toc-number">11.</span> <span class="toc-text">十、本地部署的安全问题</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8D%81%E4%B8%80%E3%80%81Ollama-%E9%80%82%E5%90%88%E5%92%8C%E4%B8%8D%E9%80%82%E5%90%88%E7%9A%84%E5%9C%BA%E6%99%AF"><span class="toc-number">12.</span> <span class="toc-text">十一、Ollama 适合和不适合的场景</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%80%82%E5%90%88"><span class="toc-number">12.1.</span> <span class="toc-text">适合</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E4%B8%8D%E4%B8%80%E5%AE%9A%E9%80%82%E5%90%88"><span class="toc-number">12.2.</span> <span class="toc-text">不一定适合</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8D%81%E4%BA%8C%E3%80%81%E9%9D%A2%E8%AF%95%E9%AB%98%E9%A2%91%E9%97%AE%E9%A2%98"><span class="toc-number">13.</span> <span class="toc-text">十二、面试高频问题</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99"><span class="toc-number">14.</span> <span class="toc-text">参考资料</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%86%99%E5%9C%A8%E6%9C%80%E5%90%8E"><span class="toc-number">15.</span> <span class="toc-text">写在最后</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"><img src="/../img/ai-10-ollama.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"/></a><div class="content"><a class="title" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成">Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成</a><time datetime="2026-07-22T02:00:00.000Z" title="发表于 2026-07-22 10:00:00">2026-07-22</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"><img src="/../img/ai-09-spring-ai.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"/></a><div class="content"><a class="title" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling">Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling</a><time datetime="2026-07-17T02:00:00.000Z" title="发表于 2026-07-17 10:00:00">2026-07-17</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"><img src="/../img/ai-08-vector-database.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"/></a><div class="content"><a class="title" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比">向量数据库选型实战：Chroma、Milvus 与 pgvector 对比</a><time datetime="2026-07-13T02:00:00.000Z" title="发表于 2026-07-13 10:00:00">2026-07-13</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度"><img src="/../img/ai-07-rag-evaluation.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 评估实战：Recall@K、MRR 与回答忠实度"/></a><div class="content"><a class="title" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度">RAG 评估实战：Recall@K、MRR 与回答忠实度</a><time datetime="2026-07-12T02:00:00.000Z" title="发表于 2026-07-12 10:00:00">2026-07-12</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"><img src="/../img/ai-06-rag-retrieval.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"/></a><div class="content"><a class="title" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker">RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker</a><time datetime="2026-07-09T02:00:00.000Z" title="发表于 2026-07-09 10:00:00">2026-07-09</time></div></div></div></div></div></div></main><footer id="footer"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2024 - 2026 By qjngbac</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 7.3.0</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.5.5</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.5.5"></script><script src="/js/main.js?v=5.5.5"></script><div class="js-pjax"></div><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

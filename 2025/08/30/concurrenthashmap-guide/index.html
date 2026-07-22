@@ -1,0 +1,473 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>ConcurrentHashMap 源码：它为什么是线程安全的 | Wait</title><meta name="author" content="qjngbac"><meta name="copyright" content="qjngbac"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="前言在并发场景下，HashMap 会出现元素覆盖、丢失、计数不准等问题；JDK 7 的并发扩容还可能形成链表环。Hashtable 虽然线程安全，却主要依赖整表级 synchronized，并发写入容易形成明显竞争。 为了兼顾「线程安全」与「并发性能」，JDK 推出了 ConcurrentHashMap。它也是面试中的高频考点：分段锁是什么？JDK 1.8 为什么改用 CAS + synchron">
+<meta property="og:type" content="article">
+<meta property="og:title" content="ConcurrentHashMap 源码：它为什么是线程安全的">
+<meta property="og:url" content="https://qjngbac.github.io/2025/08/30/concurrenthashmap-guide/index.html">
+<meta property="og:site_name" content="Wait">
+<meta property="og:description" content="前言在并发场景下，HashMap 会出现元素覆盖、丢失、计数不准等问题；JDK 7 的并发扩容还可能形成链表环。Hashtable 虽然线程安全，却主要依赖整表级 synchronized，并发写入容易形成明显竞争。 为了兼顾「线程安全」与「并发性能」，JDK 推出了 ConcurrentHashMap。它也是面试中的高频考点：分段锁是什么？JDK 1.8 为什么改用 CAS + synchron">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://qjngbac.github.io/img/java-series-12-concurrent-hashmap.jpg">
+<meta property="article:published_time" content="2025-08-30T08:00:00.000Z">
+<meta property="article:modified_time" content="2026-07-19T09:01:19.684Z">
+<meta property="article:author" content="qjngbac">
+<meta property="article:tag" content="面试">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="源码">
+<meta property="article:tag" content="集合">
+<meta property="article:tag" content="ConcurrentHashMap">
+<meta property="article:tag" content="并发">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://qjngbac.github.io/img/java-series-12-concurrent-hashmap.jpg"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "ConcurrentHashMap 源码：它为什么是线程安全的",
+  "url": "https://qjngbac.github.io/2025/08/30/concurrenthashmap-guide/",
+  "image": "https://qjngbac.github.io/img/java-series-12-concurrent-hashmap.jpg",
+  "datePublished": "2025-08-30T08:00:00.000Z",
+  "dateModified": "2026-07-19T09:01:19.684Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "qjngbac",
+      "url": "https://qjngbac.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://qjngbac.github.io/2025/08/30/concurrenthashmap-guide/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.5.5"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        if (!ttl) return
+        const expiry = Date.now() + ttl * 86400000
+        localStorage.setItem(key, JSON.stringify({ value, expiry }))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return undefined
+        const { value, expiry } = JSON.parse(itemStr)
+        if (Date.now() > expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return value
+      }
+    }
+
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+        script.onload = script.onreadystatechange = () => {
+          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      }),
+      getCSS: (url, id) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onload = link.onreadystatechange = () => {
+          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+        }
+        link.onerror = reject
+        document.head.appendChild(link)
+      }),
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: true
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'ConcurrentHashMap 源码：它为什么是线程安全的',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="generator" content="Hexo 7.3.0"></head><body><div id="loading-box"><div class="loading-left-bg"></div><div class="loading-right-bg"></div><div class="spinner-box"><div class="configure-border-1"><div class="configure-core"></div></div><div class="configure-border-2"><div class="configure-core"></div></div><div class="loading-word">加载中...</div></div></div><script>(()=>{
+  const $loadingBox = document.getElementById('loading-box')
+  const $body = document.body
+  const preloader = {
+    endLoading: () => {
+      if ($loadingBox.classList.contains('loaded')) return
+      $body.style.overflow = ''
+      $loadingBox.classList.add('loaded')
+    },
+    initLoading: () => {
+      $body.style.overflow = 'hidden'
+      $loadingBox.classList.remove('loaded')
+    }
+  }
+
+  preloader.initLoading()
+
+  if (document.readyState === 'complete') {
+    preloader.endLoading()
+  } else {
+    window.addEventListener('load', preloader.endLoading)
+    document.addEventListener('DOMContentLoaded', preloader.endLoading)
+    // Add timeout protection: force end after 7 seconds
+    setTimeout(preloader.endLoading, 7000)
+  }
+
+  if (false) {
+    btf.addGlobalFn('pjaxSend', preloader.initLoading, 'preloader_init')
+    btf.addGlobalFn('pjaxComplete', preloader.endLoading, 'preloader_end')
+  }
+})()</script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">42</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">139</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(/img/java-series-12-concurrent-hashmap.jpg);"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">Wait</span></a><a class="nav-page-title" href="/"><span class="site-name">ConcurrentHashMap 源码：它为什么是线程安全的</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">ConcurrentHashMap 源码：它为什么是线程安全的</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2025-08-30T08:00:00.000Z" title="发表于 2025-08-30 16:00:00">2025-08-30</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-07-19T09:01:19.684Z" title="更新于 2026-07-19 17:01:19">2026-07-19</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/Java-%E6%B7%B1%E5%BA%A6/">Java 深度</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>在并发场景下，<code>HashMap</code> 会出现元素覆盖、丢失、计数不准等问题；JDK 7 的并发扩容还可能形成链表环。<code>Hashtable</code> 虽然线程安全，却主要依赖整表级 <code>synchronized</code>，并发写入容易形成明显竞争。</p>
+<p>为了兼顾「线程安全」与「并发性能」，JDK 推出了 <code>ConcurrentHashMap</code>。它也是面试中的高频考点：分段锁是什么？JDK 1.8 为什么改用 CAS + synchronized？并发下 <code>size()</code> 怎么统计才准确？这些问题的背后，是一整套精细的并发控制思想。</p>
+<p>今天我们就从 JDK 1.7 到 1.8 的演进入手，拆解 <code>ConcurrentHashMap</code> 的线程安全实现，把分段锁、CAS 桶锁、分散计数、并发扩容这些核心机制一次性讲透。</p>
+<hr>
+<h2 id="一、演进之路：从粗粒度锁到细粒度锁"><a href="#一、演进之路：从粗粒度锁到细粒度锁" class="headerlink" title="一、演进之路：从粗粒度锁到细粒度锁"></a>一、演进之路：从粗粒度锁到细粒度锁</h2><p><code>ConcurrentHashMap</code> 的核心设计目标很明确：<strong>在保证线程安全的前提下，尽可能降低锁的粒度，减少锁竞争，提升并发吞吐量</strong>。</p>
+<table>
+<thead>
+<tr>
+<th>版本</th>
+<th>核心实现</th>
+<th>锁粒度</th>
+<th>并发度</th>
+<th>底层结构</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>JDK 1.7</td>
+<td>分段锁（Segment）</td>
+<td>锁整个分段</td>
+<td>默认 16 个分段</td>
+<td>分段数组 + 链表</td>
+</tr>
+<tr>
+<td>JDK 1.8</td>
+<td>CAS + synchronized</td>
+<td>非空桶锁住首节点</td>
+<td>写竞争大致分散到不同桶</td>
+<td>数组 + 链表 + 红黑树</td>
+</tr>
+</tbody></table>
+<!-- 配图 1：ConcurrentHashMap 演进对比图 -->
+<!-- 插入位置：此处 -->
+
+<p><img src="/../img/concurrenthashmap-evolution.png" alt="ConcurrentHashMap 演进对比"></p>
+<hr>
+<h2 id="二、JDK-1-7：分段锁的经典实现"><a href="#二、JDK-1-7：分段锁的经典实现" class="headerlink" title="二、JDK 1.7：分段锁的经典实现"></a>二、JDK 1.7：分段锁的经典实现</h2><h3 id="2-1-底层结构：Segment-分段数组"><a href="#2-1-底层结构：Segment-分段数组" class="headerlink" title="2.1 底层结构：Segment 分段数组"></a>2.1 底层结构：Segment 分段数组</h3><p>JDK 1.7 由两重数组构成：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">第一层：Segment[] 分段数组（默认 16 个）</span><br><span class="line">┌───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┬───┐</span><br><span class="line">│ 0 │ 1 │ 2 │ 3 │ 4 │ 5 │ 6 │ 7 │ 8 │ 9 │10 │11 │12 │13 │14 │15 │</span><br><span class="line">└───┴─┬─┴───┴─┬─┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┴───┘</span><br><span class="line">      │       │</span><br><span class="line">      ▼       ▼</span><br><span class="line">第二层：每个 Segment 内部的 HashEntry[] 数组</span><br><span class="line">┌───┬───┬───┬───┐  ┌───┬───┬───┬───┐</span><br><span class="line">│ 0 │ 1 │ 2 │ 3 │  │ 0 │ 1 │ 2 │ 3 │</span><br><span class="line">└─┬─┴───┴─┬─┴───┘  └───┴─┬─┴───┴───┘</span><br><span class="line">  │       │               │</span><br><span class="line">  ▼       ▼               ▼</span><br><span class="line"> Node    Node            Node</span><br><span class="line">  │</span><br><span class="line">  ▼</span><br><span class="line"> Node</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 分段锁核心类，继承自 ReentrantLock</span></span><br><span class="line"><span class="keyword">static</span> <span class="keyword">class</span> <span class="title class_">Segment</span>&lt;K,V&gt; <span class="keyword">extends</span> <span class="title class_">ReentrantLock</span> <span class="keyword">implements</span> <span class="title class_">Serializable</span> &#123;</span><br><span class="line">    <span class="keyword">transient</span> <span class="keyword">volatile</span> HashEntry&lt;K,V&gt;[] table; <span class="comment">// 段内哈希数组</span></span><br><span class="line">    <span class="keyword">transient</span> <span class="type">int</span> count;                       <span class="comment">// 段内元素数</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-2-put-操作的加锁流程"><a href="#2-2-put-操作的加锁流程" class="headerlink" title="2.2 put 操作的加锁流程"></a>2.2 put 操作的加锁流程</h3><ol>
+<li>对 key 做哈希，定位到对应的 Segment 下标</li>
+<li>尝试获取该 Segment 的锁，获取失败则自旋重试</li>
+<li>拿到锁后，在段内的哈希数组中定位桶，遍历链表插入&#x2F;覆盖元素</li>
+<li>插入完成，释放锁</li>
+</ol>
+<h3 id="2-3-分段锁的局限性"><a href="#2-3-分段锁的局限性" class="headerlink" title="2.3 分段锁的局限性"></a>2.3 分段锁的局限性</h3><table>
+<thead>
+<tr>
+<th>问题</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>并发度有上限</td>
+<td>默认 16 个段，再多线程也只能 16 个同时写</td>
+</tr>
+<tr>
+<td>跨段操作开销大</td>
+<td>size() 需要依次加所有锁</td>
+</tr>
+<tr>
+<td>空间浪费</td>
+<td>分段数组本身占用额外内存</td>
+</tr>
+<tr>
+<td>热点段竞争激烈</td>
+<td>所有热点 key 落在同一段，锁竞争严重</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="三、JDK-1-8：CAS-synchronized-的极致优化"><a href="#三、JDK-1-8：CAS-synchronized-的极致优化" class="headerlink" title="三、JDK 1.8：CAS + synchronized 的极致优化"></a>三、JDK 1.8：CAS + synchronized 的极致优化</h2><p>JDK 1.8 彻底抛弃了分段锁设计，底层结构变得和 <code>HashMap</code> 高度相似：<strong>数组 + 链表 + 红黑树</strong>。</p>
+<h3 id="3-1-核心字段"><a href="#3-1-核心字段" class="headerlink" title="3.1 核心字段"></a>3.1 核心字段</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">transient</span> <span class="keyword">volatile</span> Node&lt;K,V&gt;[] table;          <span class="comment">// 哈希桶数组</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">transient</span> <span class="keyword">volatile</span> <span class="type">int</span> sizeCtl;         <span class="comment">// 控制标识符</span></span><br><span class="line"><span class="keyword">transient</span> <span class="keyword">volatile</span> CounterCell[] counterCells;  <span class="comment">// 分散计数单元</span></span><br></pre></td></tr></table></figure>
+
+<p><code>sizeCtl</code> 是一个多功能控制变量：</p>
+<table>
+<thead>
+<tr>
+<th>值</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>-1</td>
+<td>数组正在初始化中</td>
+</tr>
+<tr>
+<td>负数</td>
+<td>正在初始化或扩容；扩容时会编码 resize stamp 和参与迁移的线程数</td>
+</tr>
+<tr>
+<td>0</td>
+<td>默认初始状态</td>
+</tr>
+<tr>
+<td>正数</td>
+<td>下一次触发扩容的阈值</td>
+</tr>
+</tbody></table>
+<h3 id="3-2-put-全流程：CAS-synchronized-的切换"><a href="#3-2-put-全流程：CAS-synchronized-的切换" class="headerlink" title="3.2 put 全流程：CAS + synchronized 的切换"></a>3.2 put 全流程：CAS + synchronized 的切换</h3><p>这是最核心的部分，也是面试必问：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 基于 JDK 8 源码整理的主流程，省略树节点细节</span></span><br><span class="line"><span class="keyword">final</span> V <span class="title function_">putVal</span><span class="params">(K key, V value, <span class="type">boolean</span> onlyIfAbsent)</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> (key == <span class="literal">null</span> || value == <span class="literal">null</span>) <span class="keyword">throw</span> <span class="keyword">new</span> <span class="title class_">NullPointerException</span>();</span><br><span class="line">    <span class="type">int</span> <span class="variable">hash</span> <span class="operator">=</span> spread(key.hashCode());</span><br><span class="line">    <span class="type">int</span> <span class="variable">binCount</span> <span class="operator">=</span> <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> (Node&lt;K,V&gt;[] tab = table;;) &#123;</span><br><span class="line">        Node&lt;K,V&gt; f; <span class="type">int</span> n, i, fh;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">if</span> (tab == <span class="literal">null</span> || (n = tab.length) == <span class="number">0</span>) &#123;</span><br><span class="line">            tab = initTable();</span><br><span class="line">        &#125; <span class="keyword">else</span> <span class="keyword">if</span> ((f = tabAt(tab, i = (n - <span class="number">1</span>) &amp; hash)) == <span class="literal">null</span>) &#123;</span><br><span class="line">            <span class="comment">// 空桶用 CAS 插入；成功后跳出循环，统一计数</span></span><br><span class="line">            <span class="keyword">if</span> (casTabAt(tab, i, <span class="literal">null</span>, <span class="keyword">new</span> <span class="title class_">Node</span>&lt;&gt;(hash, key, value, <span class="literal">null</span>)))</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">        &#125; <span class="keyword">else</span> <span class="keyword">if</span> ((fh = f.hash) == MOVED) &#123;</span><br><span class="line">            tab = helpTransfer(tab, f);</span><br><span class="line">        &#125; <span class="keyword">else</span> &#123;</span><br><span class="line">            <span class="type">V</span> <span class="variable">oldVal</span> <span class="operator">=</span> <span class="literal">null</span>;</span><br><span class="line">            <span class="keyword">synchronized</span> (f) &#123;</span><br><span class="line">                <span class="comment">// 加锁后重新确认首节点，防止锁对象已失效</span></span><br><span class="line">                <span class="keyword">if</span> (tabAt(tab, i) == f) &#123;</span><br><span class="line">                    <span class="keyword">if</span> (fh &gt;= <span class="number">0</span>) &#123;</span><br><span class="line">                        binCount = <span class="number">1</span>;</span><br><span class="line">                        <span class="keyword">for</span> (Node&lt;K,V&gt; e = f;; ++binCount) &#123;</span><br><span class="line">                            <span class="keyword">if</span> (e.hash == hash &amp;&amp;</span><br><span class="line">                                (e.key == key || key.equals(e.key))) &#123;</span><br><span class="line">                                oldVal = e.val;</span><br><span class="line">                                <span class="keyword">if</span> (!onlyIfAbsent) e.val = value;</span><br><span class="line">                                <span class="keyword">break</span>;</span><br><span class="line">                            &#125;</span><br><span class="line">                            Node&lt;K,V&gt; pred = e;</span><br><span class="line">                            <span class="keyword">if</span> ((e = e.next) == <span class="literal">null</span>) &#123;</span><br><span class="line">                                pred.next = <span class="keyword">new</span> <span class="title class_">Node</span>&lt;&gt;(hash, key, value, <span class="literal">null</span>);</span><br><span class="line">                                <span class="keyword">break</span>;</span><br><span class="line">                            &#125;</span><br><span class="line">                        &#125;</span><br><span class="line">                    &#125; <span class="keyword">else</span> <span class="keyword">if</span> (f <span class="keyword">instanceof</span> TreeBin) &#123;</span><br><span class="line">                        binCount = <span class="number">2</span>;</span><br><span class="line">                        <span class="comment">// oldVal = ((TreeBin&lt;K,V&gt;) f).putTreeVal(...)</span></span><br><span class="line">                    &#125;</span><br><span class="line">                &#125;</span><br><span class="line">            &#125;</span><br><span class="line">            <span class="keyword">if</span> (binCount != <span class="number">0</span>) &#123;</span><br><span class="line">                <span class="keyword">if</span> (binCount &gt;= TREEIFY_THRESHOLD) treeifyBin(tab, hash);</span><br><span class="line">                <span class="keyword">if</span> (oldVal != <span class="literal">null</span>) <span class="keyword">return</span> oldVal;</span><br><span class="line">                <span class="keyword">break</span>;</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 无论是空桶 CAS 还是非空桶插入，都必须更新计数并检查扩容</span></span><br><span class="line">    addCount(<span class="number">1L</span>, binCount);</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">null</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<!-- 配图 2：ConcurrentHashMap put 流程图 -->
+<!-- 插入位置：此处 -->
+
+<p><img src="/../img/concurrenthashmap-put-flow.png" alt="ConcurrentHashMap put 流程"></p>
+<h3 id="3-3-关键设计总结"><a href="#3-3-关键设计总结" class="headerlink" title="3.3 关键设计总结"></a>3.3 关键设计总结</h3><table>
+<thead>
+<tr>
+<th>场景</th>
+<th>使用的机制</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>空桶插入</td>
+<td>CAS</td>
+<td>无锁操作，性能最高</td>
+</tr>
+<tr>
+<td>有元素的桶</td>
+<td>synchronized 锁头节点</td>
+<td>锁粒度细，只影响单个桶</td>
+</tr>
+<tr>
+<td>发现扩容中</td>
+<td>协助扩容</td>
+<td>多线程并行搬运</td>
+</tr>
+<tr>
+<td>计数</td>
+<td>分散计数（LongAdder 思想）</td>
+<td>避免写热点</td>
+</tr>
+</tbody></table>
+<h3 id="3-4-为什么用-synchronized-不用-ReentrantLock"><a href="#3-4-为什么用-synchronized-不用-ReentrantLock" class="headerlink" title="3.4 为什么用 synchronized 不用 ReentrantLock"></a>3.4 为什么用 synchronized 不用 ReentrantLock</h3><table>
+<thead>
+<tr>
+<th>原因</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>锁粒度足够细</td>
+<td>只锁单个桶的头节点，锁竞争概率低</td>
+</tr>
+<tr>
+<td>synchronized 已有大量 JVM 优化</td>
+<td>JDK 8 有偏向锁、轻量级锁、自适应自旋等优化；较新 JDK 中偏向锁已弱化或移除，但低竞争场景下仍有优化</td>
+</tr>
+<tr>
+<td>减少内存开销</td>
+<td>synchronized 是 JVM 内置锁，无需额外对象</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="四、get-操作：全程无锁"><a href="#四、get-操作：全程无锁" class="headerlink" title="四、get 操作：全程无锁"></a>四、get 操作：全程无锁</h2><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> V <span class="title function_">get</span><span class="params">(Object key)</span> &#123;</span><br><span class="line">    Node&lt;K,V&gt;[] tab; Node&lt;K,V&gt; e, p; <span class="type">int</span> n, eh; K ek;</span><br><span class="line">    <span class="type">int</span> <span class="variable">h</span> <span class="operator">=</span> spread(key.hashCode());</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">if</span> ((tab = table) != <span class="literal">null</span> &amp;&amp; (n = tab.length) &gt; <span class="number">0</span> &amp;&amp;</span><br><span class="line">        (e = tabAt(tab, (n - <span class="number">1</span>) &amp; h)) != <span class="literal">null</span>) &#123;</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 检查桶中第一个元素</span></span><br><span class="line">        <span class="keyword">if</span> ((eh = e.hash) == h) &#123;</span><br><span class="line">            <span class="keyword">if</span> ((ek = e.key) == key || (key != <span class="literal">null</span> &amp;&amp; key.equals(ek)))</span><br><span class="line">                <span class="keyword">return</span> e.val;</span><br><span class="line">        &#125;</span><br><span class="line">        <span class="comment">// 红黑树查找</span></span><br><span class="line">        <span class="keyword">else</span> <span class="keyword">if</span> (eh &lt; <span class="number">0</span>)</span><br><span class="line">            <span class="keyword">return</span> (p = e.find(h, key)) != <span class="literal">null</span> ? p.val : <span class="literal">null</span>;</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 链表遍历查找</span></span><br><span class="line">        <span class="keyword">while</span> ((e = e.next) != <span class="literal">null</span>) &#123;</span><br><span class="line">            <span class="keyword">if</span> (e.hash == h &amp;&amp; </span><br><span class="line">                ((ek = e.key) == key || (key != <span class="literal">null</span> &amp;&amp; key.equals(ek))))</span><br><span class="line">                <span class="keyword">return</span> e.val;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> <span class="literal">null</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>为什么 get 不需要加锁？</strong></p>
+<p>因为 <code>Node</code> 的 <code>val</code> 和 <code>next</code> 指针都用 <code>volatile</code> 修饰，<code>table</code> 引用本身是 <code>volatile</code>，桶位读写又通过 volatile 语义的 <code>tabAt</code> &#x2F; CAS 完成，保证了可见性。读操作全程无锁，性能很高。</p>
+<hr>
+<h2 id="五、并发扩容：多线程一起搬数据"><a href="#五、并发扩容：多线程一起搬数据" class="headerlink" title="五、并发扩容：多线程一起搬数据"></a>五、并发扩容：多线程一起搬数据</h2><p>JDK 1.8 的一大亮点：扩容不再由单线程完成，所有插入线程都可以参与。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">扩容过程：</span><br><span class="line">1. 线程 A 触发扩容，创建新数组（2 倍大小）</span><br><span class="line">2. 线程按区间从后往前领取搬运任务，单次任务跨度至少为 16 个桶，实际值还与数组长度和 CPU 数有关</span><br><span class="line">3. 搬运完成的桶 → 替换成 ForwardingNode（标记 MOVED）</span><br><span class="line">4. 线程 B/C/D put 时发现 MOVED → 自动加入扩容队伍</span><br><span class="line">5. 多线程分片搬运，互不干扰</span><br><span class="line">6. 所有桶搬运完成 → 替换 table 引用 → 扩容结束</span><br></pre></td></tr></table></figure>
+
+<p>核心思想是让遇到 <code>ForwardingNode</code> 的更新线程协助迁移，缩短单个触发线程独自搬完整张表的停顿。参与线程数仍受 CPU、数组大小和并发写入量限制，并不是数据越多就一定线性加速。</p>
+<hr>
+<h2 id="六、size-难题：分散计数"><a href="#六、size-难题：分散计数" class="headerlink" title="六、size() 难题：分散计数"></a>六、size() 难题：分散计数</h2><h3 id="6-1-JDK-1-7：两次无锁统计-全加锁兜底"><a href="#6-1-JDK-1-7：两次无锁统计-全加锁兜底" class="headerlink" title="6.1 JDK 1.7：两次无锁统计 + 全加锁兜底"></a>6.1 JDK 1.7：两次无锁统计 + 全加锁兜底</h3><ol>
+<li>不加锁，依次累加所有 Segment 的 count，连续统计两次</li>
+<li>两次结果一致 → 返回</li>
+<li>两次不一致 → 全加锁再统计</li>
+</ol>
+<h3 id="6-2-JDK-1-8：分散计数（LongAdder-思想）"><a href="#6-2-JDK-1-8：分散计数（LongAdder-思想）" class="headerlink" title="6.2 JDK 1.8：分散计数（LongAdder 思想）"></a>6.2 JDK 1.8：分散计数（LongAdder 思想）</h3><p>把一个计数变量拆成多个，分散到不同单元，避免写热点：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 核心组成</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">transient</span> <span class="keyword">volatile</span> <span class="type">long</span> baseCount;           <span class="comment">// 基础计数</span></span><br><span class="line"><span class="keyword">transient</span> <span class="keyword">volatile</span> CounterCell[] counterCells;       <span class="comment">// 计数单元数组</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 计数流程</span></span><br><span class="line"><span class="number">1.</span> CAS 修改 baseCount → 成功则结束</span><br><span class="line"><span class="number">2.</span> CAS 失败 → 初始化 CounterCell 数组</span><br><span class="line"><span class="number">3.</span> 线程哈希定位到自己的 CounterCell → CAS 修改</span><br><span class="line"><span class="number">4.</span> CounterCell 也竞争失败 → 扩容数组、再哈希重试</span><br><span class="line"></span><br><span class="line"><span class="comment">// size() 汇总</span></span><br><span class="line">sum = baseCount + 所有 CounterCell 的值</span><br></pre></td></tr></table></figure>
+
+<h3 id="6-3-伪共享优化"><a href="#6-3-伪共享优化" class="headerlink" title="6.3 伪共享优化"></a>6.3 伪共享优化</h3><p><code>CounterCell</code> 类上有 <code>@sun.misc.Contended</code> 注解，用于填充缓存行，避免伪共享：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line">没有填充：</span><br><span class="line">┌─────────────── 缓存行 ───────────────┐</span><br><span class="line">│ CounterCell-A │ CounterCell-B │ ... │  ← 多个单元挤在同一行</span><br><span class="line">└───────────────────────────────────────┘</span><br><span class="line">A 修改 → B 的缓存失效 → 性能下降</span><br><span class="line"></span><br><span class="line">填充后：</span><br><span class="line">┌─────────────── 缓存行 ───────────────┐</span><br><span class="line">│ CounterCell-A │ [padding...]         │  ← A 独占一行</span><br><span class="line">└───────────────────────────────────────┘</span><br><span class="line">┌─────────────── 缓存行 ───────────────┐</span><br><span class="line">│ CounterCell-B │ [padding...]         │  ← B 独占一行</span><br><span class="line">└───────────────────────────────────────┘</span><br><span class="line">A 修改 → B 不受影响 → 性能提升</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="七、ConcurrentHashMap-vs-Hashtable-vs-HashMap"><a href="#七、ConcurrentHashMap-vs-Hashtable-vs-HashMap" class="headerlink" title="七、ConcurrentHashMap vs Hashtable vs HashMap"></a>七、ConcurrentHashMap vs Hashtable vs HashMap</h2><table>
+<thead>
+<tr>
+<th>对比项</th>
+<th>HashMap</th>
+<th>Hashtable</th>
+<th>ConcurrentHashMap</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>线程安全</td>
+<td>❌</td>
+<td>✅</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>锁机制</td>
+<td>无</td>
+<td>全表 synchronized</td>
+<td>CAS + 桶级 synchronized</td>
+</tr>
+<tr>
+<td>null key&#x2F;value</td>
+<td>允许 1 个 null key</td>
+<td>不允许</td>
+<td>不允许</td>
+</tr>
+<tr>
+<td>性能</td>
+<td>单线程最快</td>
+<td>并发差</td>
+<td>并发最优</td>
+</tr>
+<tr>
+<td>迭代器</td>
+<td>fail-fast</td>
+<td>Iterator 通常 fail-fast，Enumeration 不是</td>
+<td>weakly consistent</td>
+</tr>
+<tr>
+<td>初始容量</td>
+<td>16</td>
+<td>11</td>
+<td>16</td>
+</tr>
+<tr>
+<td>扩容</td>
+<td>2 倍</td>
+<td>2n+1</td>
+<td>2 倍</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="八、常见误区澄清"><a href="#八、常见误区澄清" class="headerlink" title="八、常见误区澄清"></a>八、常见误区澄清</h2><h3 id="1-“JDK-1-8-还有分段锁吗？”"><a href="#1-“JDK-1-8-还有分段锁吗？”" class="headerlink" title="1. “JDK 1.8 还有分段锁吗？”"></a>1. “JDK 1.8 还有分段锁吗？”</h3><p>没有了。Segment 类依然存在，但只是为了兼容旧版本序列化，没有实际锁功能。</p>
+<h3 id="2-“所有操作都是线程安全的吗？”"><a href="#2-“所有操作都是线程安全的吗？”" class="headerlink" title="2. “所有操作都是线程安全的吗？”"></a>2. “所有操作都是线程安全的吗？”</h3><p>单个操作（put、get、remove）是线程安全的，但<strong>复合操作不保证原子性</strong>：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// ❌ 非原子操作，存在并发问题</span></span><br><span class="line"><span class="keyword">if</span> (!map.containsKey(key)) &#123;</span><br><span class="line">    map.put(key, value);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// ✅ 使用原子方法</span></span><br><span class="line">map.putIfAbsent(key, value);</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-“为什么-key-和-value-不能为-null？”"><a href="#3-“为什么-key-和-value-不能为-null？”" class="headerlink" title="3. “为什么 key 和 value 不能为 null？”"></a>3. “为什么 key 和 value 不能为 null？”</h3><p>并发场景下的二义性问题：get 返回 null，无法区分「key 不存在」还是「value 本身就是 null」，且并发环境下无法通过二次 containsKey 消除歧义。</p>
+<h3 id="4-“get-操作需要加锁吗？”"><a href="#4-“get-操作需要加锁吗？”" class="headerlink" title="4. “get 操作需要加锁吗？”"></a>4. “get 操作需要加锁吗？”</h3><p>不需要。Node 的 val 和 next 都用 volatile 修饰，保证可见性，全程无锁。</p>
+<h3 id="5-“ConcurrentHashMap-能保证复合操作的原子性吗？”"><a href="#5-“ConcurrentHashMap-能保证复合操作的原子性吗？”" class="headerlink" title="5. “ConcurrentHashMap 能保证复合操作的原子性吗？”"></a>5. “ConcurrentHashMap 能保证复合操作的原子性吗？”</h3><p>不能。<code>putIfAbsent</code>、<code>computeIfAbsent</code>、<code>replace</code> 等方法本身是原子的，但多个方法的组合不是。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// ❌ 不是原子操作</span></span><br><span class="line"><span class="type">Long</span> <span class="variable">value</span> <span class="operator">=</span> map.get(key);</span><br><span class="line"><span class="keyword">if</span> (value == <span class="literal">null</span>) &#123;</span><br><span class="line">    map.put(key, computeValue());</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// ✅ 使用原子方法</span></span><br><span class="line">map.computeIfAbsent(key, k -&gt; computeValue());</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="九、常用原子方法"><a href="#九、常用原子方法" class="headerlink" title="九、常用原子方法"></a>九、常用原子方法</h2><p>ConcurrentHashMap 提供了一系列线程安全的原子方法：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">ConcurrentHashMap&lt;String, Long&gt; map = <span class="keyword">new</span> <span class="title class_">ConcurrentHashMap</span>&lt;&gt;();</span><br><span class="line"></span><br><span class="line"><span class="comment">// putIfAbsent：key 不存在时才放入</span></span><br><span class="line">map.putIfAbsent(<span class="string">&quot;count&quot;</span>, <span class="number">1L</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">// computeIfAbsent：key 不存在时计算并放入（常用于缓存）</span></span><br><span class="line">map.computeIfAbsent(<span class="string">&quot;count&quot;</span>, k -&gt; computeExpensiveValue(k));</span><br><span class="line"></span><br><span class="line"><span class="comment">// computeIfPresent：key 存在时重新计算</span></span><br><span class="line">map.computeIfPresent(<span class="string">&quot;count&quot;</span>, (k, v) -&gt; v + <span class="number">1</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">// merge：合并值（常用于计数器）</span></span><br><span class="line">map.merge(<span class="string">&quot;count&quot;</span>, <span class="number">1L</span>, Long::sum);</span><br><span class="line"></span><br><span class="line"><span class="comment">// replace：替换值</span></span><br><span class="line">map.replace(<span class="string">&quot;count&quot;</span>, <span class="number">1L</span>, <span class="number">2L</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">// remove：条件删除</span></span><br><span class="line">map.remove(<span class="string">&quot;count&quot;</span>, <span class="number">1L</span>);  <span class="comment">// 只有 value 等于 1 时才删除</span></span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="十、设计思想总结"><a href="#十、设计思想总结" class="headerlink" title="十、设计思想总结"></a>十、设计思想总结</h2><p>回顾演进，优化方向非常清晰：<strong>不断缩小锁的粒度，尽可能用无锁操作替代加锁操作</strong>。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">Hashtable          → 全表一把锁</span><br><span class="line">JDK 1.7 Segment    → 默认 16 个分段锁</span><br><span class="line">JDK 1.8 桶级锁     → 非空桶锁住桶首节点</span><br><span class="line">CAS 无锁插入       → 空桶连锁都不用加</span><br><span class="line">分散计数           → 写热点打散</span><br><span class="line">多线程扩容         → 扩容变成并行任务</span><br></pre></td></tr></table></figure>
+
+<p>核心思想：<strong>让锁竞争尽可能少发生，让发生的锁竞争影响范围尽可能小</strong>。</p>
+<hr>
+<h2 id="十一、面试高频问题"><a href="#十一、面试高频问题" class="headerlink" title="十一、面试高频问题"></a>十一、面试高频问题</h2><p><strong>Q1：ConcurrentHashMap 1.7 和 1.8 的区别？</strong></p>
+<p>1.7 用分段锁（Segment），默认 16 个段，段数会受 <code>concurrencyLevel</code> 影响；1.8 用 CAS + synchronized 锁桶头节点，锁粒度更细，并发度更高，且支持多线程协助扩容。</p>
+<p><strong>Q2：JDK 1.8 的 put 流程是什么？</strong></p>
+<p>计算 hash → 桶为空用 CAS 无锁插入 → 桶不为空用 synchronized 锁头节点 → 链表&#x2F;红黑树插入 → 计数 + 扩容判断。发现正在扩容则协助扩容。</p>
+<p><strong>Q3：为什么用 synchronized 不用 ReentrantLock？</strong></p>
+<p>三个原因：1) 锁粒度足够细，竞争概率低；2) synchronized 已有大量 JVM 优化，低竞争下性能好；3) 减少内存开销。</p>
+<p><strong>Q4：get 为什么不需要加锁？</strong></p>
+<p>Node 的 val 和 next 用 volatile 修饰，table 引用和桶位访问也具备 volatile 可见性，读操作全程无锁。</p>
+<p><strong>Q5：size() 怎么保证准确性？</strong></p>
+<p>JDK 1.8 用分散计数（LongAdder 思想），baseCount + CounterCell 数组，避免写热点。没有并发修改时统计结果准确；如果统计过程中仍有并发更新，返回的是弱一致结果，不适合当作强一致控制条件。</p>
+<p><strong>Q6：ConcurrentHashMap 能用 null key 吗？</strong></p>
+<p>不能。并发场景下 get 返回 null 无法区分「key 不存在」和「value 为 null」。</p>
+<p><strong>Q7：复合操作怎么保证线程安全？</strong></p>
+<p>使用 ConcurrentHashMap 提供的原子方法：putIfAbsent、computeIfAbsent、merge、replace 等，不要自己组合 if + put。</p>
+<hr>
+<h2 id="写在最后"><a href="#写在最后" class="headerlink" title="写在最后"></a>写在最后</h2><p><code>ConcurrentHashMap</code> 是 Java 并发编程的经典之作，它不只是一个线程安全的容器，更是一本并发优化的教科书。看懂它的源码，你学到的不只是一个类的原理，更是一套「用空间换时间、用细粒度替代粗粒度、用协作替代阻塞」的工程化思维。</p>
+<p>理解了这些，面试时你就不只是能说出「CAS + synchronized」这个答案，更能讲清楚背后的设计权衡和演进逻辑。</p>
+<hr>
+<blockquote>
+<p><strong>系列文章预告</strong>：</p>
+<ul>
+<li>上一篇：ArrayList vs LinkedList：别再被面试官骗了</li>
+<li>下一篇：接口响应慢排查：从 3 秒优化到 200 毫秒</li>
+</ul>
+</blockquote>
+<p><em>如果觉得有帮助，欢迎点赞收藏，有问题欢迎评论区交流。</em></p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://qjngbac.github.io">qjngbac</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://qjngbac.github.io/2025/08/30/concurrenthashmap-guide/">https://qjngbac.github.io/2025/08/30/concurrenthashmap-guide/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://qjngbac.github.io" target="_blank">Wait</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><a class="post-meta__tags" href="/tags/Java/">Java</a><a class="post-meta__tags" href="/tags/%E6%BA%90%E7%A0%81/">源码</a><a class="post-meta__tags" href="/tags/%E9%9B%86%E5%90%88/">集合</a><a class="post-meta__tags" href="/tags/ConcurrentHashMap/">ConcurrentHashMap</a><a class="post-meta__tags" href="/tags/%E5%B9%B6%E5%8F%91/">并发</a></div><div class="post-share"><div class="social-share" data-image="/img/java-series-12-concurrent-hashmap.jpg" data-sites="facebook,x,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/2025/09/08/thread-pool-guide/" title="线程池原理：面试必问的 ThreadPoolExecutor 你真的懂吗？"><img class="cover" src="/img/java-series-04-thread-pool.jpg" onerror="onerror=null;src='/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">线程池原理：面试必问的 ThreadPoolExecutor 你真的懂吗？</div></div><div class="info-2"><div class="info-item-1">前言做 Java 开发的人，几乎天天都在跟线程池打交道：业务异步解耦用线程池，接口并行聚合用线程池，定时任务也离不开线程池。很多人随手一个 Executors.newFixedThreadPool() 就用起来了，可一旦被面试官追问：  核心线程和非核心线程有什么区别？ 任务提交后线程池的完整执行流程是什么？ execute 和 submit 有什么本质区别？ 四种拒绝策略分别适用什么场景？  能完整答上来的人并不多。线程池不是简单的”一堆线程凑个池子”，它是一套完整的资源管控与任务调度机制，ThreadPoolExecutor 就是这套机制的核心实现。 它既是面试高频考点，也是线上最容易出问题的地方：无界队列导致 OOM、线程数失控打满 CPU、任务异常静默丢失…… 这些问题的根因，往往都是对线程池原理理解不到位。 今天我们就从底层源码视角出发，把 ThreadPoolExecutor 的核心参数、执行流程、拒绝策略、方法对比一次性讲透。  一、为什么我们需要线程池？在讲原理之前，先想清楚一个最基础的问题：为什么不直接 new Thread() 跑任务，非要用线程池？ 1234...</div></div></div></a><a class="pagination-related" href="/2025/08/26/aqs-reentrantlock-guide/" title="AQS 源码分析：ReentrantLock 背后的秘密"><img class="cover" src="/img/java-series-05-aqs.jpg" onerror="onerror=null;src='/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">AQS 源码分析：ReentrantLock 背后的秘密</div></div><div class="info-2"><div class="info-item-1">前言写 Java 并发代码，ReentrantLock 是常用的显式锁：它可配置公平策略，并支持可重入、可中断和超时获取，在需要这些能力时比 synchronized 更灵活。但很多人用了很久，却不知道它的底层建立在 AQS 之上。 面试中 AQS 更是并发模块的必考题：state 变量有什么用？CLH 队列怎么工作？公平锁和非公平锁到底差在哪？这些问题看似是八股，实则是理解整个 JUC 并发工具包的钥匙。 ReentrantLock 本身几乎没有复杂逻辑，它的全部锁能力，都委托给了内部的 AQS 实现类。今天我们就从 ReentrantLock 切入，逐层拆解 AQS 的核心设计：state 同步状态、CLH 等待队列、公平与非公平实现，彻底搞懂显式锁的底层原理。  一、AQS 是什么？JUC 并发的基石AQS 全称 AbstractQueuedSynchronizer，抽象队列同步器，是 java.util.concurrent 包的核心骨架。 它本质上是一个抽象框架：用一个共享变量维护同步状态，再用一个近似 FIFO 的等待队列管理竞争失败的线程。基于这套框架，JDK 实现...</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/2025/07/16/hashmap-source-guide/" title="HashMap 源码深度解析：从 put 到 resize 的每一步"><img class="cover" src="/img/java-series-10-hashmap.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2025-07-16</div><div class="info-item-2">HashMap 源码深度解析：从 put 到 resize 的每一步</div></div><div class="info-2"><div class="info-item-1">前言写 Java 代码的人，几乎没有一天不用 HashMap：存键值对、做数据缓存、接口参数传递，随手就能 new 一个。可一旦被问到底层原理，很多人只能说出「数组加链表」，再追问下去就含糊不清：  红黑树到底什么时候才会触发转换？ 扩容时数据是怎么重新迁移的？ 为什么容量必须是 2 的整数次幂？ JDK 1.8 修复了哪些旧问题，为什么仍然不能并发使用？  HashMap 是 Java 集合框架的重中之重，也是面试必考题。它不只是一个简单的工具类，更浓缩了非常多经典的工程设计思想：空间换时间、位运算性能优化、冲突平衡策略、数据结构动态切换。 今天我们从底层数据结构出发，一步步拆解 put 插入、resize 扩容的完整流程，把哈希冲突、树化退化、扩容迁移这些核心机制讲透。  一、底层结构：数组+链表+红黑树的三位一体JDK 1.8 是 HashMap 一次重要的版本迭代，它将原本的「数组+链表」结构升级为「数组+链表+红黑树」的混合结构，解决了长链表查询效率低下的问题。 1.1 整体架构12345678910111213141516171819202122HashMap 内部结...</div></div></div></a><a class="pagination-related" href="/2025/08/26/aqs-reentrantlock-guide/" title="AQS 源码分析：ReentrantLock 背后的秘密"><img class="cover" src="/img/java-series-05-aqs.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2025-08-26</div><div class="info-item-2">AQS 源码分析：ReentrantLock 背后的秘密</div></div><div class="info-2"><div class="info-item-1">前言写 Java 并发代码，ReentrantLock 是常用的显式锁：它可配置公平策略，并支持可重入、可中断和超时获取，在需要这些能力时比 synchronized 更灵活。但很多人用了很久，却不知道它的底层建立在 AQS 之上。 面试中 AQS 更是并发模块的必考题：state 变量有什么用？CLH 队列怎么工作？公平锁和非公平锁到底差在哪？这些问题看似是八股，实则是理解整个 JUC 并发工具包的钥匙。 ReentrantLock 本身几乎没有复杂逻辑，它的全部锁能力，都委托给了内部的 AQS 实现类。今天我们就从 ReentrantLock 切入，逐层拆解 AQS 的核心设计：state 同步状态、CLH 等待队列、公平与非公平实现，彻底搞懂显式锁的底层原理。  一、AQS 是什么？JUC 并发的基石AQS 全称 AbstractQueuedSynchronizer，抽象队列同步器，是 java.util.concurrent 包的核心骨架。 它本质上是一个抽象框架：用一个共享变量维护同步状态，再用一个近似 FIFO 的等待队列管理竞争失败的线程。基于这套框架，JDK 实现...</div></div></div></a><a class="pagination-related" href="/2025/10/07/spring-boot-autoconfigure-guide/" title="Spring Boot 自动装配原理：@SpringBootApplication 背后做了什么"><img class="cover" src="/img/java-series-07-spring-boot.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2025-10-07</div><div class="info-item-2">Spring Boot 自动装配原理：@SpringBootApplication 背后做了什么</div></div><div class="info-2"><div class="info-item-1">前言做 Spring Boot 开发的人，每天都会写 @SpringBootApplication 注解。点一下启动类，服务就能跑起来；引入一个 mybatis-spring-boot-starter，不用写 SqlSessionFactory 配置，直接就能注入 Mapper 使用。 我们常说 Spring Boot “开箱即用”，这份便利的背后，核心就是自动装配机制。但很多人对它的认知停留在”面试要背的八股”层面，既说不清楚 @EnableAutoConfiguration 到底干了什么，也讲不明白自动配置候选类是怎么被加载的，遇到 starter 不生效的问题只能瞎试。 自动装配不是什么黑魔法，它是一套设计精巧的组件扩展机制。今天我们就从最熟悉的启动注解切入，逐层拆解 @SpringBootApplication 的内部构成，把自动配置候选加载机制、条件注解筛选逻辑、完整装配流程一次性讲透。  一、@SpringBootApplication：原来是个组合注解很多人以为它是一个全新的魔法注解，其实点开源码就会发现，它本质是一个组合注解，封装了三个核心注解： 12345678...</div></div></div></a><a class="pagination-related" href="/2025/07/10/arraylist-vs-linkedlist-guide/" title="ArrayList vs LinkedList：别再被面试官骗了"><img class="cover" src="/img/java-series-11-arraylist-linkedlist.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2025-07-10</div><div class="info-item-2">ArrayList vs LinkedList：别再被面试官骗了</div></div><div class="info-2"><div class="info-item-1">前言面试 Java 开发，集合框架几乎是必考题，而 ArrayList 和 LinkedList 的对比更是高频中的高频。很多人背得滚瓜烂熟：  ArrayList 底层是数组，查询快、增删慢 LinkedList 底层是链表，增删快、查询慢  可真正写业务代码的时候，90% 的场景大家都会默认用 ArrayList，几乎没人主动用 LinkedList。既然 LinkedList 增删这么厉害，为什么实际开发中没人用？ 答案并不是一句「链表增删快」就能概括。这个结论只描述了已经定位到节点后的指针修改成本；真实代码还要考虑按索引定位、对象分配、CPU 缓存和数组批量拷贝。综合这些因素，ArrayList 在多数业务场景中通常更合适。 今天我们就从底层结构、时间复杂度、真实性能三个维度彻底讲透，打破刻板印象，告诉你什么时候该用谁。  一、底层结构：从根上就不一样两者的所有性能差异，本质都来自底层数据结构的不同。 1.1 ArrayList：动态数组，连续内存ArrayList 的本质是一个可动态扩容的 Object 数组，数组里保存的是元素引用，这些引用在内存中连续存放。 1234...</div></div></div></a><a class="pagination-related" href="/2025/11/02/spring-cloud-microservice-guide/" title="Spring Cloud 微服务实战：从零搭建一套微服务架构"><img class="cover" src="/img/java-series-09-spring-cloud.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2025-11-02</div><div class="info-item-2">Spring Cloud 微服务实战：从零搭建一套微服务架构</div></div><div class="info-2"><div class="info-item-1">前言单体应用在业务初期开发高效、部署简单；随着业务与团队规模扩大，可能逐渐出现发布耦合、整体扩容成本和故障隔离困难等问题。微服务是一种可选的应对方式，但并非必然答案：边界清晰的模块化单体同样可能长期适用。 Spring Cloud Alibaba 为 Spring Cloud 应用提供 Nacos、Sentinel、Seata 等生态集成；Gateway 和 OpenFeign 则来自 Spring Cloud 自身。把这些组件组合起来，可以覆盖注册配置、网关路由、服务调用和流量治理，但身份认证、可观测性、部署、数据一致性等仍需单独设计。 本文就从零开始，一步步搭建一套可运行的微服务骨架，完整覆盖四大核心组件：Nacos 注册配置中心、Spring Cloud Gateway 网关、OpenFeign 声明式调用、Sentinel 流量治理，并附上实战配置与常见踩坑指南。  一、整体架构设计1.1 组件选型与分工   组件 角色 替代的传统方案 核心价值    Nacos 注册中心 + 配置中心 Eureka + Config 统一服务发现和配置管理   Spring Cloud...</div></div></div></a><a class="pagination-related" href="/2025/07/20/class-loading-mechanism/" title="类加载机制：为什么你的代码会报 ClassNotFoundException"><img class="cover" src="/img/java-series-03-classloading.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2025-07-20</div><div class="info-item-2">类加载机制：为什么你的代码会报 ClassNotFoundException</div></div><div class="info-2"><div class="info-item-1">前言刚改完的代码本地跑得好好的，一上测试环境就抛出 java.lang.ClassNotFoundException；Maven 依赖明明已经引入，打包也没报错，翻遍 lib 目录也能找到对应 jar 包，可 JVM 就是说找不到类。 很多人遇到这类问题，第一反应都是”缺包了””依赖没打进去”。这当然是最常见原因，但并不是全部。真实线上场景里，类明明存在却依然加载失败，往往和类加载器隔离、双亲委派模型、线程上下文类加载器、容器自定义加载规则有关。 类加载是 Java 最核心的基础机制之一，也是面试高频考点，更是我们排查依赖冲突、容器隔离、插件化、热部署问题的底层依据。本文就从 ClassNotFoundException 切入，把类加载流程、双亲委派模型、自定义类加载器，以及打破双亲委派的典型场景一次讲透。  一、前置认知：一个类从源码到执行要走几步Java 源码会先被编译成 .class 字节码文件。JVM 运行时不会直接执行 .java 文件，而是通过类加载机制把描述类的数据从 Class 文件、jar 包、网络或其他来源加载到内存中，再完成校验、转换、解析和初始化，最终形成...</div></div></div></a></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">qjngbac</div><div class="author-info-description">一个正在学习的开发者</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">42</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">139</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/qjngbac"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/qjngbac" target="_blank" title="Github"><i class="fab fa-github"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到我的博客</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%89%8D%E8%A8%80"><span class="toc-number">1.</span> <span class="toc-text">前言</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%80%E3%80%81%E6%BC%94%E8%BF%9B%E4%B9%8B%E8%B7%AF%EF%BC%9A%E4%BB%8E%E7%B2%97%E7%B2%92%E5%BA%A6%E9%94%81%E5%88%B0%E7%BB%86%E7%B2%92%E5%BA%A6%E9%94%81"><span class="toc-number">2.</span> <span class="toc-text">一、演进之路：从粗粒度锁到细粒度锁</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%8C%E3%80%81JDK-1-7%EF%BC%9A%E5%88%86%E6%AE%B5%E9%94%81%E7%9A%84%E7%BB%8F%E5%85%B8%E5%AE%9E%E7%8E%B0"><span class="toc-number">3.</span> <span class="toc-text">二、JDK 1.7：分段锁的经典实现</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#2-1-%E5%BA%95%E5%B1%82%E7%BB%93%E6%9E%84%EF%BC%9ASegment-%E5%88%86%E6%AE%B5%E6%95%B0%E7%BB%84"><span class="toc-number">3.1.</span> <span class="toc-text">2.1 底层结构：Segment 分段数组</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-2-put-%E6%93%8D%E4%BD%9C%E7%9A%84%E5%8A%A0%E9%94%81%E6%B5%81%E7%A8%8B"><span class="toc-number">3.2.</span> <span class="toc-text">2.2 put 操作的加锁流程</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-3-%E5%88%86%E6%AE%B5%E9%94%81%E7%9A%84%E5%B1%80%E9%99%90%E6%80%A7"><span class="toc-number">3.3.</span> <span class="toc-text">2.3 分段锁的局限性</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%89%E3%80%81JDK-1-8%EF%BC%9ACAS-synchronized-%E7%9A%84%E6%9E%81%E8%87%B4%E4%BC%98%E5%8C%96"><span class="toc-number">4.</span> <span class="toc-text">三、JDK 1.8：CAS + synchronized 的极致优化</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#3-1-%E6%A0%B8%E5%BF%83%E5%AD%97%E6%AE%B5"><span class="toc-number">4.1.</span> <span class="toc-text">3.1 核心字段</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-2-put-%E5%85%A8%E6%B5%81%E7%A8%8B%EF%BC%9ACAS-synchronized-%E7%9A%84%E5%88%87%E6%8D%A2"><span class="toc-number">4.2.</span> <span class="toc-text">3.2 put 全流程：CAS + synchronized 的切换</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-3-%E5%85%B3%E9%94%AE%E8%AE%BE%E8%AE%A1%E6%80%BB%E7%BB%93"><span class="toc-number">4.3.</span> <span class="toc-text">3.3 关键设计总结</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-4-%E4%B8%BA%E4%BB%80%E4%B9%88%E7%94%A8-synchronized-%E4%B8%8D%E7%94%A8-ReentrantLock"><span class="toc-number">4.4.</span> <span class="toc-text">3.4 为什么用 synchronized 不用 ReentrantLock</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9B%9B%E3%80%81get-%E6%93%8D%E4%BD%9C%EF%BC%9A%E5%85%A8%E7%A8%8B%E6%97%A0%E9%94%81"><span class="toc-number">5.</span> <span class="toc-text">四、get 操作：全程无锁</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%94%E3%80%81%E5%B9%B6%E5%8F%91%E6%89%A9%E5%AE%B9%EF%BC%9A%E5%A4%9A%E7%BA%BF%E7%A8%8B%E4%B8%80%E8%B5%B7%E6%90%AC%E6%95%B0%E6%8D%AE"><span class="toc-number">6.</span> <span class="toc-text">五、并发扩容：多线程一起搬数据</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%AD%E3%80%81size-%E9%9A%BE%E9%A2%98%EF%BC%9A%E5%88%86%E6%95%A3%E8%AE%A1%E6%95%B0"><span class="toc-number">7.</span> <span class="toc-text">六、size() 难题：分散计数</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#6-1-JDK-1-7%EF%BC%9A%E4%B8%A4%E6%AC%A1%E6%97%A0%E9%94%81%E7%BB%9F%E8%AE%A1-%E5%85%A8%E5%8A%A0%E9%94%81%E5%85%9C%E5%BA%95"><span class="toc-number">7.1.</span> <span class="toc-text">6.1 JDK 1.7：两次无锁统计 + 全加锁兜底</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#6-2-JDK-1-8%EF%BC%9A%E5%88%86%E6%95%A3%E8%AE%A1%E6%95%B0%EF%BC%88LongAdder-%E6%80%9D%E6%83%B3%EF%BC%89"><span class="toc-number">7.2.</span> <span class="toc-text">6.2 JDK 1.8：分散计数（LongAdder 思想）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#6-3-%E4%BC%AA%E5%85%B1%E4%BA%AB%E4%BC%98%E5%8C%96"><span class="toc-number">7.3.</span> <span class="toc-text">6.3 伪共享优化</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%83%E3%80%81ConcurrentHashMap-vs-Hashtable-vs-HashMap"><span class="toc-number">8.</span> <span class="toc-text">七、ConcurrentHashMap vs Hashtable vs HashMap</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%AB%E3%80%81%E5%B8%B8%E8%A7%81%E8%AF%AF%E5%8C%BA%E6%BE%84%E6%B8%85"><span class="toc-number">9.</span> <span class="toc-text">八、常见误区澄清</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-%E2%80%9CJDK-1-8-%E8%BF%98%E6%9C%89%E5%88%86%E6%AE%B5%E9%94%81%E5%90%97%EF%BC%9F%E2%80%9D"><span class="toc-number">9.1.</span> <span class="toc-text">1. “JDK 1.8 还有分段锁吗？”</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-%E2%80%9C%E6%89%80%E6%9C%89%E6%93%8D%E4%BD%9C%E9%83%BD%E6%98%AF%E7%BA%BF%E7%A8%8B%E5%AE%89%E5%85%A8%E7%9A%84%E5%90%97%EF%BC%9F%E2%80%9D"><span class="toc-number">9.2.</span> <span class="toc-text">2. “所有操作都是线程安全的吗？”</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-%E2%80%9C%E4%B8%BA%E4%BB%80%E4%B9%88-key-%E5%92%8C-value-%E4%B8%8D%E8%83%BD%E4%B8%BA-null%EF%BC%9F%E2%80%9D"><span class="toc-number">9.3.</span> <span class="toc-text">3. “为什么 key 和 value 不能为 null？”</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-%E2%80%9Cget-%E6%93%8D%E4%BD%9C%E9%9C%80%E8%A6%81%E5%8A%A0%E9%94%81%E5%90%97%EF%BC%9F%E2%80%9D"><span class="toc-number">9.4.</span> <span class="toc-text">4. “get 操作需要加锁吗？”</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-%E2%80%9CConcurrentHashMap-%E8%83%BD%E4%BF%9D%E8%AF%81%E5%A4%8D%E5%90%88%E6%93%8D%E4%BD%9C%E7%9A%84%E5%8E%9F%E5%AD%90%E6%80%A7%E5%90%97%EF%BC%9F%E2%80%9D"><span class="toc-number">9.5.</span> <span class="toc-text">5. “ConcurrentHashMap 能保证复合操作的原子性吗？”</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B9%9D%E3%80%81%E5%B8%B8%E7%94%A8%E5%8E%9F%E5%AD%90%E6%96%B9%E6%B3%95"><span class="toc-number">10.</span> <span class="toc-text">九、常用原子方法</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8D%81%E3%80%81%E8%AE%BE%E8%AE%A1%E6%80%9D%E6%83%B3%E6%80%BB%E7%BB%93"><span class="toc-number">11.</span> <span class="toc-text">十、设计思想总结</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8D%81%E4%B8%80%E3%80%81%E9%9D%A2%E8%AF%95%E9%AB%98%E9%A2%91%E9%97%AE%E9%A2%98"><span class="toc-number">12.</span> <span class="toc-text">十一、面试高频问题</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%86%99%E5%9C%A8%E6%9C%80%E5%90%8E"><span class="toc-number">13.</span> <span class="toc-text">写在最后</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"><img src="/../img/ai-10-ollama.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"/></a><div class="content"><a class="title" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成">Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成</a><time datetime="2026-07-22T02:00:00.000Z" title="发表于 2026-07-22 10:00:00">2026-07-22</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"><img src="/../img/ai-09-spring-ai.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"/></a><div class="content"><a class="title" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling">Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling</a><time datetime="2026-07-17T02:00:00.000Z" title="发表于 2026-07-17 10:00:00">2026-07-17</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"><img src="/../img/ai-08-vector-database.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"/></a><div class="content"><a class="title" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比">向量数据库选型实战：Chroma、Milvus 与 pgvector 对比</a><time datetime="2026-07-13T02:00:00.000Z" title="发表于 2026-07-13 10:00:00">2026-07-13</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度"><img src="/../img/ai-07-rag-evaluation.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 评估实战：Recall@K、MRR 与回答忠实度"/></a><div class="content"><a class="title" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度">RAG 评估实战：Recall@K、MRR 与回答忠实度</a><time datetime="2026-07-12T02:00:00.000Z" title="发表于 2026-07-12 10:00:00">2026-07-12</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"><img src="/../img/ai-06-rag-retrieval.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"/></a><div class="content"><a class="title" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker">RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker</a><time datetime="2026-07-09T02:00:00.000Z" title="发表于 2026-07-09 10:00:00">2026-07-09</time></div></div></div></div></div></div></main><footer id="footer"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2024 - 2026 By qjngbac</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 7.3.0</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.5.5</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.5.5"></script><script src="/js/main.js?v=5.5.5"></script><div class="js-pjax"></div><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

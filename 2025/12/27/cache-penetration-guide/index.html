@@ -1,0 +1,460 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>缓存穿透/击穿/雪崩：一次缓存故障的排查与解决 | Wait</title><meta name="author" content="qjngbac"><meta name="copyright" content="qjngbac"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="前言大促预热活动上线当晚，运维告警群突然炸锅：商品详情接口大面积超时，数据库 CPU 飙升至 98%，连接池被打满，大量请求直接报错。第一反应是流量突增，但拉监控一看，Redis 的 QPS 并不高，缓存命中率跌到了 30% 以下——很明显，缓存层出问题了。 很多人做缓存设计时，只想着「把数据放进 Redis 就能提速」，却忽略了缓存失效带来的反向冲击。缓存穿透、击穿、雪崩是三种最经典的缓存故障，">
+<meta property="og:type" content="article">
+<meta property="og:title" content="缓存穿透&#x2F;击穿&#x2F;雪崩：一次缓存故障的排查与解决">
+<meta property="og:url" content="https://qjngbac.github.io/2025/12/27/cache-penetration-guide/index.html">
+<meta property="og:site_name" content="Wait">
+<meta property="og:description" content="前言大促预热活动上线当晚，运维告警群突然炸锅：商品详情接口大面积超时，数据库 CPU 飙升至 98%，连接池被打满，大量请求直接报错。第一反应是流量突增，但拉监控一看，Redis 的 QPS 并不高，缓存命中率跌到了 30% 以下——很明显，缓存层出问题了。 很多人做缓存设计时，只想着「把数据放进 Redis 就能提速」，却忽略了缓存失效带来的反向冲击。缓存穿透、击穿、雪崩是三种最经典的缓存故障，">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://qjngbac.github.io/img/backend-05-cache-avalanche.jpg">
+<meta property="article:published_time" content="2025-12-27T07:00:00.000Z">
+<meta property="article:modified_time" content="2026-07-19T09:06:31.051Z">
+<meta property="article:author" content="qjngbac">
+<meta property="article:tag" content="后端">
+<meta property="article:tag" content="面试">
+<meta property="article:tag" content="Redis">
+<meta property="article:tag" content="缓存">
+<meta property="article:tag" content="布隆过滤器">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://qjngbac.github.io/img/backend-05-cache-avalanche.jpg"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "缓存穿透/击穿/雪崩：一次缓存故障的排查与解决",
+  "url": "https://qjngbac.github.io/2025/12/27/cache-penetration-guide/",
+  "image": "https://qjngbac.github.io/img/backend-05-cache-avalanche.jpg",
+  "datePublished": "2025-12-27T07:00:00.000Z",
+  "dateModified": "2026-07-19T09:06:31.051Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "qjngbac",
+      "url": "https://qjngbac.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://qjngbac.github.io/2025/12/27/cache-penetration-guide/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.5.5"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        if (!ttl) return
+        const expiry = Date.now() + ttl * 86400000
+        localStorage.setItem(key, JSON.stringify({ value, expiry }))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return undefined
+        const { value, expiry } = JSON.parse(itemStr)
+        if (Date.now() > expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return value
+      }
+    }
+
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+        script.onload = script.onreadystatechange = () => {
+          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      }),
+      getCSS: (url, id) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onload = link.onreadystatechange = () => {
+          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+        }
+        link.onerror = reject
+        document.head.appendChild(link)
+      }),
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: true
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: '缓存穿透/击穿/雪崩：一次缓存故障的排查与解决',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="generator" content="Hexo 7.3.0"></head><body><div id="loading-box"><div class="loading-left-bg"></div><div class="loading-right-bg"></div><div class="spinner-box"><div class="configure-border-1"><div class="configure-core"></div></div><div class="configure-border-2"><div class="configure-core"></div></div><div class="loading-word">加载中...</div></div></div><script>(()=>{
+  const $loadingBox = document.getElementById('loading-box')
+  const $body = document.body
+  const preloader = {
+    endLoading: () => {
+      if ($loadingBox.classList.contains('loaded')) return
+      $body.style.overflow = ''
+      $loadingBox.classList.add('loaded')
+    },
+    initLoading: () => {
+      $body.style.overflow = 'hidden'
+      $loadingBox.classList.remove('loaded')
+    }
+  }
+
+  preloader.initLoading()
+
+  if (document.readyState === 'complete') {
+    preloader.endLoading()
+  } else {
+    window.addEventListener('load', preloader.endLoading)
+    document.addEventListener('DOMContentLoaded', preloader.endLoading)
+    // Add timeout protection: force end after 7 seconds
+    setTimeout(preloader.endLoading, 7000)
+  }
+
+  if (false) {
+    btf.addGlobalFn('pjaxSend', preloader.initLoading, 'preloader_init')
+    btf.addGlobalFn('pjaxComplete', preloader.endLoading, 'preloader_end')
+  }
+})()</script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">42</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">139</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(/../img/backend-05-cache-avalanche.jpg);"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">Wait</span></a><a class="nav-page-title" href="/"><span class="site-name">缓存穿透/击穿/雪崩：一次缓存故障的排查与解决</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">缓存穿透/击穿/雪崩：一次缓存故障的排查与解决</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2025-12-27T07:00:00.000Z" title="发表于 2025-12-27 15:00:00">2025-12-27</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-07-19T09:06:31.051Z" title="更新于 2026-07-19 17:06:31">2026-07-19</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/%E5%90%8E%E7%AB%AF%E5%B7%A5%E7%A8%8B/">后端工程</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>大促预热活动上线当晚，运维告警群突然炸锅：商品详情接口大面积超时，数据库 CPU 飙升至 98%，连接池被打满，大量请求直接报错。第一反应是流量突增，但拉监控一看，Redis 的 QPS 并不高，缓存命中率跌到了 30% 以下——很明显，缓存层出问题了。</p>
+<p>很多人做缓存设计时，只想着「把数据放进 Redis 就能提速」，却忽略了缓存失效带来的反向冲击。缓存穿透、击穿、雪崩是三种最经典的缓存故障，很多人经常把三者混为一谈，但它们的触发原因、影响范围、解决方案完全不同。</p>
+<p>本文就以这次真实的线上故障为例，先理清三者的本质区别，再从紧急止血到根治优化，完整讲解布隆过滤器、互斥锁、热点 key 治理等核心方案，最后给出一套可复用的缓存稳定性设计原则。</p>
+<hr>
+<h2 id="一、先分清：三者根本不是一回事"><a href="#一、先分清：三者根本不是一回事" class="headerlink" title="一、先分清：三者根本不是一回事"></a>一、先分清：三者根本不是一回事</h2><p>很多人面试时背得滚瓜烂熟，真遇到故障却分不清是哪一种。我们先用一张表把核心差异说清楚：</p>
+<table>
+<thead>
+<tr>
+<th>问题类型</th>
+<th>核心原因</th>
+<th>典型特征</th>
+<th>影响范围</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>缓存穿透</strong></td>
+<td>请求的 key 在缓存和数据库中<strong>都不存在</strong></td>
+<td>缓存命中率极低，大量请求直接打数据库</td>
+<td>全量无效请求都打库</td>
+</tr>
+<tr>
+<td><strong>缓存击穿</strong></td>
+<td>单个<strong>热点 key 突然过期失效</strong>，大量并发同时打向数据库</td>
+<td>特定热点时间点出现流量尖刺，单 key 对应数据库 QPS 突增</td>
+<td>单个热点数据对应的库表</td>
+</tr>
+<tr>
+<td><strong>缓存雪崩</strong></td>
+<td>大量 key <strong>同时过期</strong>，或 Redis 整体宕机</td>
+<td>缓存命中率断崖式下跌，数据库整体压力瞬间拉满</td>
+<td>全库全表，极易引发数据库雪崩</td>
+</tr>
+</tbody></table>
+<p>简单总结：</p>
+<ul>
+<li>穿透是<strong>数据根本不存在</strong>，缓存挡不住</li>
+<li>击穿是<strong>单个热点 key 过期</strong>，单点突破</li>
+<li>雪崩是<strong>大面积缓存失效</strong>，整体崩盘</li>
+</ul>
+<p><img src="/../img/cache-penetration-breakdown-avalanche.png" alt="缓存穿透、击穿、雪崩对比示意图"></p>
+<p>我们这次故障比较特殊：三者叠加出现——恶意爬虫刷不存在的商品 ID 引发穿透，热门商品缓存集中过期引发击穿，再加上批量预热时统一设置了 2 小时过期时间，大量 key 同时失效，最终叠加导致数据库直接被打满。</p>
+<hr>
+<h2 id="二、排查过程：从现象定位根因"><a href="#二、排查过程：从现象定位根因" class="headerlink" title="二、排查过程：从现象定位根因"></a>二、排查过程：从现象定位根因</h2><p>故障排查不能靠猜，我们按「从宏观到微观」的顺序逐步定位。</p>
+<h3 id="第一步：看宏观指标，确认缓存失效"><a href="#第一步：看宏观指标，确认缓存失效" class="headerlink" title="第一步：看宏观指标，确认缓存失效"></a>第一步：看宏观指标，确认缓存失效</h3><p>先看监控大盘，得到几个关键信息：</p>
+<ul>
+<li>接口平均响应从 80ms 涨到 2100ms</li>
+<li>MySQL CPU 使用率 98%，主要是查询语句</li>
+<li>Redis 命中率仅 28%，远低于平时的 95%+</li>
+<li>Redis 本身内存、CPU 正常，没有宕机</li>
+</ul>
+<p>结论：Redis 没挂，但大量请求没命中缓存，直接打到了数据库。</p>
+<h3 id="第二步：分析请求特征，定位穿透"><a href="#第二步：分析请求特征，定位穿透" class="headerlink" title="第二步：分析请求特征，定位穿透"></a>第二步：分析请求特征，定位穿透</h3><p>捞取 Nginx 日志，发现大量请求的商品 ID 是不规则的负数、超长数字，明显是非法参数。这些 ID 在数据库里根本不存在，自然缓存里也没有，每次请求都会穿透到数据库查一遍，查不到又不缓存，相当于缓存完全失效。</p>
+<p>这就是典型的<strong>缓存穿透</strong>。</p>
+<h3 id="第三步：看热点分布，定位击穿"><a href="#第三步：看热点分布，定位击穿" class="headerlink" title="第三步：看热点分布，定位击穿"></a>第三步：看热点分布，定位击穿</h3><p>按 SQL 执行次数排序，Top 3 的热门商品查询语句执行量突然暴涨。去 Redis 查这几个 key 的过期时间，发现它们几乎在同一时间点过期——刚好是活动上线 2 小时后。</p>
+<p>热门商品过期瞬间，几千个请求同时发现缓存失效，一起去查数据库，直接把对应表的连接占满。</p>
+<p>这就是典型的<strong>缓存击穿</strong>。</p>
+<h3 id="第四步：看过期策略，定位雪崩"><a href="#第四步：看过期策略，定位雪崩" class="headerlink" title="第四步：看过期策略，定位雪崩"></a>第四步：看过期策略，定位雪崩</h3><p>进一步排查发现，运营后台批量预热商品缓存时，统一设置了 <code>expire = 7200秒</code>，所有预热的商品 key 都会在同一时间点过期。到了过期时间点，十几万条商品缓存同时失效，大量普通商品的请求也直接打向数据库，进一步放大了数据库压力。</p>
+<p>这就是<strong>缓存雪崩</strong>的诱因。</p>
+<hr>
+<h2 id="三、逐个击破：从紧急止血到根治方案"><a href="#三、逐个击破：从紧急止血到根治方案" class="headerlink" title="三、逐个击破：从紧急止血到根治方案"></a>三、逐个击破：从紧急止血到根治方案</h2><p>故障处理的原则永远是：先止损，再根治。我们先做紧急处理把数据库压力降下来，再逐个优化彻底解决问题。</p>
+<h3 id="3-1-缓存穿透：拦住不存在的请求"><a href="#3-1-缓存穿透：拦住不存在的请求" class="headerlink" title="3.1 缓存穿透：拦住不存在的请求"></a>3.1 缓存穿透：拦住不存在的请求</h3><h4 id="问题本质"><a href="#问题本质" class="headerlink" title="问题本质"></a>问题本质</h4><p>用户请求的数据，在缓存和数据库里都不存在。每次请求都会穿过缓存层直达数据库，相当于缓存形同虚设。</p>
+<p>常见触发场景：恶意攻击、参数非法、数据被物理删除。</p>
+<h4 id="方案一：紧急止血——缓存空值"><a href="#方案一：紧急止血——缓存空值" class="headerlink" title="方案一：紧急止血——缓存空值"></a>方案一：紧急止血——缓存空值</h4><p>最快的临时方案：数据库查不到的数据，也往 Redis 里存一个空值（比如空字符串、null 标记），设置较短的过期时间（比如 30 秒）。这样后续同样的非法请求会直接命中缓存的空值，不会再打数据库。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 空值缓存示例，设置短过期</span></span><br><span class="line">SET product:99999 <span class="string">&quot;&quot;</span> EX 30</span><br></pre></td></tr></table></figure>
+
+<p>优点：实现简单，见效快。</p>
+<p>缺点：会占用额外内存，空值过期前如果数据新增，会出现短暂不一致。如果攻击者用大量不同的不存在 key 轮询，空值缓存会被打满，内存压力增大。</p>
+<h4 id="方案二：根治方案——布隆过滤器"><a href="#方案二：根治方案——布隆过滤器" class="headerlink" title="方案二：根治方案——布隆过滤器"></a>方案二：根治方案——布隆过滤器</h4><p>要从根源上拦截不存在的 key，最通用的方案就是<strong>布隆过滤器（Bloom Filter）</strong>。</p>
+<h5 id="布隆过滤器原理"><a href="#布隆过滤器原理" class="headerlink" title="布隆过滤器原理"></a>布隆过滤器原理</h5><p>它是一种空间效率极高的概率型数据结构，核心是<strong>一个位数组 + 多个哈希函数</strong>：</p>
+<ol>
+<li><strong>写入时</strong>：将 key 经过 k 个哈希函数计算，映射到位数组的多个位置，把对应位置设为 1</li>
+<li><strong>查询时</strong>：同样计算 k 个位置，如果所有位置都是 1，说明 key <strong>可能存在</strong>；如果有任意一个位置是 0，说明 key <strong>一定不存在</strong></li>
+</ol>
+<p><img src="/../img/bloom-filter-principle.png" alt="布隆过滤器原理示意图"></p>
+<p>它的特点是：</p>
+<ul>
+<li><strong>不存在的一定判断为不存在</strong>（100% 准确）→ 刚好适配穿透场景</li>
+<li><strong>存在的可能有误判</strong>（False Positive）→ 误判率可通过参数控制</li>
+</ul>
+<h5 id="关键参数计算"><a href="#关键参数计算" class="headerlink" title="关键参数计算"></a>关键参数计算</h5><p>布隆过滤器的性能源于精确的参数设计：</p>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>含义</th>
+<th>计算公式</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>m</td>
+<td>位数组大小（bit）</td>
+<td>m &#x3D; -n×ln(p) &#x2F; (ln2)²</td>
+</tr>
+<tr>
+<td>k</td>
+<td>哈希函数个数</td>
+<td>k &#x3D; (m&#x2F;n) × ln2</td>
+</tr>
+<tr>
+<td>n</td>
+<td>预期元素数量</td>
+<td>业务预估</td>
+</tr>
+<tr>
+<td>p</td>
+<td>期望误判率</td>
+<td>通常 0.01%~1%</td>
+</tr>
+</tbody></table>
+<p>例如：100 万个商品 ID，误判率 0.01%，需要约 19.2Mbit（约 2.4MB）的位数组，约 13 个哈希函数。相比把 100 万个 ID 全部存到 Set 中（几十 MB），空间节省了一个数量级。</p>
+<h5 id="实战实现"><a href="#实战实现" class="headerlink" title="实战实现"></a>实战实现</h5><p>生产环境常用两种方案：</p>
+<ul>
+<li><strong>Guava BloomFilter</strong>：本地内存实现，适合单应用场景，性能极高</li>
+<li><strong>RedisBloom 模块</strong>：通过 Redis 模块实现，分布式场景下共享，推荐使用</li>
+</ul>
+<p>以 Redis 布隆过滤器为例：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 创建过滤器：误判率0.01%，预留容量100万</span></span><br><span class="line">BF.RESERVE product:bloom 0.0001 1000000</span><br><span class="line"></span><br><span class="line"><span class="comment"># 添加元素</span></span><br><span class="line">BF.ADD product:bloom 1001</span><br><span class="line">BF.ADD product:bloom 1002</span><br><span class="line"></span><br><span class="line"><span class="comment"># 判断是否存在</span></span><br><span class="line">BF.EXISTS product:bloom 99999  <span class="comment"># 返回0，一定不存在，直接拦截</span></span><br></pre></td></tr></table></figure>
+
+<h5 id="注意事项"><a href="#注意事项" class="headerlink" title="注意事项"></a>注意事项</h5><ul>
+<li>需要提前预估数据量，容量满了之后误判率会急剧上升</li>
+<li>原生布隆过滤器不支持删除元素，需要删除场景可用 <strong>Counting Bloom Filter</strong>（用计数器代替 bit）</li>
+<li>数据新增时要同步写入布隆过滤器，保证一致性</li>
+<li>重启或持久化时需要确认过滤器数据的持久化策略</li>
+</ul>
+<h4 id="方案三：前置拦截"><a href="#方案三：前置拦截" class="headerlink" title="方案三：前置拦截"></a>方案三：前置拦截</h4><p>在网关层、接口层做参数合法性校验，比如 ID 范围校验、格式校验、频率限流，先把明显非法的请求拦在最外层，减少无效流量进入系统。</p>
+<p>这是最容易被忽视但效果最直接的方案——能进缓存和数据库的请求，都应该先过一遍基本的合法性检查。</p>
+<hr>
+<h3 id="3-2-缓存击穿：稳住热点-key-的过期瞬间"><a href="#3-2-缓存击穿：稳住热点-key-的过期瞬间" class="headerlink" title="3.2 缓存击穿：稳住热点 key 的过期瞬间"></a>3.2 缓存击穿：稳住热点 key 的过期瞬间</h3><h4 id="问题本质-1"><a href="#问题本质-1" class="headerlink" title="问题本质"></a>问题本质</h4><p>某个访问量极高的热点 key，在缓存过期的一瞬间，成千上万的并发请求同时发现缓存失效，一起去查数据库，瞬间把数据库打垮。核心特征是「单点热点、时间点集中」。</p>
+<h4 id="方案一：互斥锁方案（Mutex-Lock）"><a href="#方案一：互斥锁方案（Mutex-Lock）" class="headerlink" title="方案一：互斥锁方案（Mutex Lock）"></a>方案一：互斥锁方案（Mutex Lock）</h4><p>最常用的根治方案，核心思路是：<strong>缓存失效时，只允许一个线程去查数据库重建缓存，其他线程等待重试</strong>，避免大量请求同时打库。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> Object <span class="title function_">getHotProduct</span><span class="params">(Long productId)</span> &#123;</span><br><span class="line">    <span class="type">String</span> <span class="variable">key</span> <span class="operator">=</span> <span class="string">&quot;product:&quot;</span> + productId;</span><br><span class="line">    <span class="type">String</span> <span class="variable">lockKey</span> <span class="operator">=</span> <span class="string">&quot;lock:product:&quot;</span> + productId;</span><br><span class="line">    <span class="keyword">for</span> (<span class="type">int</span> <span class="variable">attempt</span> <span class="operator">=</span> <span class="number">0</span>; attempt &lt; <span class="number">3</span>; attempt++) &#123;</span><br><span class="line">        <span class="type">Object</span> <span class="variable">value</span> <span class="operator">=</span> redis.get(key);</span><br><span class="line">        <span class="keyword">if</span> (value != <span class="literal">null</span>) <span class="keyword">return</span> decodeNullable(value);</span><br><span class="line"></span><br><span class="line">        <span class="type">String</span> <span class="variable">requestId</span> <span class="operator">=</span> UUID.randomUUID().toString();</span><br><span class="line">        <span class="type">boolean</span> <span class="variable">locked</span> <span class="operator">=</span> redis.set(lockKey, requestId, <span class="string">&quot;NX&quot;</span>, <span class="string">&quot;EX&quot;</span>, <span class="number">10</span>);</span><br><span class="line">        <span class="keyword">if</span> (!locked) &#123;</span><br><span class="line">            Thread.sleep(<span class="number">50L</span> * (attempt + <span class="number">1</span>)); <span class="comment">// 有界退避，生产中可再加入随机抖动</span></span><br><span class="line">            <span class="keyword">continue</span>;</span><br><span class="line">        &#125;</span><br><span class="line"></span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            <span class="comment">// 拿到锁后双重检查，避免等待期间别人已经重建</span></span><br><span class="line">            value = redis.get(key);</span><br><span class="line">            <span class="keyword">if</span> (value != <span class="literal">null</span>) <span class="keyword">return</span> decodeNullable(value);</span><br><span class="line"></span><br><span class="line">            value = db.query(productId);</span><br><span class="line">            redis.set(key, value != <span class="literal">null</span> ? value : NULL_MARKER,</span><br><span class="line">                      value != <span class="literal">null</span> ? <span class="number">3600</span> : <span class="number">30</span>);</span><br><span class="line">            <span class="keyword">return</span> value;</span><br><span class="line">        &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">            redis.delIfValueEquals(lockKey, requestId); <span class="comment">// 底层用 Lua 校验归属后再删除</span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 不要无限递归或无限等待；按业务选择旧值、限流降级或明确失败</span></span><br><span class="line">    <span class="keyword">return</span> fallbackOrThrow(productId);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p><strong>双重检查（Double Check）</strong>：拿到锁之后再次查缓存，防止在等待锁期间其他线程已经重建了缓存，避免重复查库。</p>
+</blockquote>
+<p>注意点：</p>
+<ul>
+<li>锁必须设置超时时间，避免业务异常导致死锁</li>
+<li>重试次数和总等待时间都要有限制，避免线程堆积</li>
+<li>锁粒度要细，每个 key 对应一把锁</li>
+<li>释放锁时要确认是自己加的锁（用 requestId 做归属校验），避免误删</li>
+</ul>
+<h4 id="方案二：热点-key-逻辑过期"><a href="#方案二：热点-key-逻辑过期" class="headerlink" title="方案二：热点 key 逻辑过期"></a>方案二：热点 key 逻辑过期</h4><p>对于核心热点数据，可以设置为「物理上永不过期」，在 value 中嵌入一个逻辑过期时间字段。读取时判断是否逻辑过期：</p>
+<ul>
+<li>未过期 → 直接返回</li>
+<li>已过期 → 返回旧数据，同时异步触发缓存更新</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> Object <span class="title function_">getWithLogicalExpire</span><span class="params">(String key)</span> &#123;</span><br><span class="line">    <span class="type">String</span> <span class="variable">json</span> <span class="operator">=</span> redis.get(key);</span><br><span class="line">    <span class="keyword">if</span> (json == <span class="literal">null</span>) <span class="keyword">return</span> <span class="literal">null</span>;</span><br><span class="line"></span><br><span class="line">    <span class="type">CacheData</span> <span class="variable">data</span> <span class="operator">=</span> parse(json);</span><br><span class="line">    <span class="keyword">if</span> (data.getExpireTime() &gt; System.currentTimeMillis()) &#123;</span><br><span class="line">        <span class="keyword">return</span> data.getValue(); <span class="comment">// 未过期，直接返回</span></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="comment">// 已过期，异步更新</span></span><br><span class="line">    <span class="type">String</span> <span class="variable">lockKey</span> <span class="operator">=</span> <span class="string">&quot;lock:&quot;</span> + key;</span><br><span class="line">    <span class="type">String</span> <span class="variable">requestId</span> <span class="operator">=</span> UUID.randomUUID().toString();</span><br><span class="line">    <span class="keyword">if</span> (redis.set(lockKey, requestId, <span class="string">&quot;NX&quot;</span>, <span class="string">&quot;EX&quot;</span>, <span class="number">10</span>)) &#123;</span><br><span class="line">        threadPool.execute(() -&gt; &#123;</span><br><span class="line">            <span class="keyword">try</span> &#123;</span><br><span class="line">                <span class="type">Object</span> <span class="variable">fresh</span> <span class="operator">=</span> db.query(data.getId());</span><br><span class="line">                <span class="comment">// 逻辑过期控制新鲜度，较长的物理 TTL 防止永久脏数据占用内存</span></span><br><span class="line">                redis.set(key, wrap(fresh, newExpireTime), <span class="number">24</span> * <span class="number">3600</span>);</span><br><span class="line">            &#125; <span class="keyword">finally</span> &#123;</span><br><span class="line">                redis.delIfValueEquals(lockKey, requestId);</span><br><span class="line">            &#125;</span><br><span class="line">        &#125;);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> data.getValue(); <span class="comment">// 返回旧数据</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>优点：正常情况下不会在逻辑过期瞬间让请求同步打库，读延迟稳定。</p>
+<p>缺点：有短暂的数据不一致窗口，返回的可能是旧数据。适合对一致性要求不极致、但对稳定性要求极高的核心热点数据。</p>
+<h4 id="方案三：热点数据主动刷新"><a href="#方案三：热点数据主动刷新" class="headerlink" title="方案三：热点数据主动刷新"></a>方案三：热点数据主动刷新</h4><p>访问缓存时，判断剩余过期时间，如果低于阈值，就触发后台异步线程提前刷新缓存，相当于把过期时间往后顺延，永远不让它真正过期。</p>
+<p>这与 Redisson 锁的看门狗都属于“到期前续期”的思路，但两者语义不同：缓存刷新应依据访问热度、刷新失败重试和数据版本控制设计，不能直接把锁续期机制照搬成缓存方案。</p>
+<hr>
+<h3 id="3-3-缓存雪崩：避免大面积失效的灾难"><a href="#3-3-缓存雪崩：避免大面积失效的灾难" class="headerlink" title="3.3 缓存雪崩：避免大面积失效的灾难"></a>3.3 缓存雪崩：避免大面积失效的灾难</h3><h4 id="问题本质-2"><a href="#问题本质-2" class="headerlink" title="问题本质"></a>问题本质</h4><p>两种场景会引发雪崩：</p>
+<ol>
+<li><strong>集中过期型</strong>：大量 key 在同一时间点过期，导致大面积缓存失效</li>
+<li><strong>故障型</strong>：Redis 节点宕机、集群故障，整个缓存层不可用</li>
+</ol>
+<h4 id="方案一：过期时间打散"><a href="#方案一：过期时间打散" class="headerlink" title="方案一：过期时间打散"></a>方案一：过期时间打散</h4><p>这是成本最低、效果最明显的优化。不要给所有 key 设置完全相同的过期时间，在基础过期时间上增加一个随机偏移量：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 基础过期时间2小时，加0~300秒随机偏移</span></span><br><span class="line"><span class="type">int</span> <span class="variable">baseExpire</span> <span class="operator">=</span> <span class="number">7200</span>;</span><br><span class="line"><span class="type">int</span> <span class="variable">random</span> <span class="operator">=</span> ThreadLocalRandom.current().nextInt(<span class="number">300</span>);</span><br><span class="line">redis.set(key, value, baseExpire + random);</span><br></pre></td></tr></table></figure>
+
+<p>这样原本同一时间过期的 key，会被分散到 5 分钟的时间窗口内，不会出现瞬间全量失效的尖峰。</p>
+<h4 id="方案二：多级缓存架构"><a href="#方案二：多级缓存架构" class="headerlink" title="方案二：多级缓存架构"></a>方案二：多级缓存架构</h4><p>引入本地缓存作为一级缓存，Redis 作为二级缓存：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">请求 → 本地缓存（Caffeine）→ Redis → 数据库</span><br><span class="line">         L1 热点缓存        L2 分布式缓存</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>热点数据存到本地 Caffeine 缓存，极短时间内的请求直接走本地，不用访问 Redis</li>
+<li>本地缓存设置更短的过期时间（如 1~5 分钟），作为兜底</li>
+<li>即使 Redis 整体故障，本地缓存也能扛住一部分流量，不至于全部打到数据库</li>
+</ul>
+<p>Caffeine 是 Java 生态常用的高性能本地缓存库，采用 W-TinyLFU 等策略改善命中率。Spring Boot 的缓存抽象可以在引入 Caffeine 依赖后自动配置它，但并不是所有项目都默认携带该实现。</p>
+<blockquote>
+<p><strong>Go 语言方案</strong>：Go 生态中可以使用 <code>singleflight</code> 模式——同一个 key 的并发请求合并为一次调用，其他请求等待结果共享，效果类似互斥锁但更轻量。</p>
+</blockquote>
+<h4 id="方案三：Redis-高可用架构"><a href="#方案三：Redis-高可用架构" class="headerlink" title="方案三：Redis 高可用架构"></a>方案三：Redis 高可用架构</h4><p>针对 Redis 故障引发的雪崩，核心是避免单点故障：</p>
+<ul>
+<li>生产环境必须做<strong>主从 + 哨兵</strong>架构，或者 <strong>Redis Cluster</strong> 集群</li>
+<li>多可用区部署，单节点故障自动故障转移</li>
+<li>Cluster 模式下数据按槽分片并可配置副本；主节点故障时需要副本完成故障转移。若某些槽没有可用副本，对应 key 仍会不可用，不能只靠“分片”保证高可用</li>
+</ul>
+<h4 id="方案四：降级熔断兜底"><a href="#方案四：降级熔断兜底" class="headerlink" title="方案四：降级熔断兜底"></a>方案四：降级熔断兜底</h4><p>在服务层接入限流熔断组件（如 Sentinel）：</p>
+<ul>
+<li>当数据库 QPS 达到阈值时，自动触发降级，非核心请求直接返回兜底数据</li>
+<li>保护核心业务的可用性，避免数据库被打死导致全站不可用</li>
+<li>降级策略可以是返回默认值、返回缓存中的旧数据、或直接提示稍后重试</li>
+</ul>
+<h4 id="方案五：缓存预热"><a href="#方案五：缓存预热" class="headerlink" title="方案五：缓存预热"></a>方案五：缓存预热</h4><p>大促、活动上线前，提前把热点数据批量加载到缓存中，避免冷启动时大量请求同时穿透到数据库。</p>
+<p>预热时同样要注意错开过期时间，不要统一设置。可以用延迟队列或分批脚本来分散预热时间。</p>
+<hr>
+<h2 id="四、优化效果：数据验证"><a href="#四、优化效果：数据验证" class="headerlink" title="四、优化效果：数据验证"></a>四、优化效果：数据验证</h2><p>全部优化上线后，运行一周的监控数据对比非常明显：</p>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>故障时</th>
+<th>优化后</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>缓存命中率</td>
+<td>28%</td>
+<td>98.5%</td>
+</tr>
+<tr>
+<td>数据库 CPU 使用率</td>
+<td>98%</td>
+<td>22%</td>
+</tr>
+<tr>
+<td>接口平均响应时间</td>
+<td>2100ms</td>
+<td>92ms</td>
+</tr>
+<tr>
+<td>非法穿透请求</td>
+<td>全部打库</td>
+<td>布隆过滤器拦截 99.9%</td>
+</tr>
+<tr>
+<td>热点过期尖峰</td>
+<td>明显突刺</td>
+<td>完全抹平</td>
+</tr>
+</tbody></table>
+<p>数据库压力下降了 70% 以上，接口稳定性大幅提升，后续几次流量高峰都平稳度过。</p>
+<hr>
+<h2 id="五、避坑总结：缓存设计的最佳实践"><a href="#五、避坑总结：缓存设计的最佳实践" class="headerlink" title="五、避坑总结：缓存设计的最佳实践"></a>五、避坑总结：缓存设计的最佳实践</h2><p>回顾整个故障和优化过程，很多问题其实在设计阶段就可以避免。整理几条通用的缓存设计原则：</p>
+<ol>
+<li><p><strong>防御前置</strong><br>不要等请求到了缓存层才处理，网关校验、参数校验、布隆过滤器，能前置的拦截尽量前置。</p>
+</li>
+<li><p><strong>避免绝对集中</strong><br>过期时间一定要加随机值，不要统一设置；批量预热、批量更新都要错开时间，避免尖峰。</p>
+</li>
+<li><p><strong>热点特殊处理</strong><br>核心热点数据不要和普通数据用同一套过期策略。该永不过期就永不过期，该互斥锁就互斥锁，特殊场景特殊对待。</p>
+</li>
+<li><p><strong>多级兜底架构</strong><br>不要把所有希望都寄托在 Redis 上。本地缓存、降级兜底、限流熔断，多层防护才能保证极端情况下系统不垮。</p>
+</li>
+<li><p><strong>监控不可少</strong><br>重点监控缓存命中率、热点 key 排行、Redis 节点状态、数据库 QPS。命中率突降、热点突增都是故障前兆，提前发现就能提前处理。</p>
+</li>
+</ol>
+<hr>
+<h2 id="六、面试高频问题"><a href="#六、面试高频问题" class="headerlink" title="六、面试高频问题"></a>六、面试高频问题</h2><p><strong>Q1：缓存穿透、击穿、雪崩的区别？</strong></p>
+<p>穿透：数据在缓存和数据库都不存在，请求穿透到库。击穿：单个热点 key 过期，并发请求同时打库。雪崩：大量 key 同时过期或 Redis 宕机，缓存层整体失效。</p>
+<p><strong>Q2：布隆过滤器的原理？误判率怎么控制？</strong></p>
+<p>位数组 + 多个哈希函数。写入时把对应位设为 1，查询时所有位为 1 则可能存在，有 0 则一定不存在。误判率由位数组大小 m 和哈希函数个数 k 决定，m 越大、k 越合理，误判率越低。</p>
+<p><strong>Q3：布隆过滤器不支持删除怎么办？</strong></p>
+<p>用 Counting Bloom Filter，用计数器代替 bit 位，删除时把对应计数器减 1。或者使用 Redis 的 Cuckoo Filter（布谷鸟过滤器），支持删除且空间效率接近布隆过滤器。</p>
+<p><strong>Q4：互斥锁方案为什么要双重检查？</strong></p>
+<p>获取锁的过程中可能有其他线程已经重建了缓存。拿到锁后再次查缓存，避免重复查库，减少数据库压力。</p>
+<p><strong>Q5：逻辑过期和物理过期怎么选？</strong></p>
+<p>对一致性要求高（如金融、库存）→ 物理过期 + 互斥锁。对可用性要求高、允许短暂不一致（如商品详情、推荐列表）→ 逻辑过期 + 异步更新。</p>
+<p><strong>Q6：多级缓存的一致性怎么保证？</strong></p>
+<p>本地缓存设置短过期时间可以容忍有限的不一致窗口。Redis Pub&#x2F;Sub 能通知各节点清除缓存，但消息不持久化、断线期间可能漏收，因此只能改善最终一致性，不能保证强一致。要求更高时可使用带持久化和重试的变更事件、版本校验，或避免在该数据上叠加本地缓存。</p>
+<hr>
+<h2 id="写在最后"><a href="#写在最后" class="headerlink" title="写在最后"></a>写在最后</h2><p>缓存不是「把数据丢进 Redis」就万事大吉了。它在提升性能的同时，也引入了新的故障模式。穿透、击穿、雪崩，本质都是缓存失效带来的反向冲击。</p>
+<p>理解它们的底层差异，不是为了应付面试，而是线上出问题时，你能快速判断是哪一类，知道该先做什么、再做什么，有章法地排查解决，而不是手忙脚乱瞎试。</p>
+<p>缓存设计的精髓从来不是堆机器、加容量，而是提前预判风险，做好每一层兜底。</p>
+<hr>
+<blockquote>
+<p><strong>系列文章预告</strong>：</p>
+<ul>
+<li>上一篇：Redis 数据结构与应用场景：远不止缓存</li>
+<li>下一篇：Redis 分布式锁：从 Redisson 到 RedLock</li>
+</ul>
+</blockquote>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://qjngbac.github.io">qjngbac</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://qjngbac.github.io/2025/12/27/cache-penetration-guide/">https://qjngbac.github.io/2025/12/27/cache-penetration-guide/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://qjngbac.github.io" target="_blank">Wait</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/%E5%90%8E%E7%AB%AF/">后端</a><a class="post-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><a class="post-meta__tags" href="/tags/Redis/">Redis</a><a class="post-meta__tags" href="/tags/%E7%BC%93%E5%AD%98/">缓存</a><a class="post-meta__tags" href="/tags/%E5%B8%83%E9%9A%86%E8%BF%87%E6%BB%A4%E5%99%A8/">布隆过滤器</a></div><div class="post-share"><div class="social-share" data-image="/../img/backend-05-cache-avalanche.jpg" data-sites="facebook,x,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/2026/01/19/cap-base-guide/" title="CAP 与 BASE 理论：分布式系统的基石"><img class="cover" src="/../img/backend-10-cap-base.jpg" onerror="onerror=null;src='/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">CAP 与 BASE 理论：分布式系统的基石</div></div><div class="info-2"><div class="info-item-1">前言做分布式系统开发，绕不开 CAP 和 BASE 这两大基础理论。很多人面试时能背出「三选二」，但真到做技术选型时，却搞不清什么时候该追求强一致、什么时候该接受最终一致，也说不清楚 BASE 理论到底指导了哪些工程实践。 实际上，CAP 不是刻板的选择题，而是告诉我们一个客观事实：分布式系统必须为网络分区做好准备，分区发生时需要在一致性和可用性之间权衡。而 BASE 则提供了一种常见的工程思路：在业务允许的范围内接受暂时不一致，通过补偿和收敛换取更高的可用性与可扩展性。 今天我们就从底层逻辑到工程实践，彻底讲透 CAP 三要素的取舍、BASE 三大核心，以及最终一致性的常见落地方案。  一、CAP 定理：分布式系统的「不可能三角」CAP 猜想由计算机科学家 Eric Brewer 于 2000 年提出，2002 年由 Seth Gilbert 和 Nancy Lynch 在异步网络模型下形式化证明。更准确的结论是：当网络分区发生时，分布式系统无法同时提供线性一致性和对所有非故障节点请求的可用响应。 1.1 三要素分别是什么我们先把每个概念的真实含义讲透，避免只背定义。 一致性（...</div></div></div></a><a class="pagination-related" href="/2025/12/14/redis-datatype-guide/" title="Redis 数据结构与应用场景：远不止缓存"><img class="cover" src="/img/backend-04-redis-struct.jpg" onerror="onerror=null;src='/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Redis 数据结构与应用场景：远不止缓存</div></div><div class="info-2"><div class="info-item-1">前言提到 Redis，大多数人的第一反应是「缓存」：把热点数据放进去，减轻数据库压力。但如果你只把 Redis 当一个键值对缓存用，那就太浪费它的能力了。 Redis 真正的核心优势，在于它提供了一整套成熟的内置数据结构，从简单的字符串到有序集合，每一种都对应着一类典型的业务问题。不用自己手写链表、去重集合、排行榜，一行命令就能解决复杂的业务逻辑，这才是 Redis 不可替代的价值。 今天我们就拆解最常用的五大核心数据结构：String、Hash、List、Set、ZSet，讲透每一种的底层实现、核心特性与典型业务场景，看完就能直接对应到自己的项目里。  一、总览：两层结构设计Redis 的数据结构分为两层：  逻辑结构：我们日常开发直接使用的 API 层，也就是 String、Hash、List、Set、ZSet 五种核心类型 底层编码：每种逻辑结构对应多种底层实现，Redis 会根据元素数量、数据大小自动切换，在空间占用和执行性能之间做最优平衡  理解了底层编码，才能真正看懂不同场景下的性能差异，避免「小数据量很快、数据上来就变慢」的认知偏差。      二、逐个拆解：底层实...</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/2025/12/14/redis-datatype-guide/" title="Redis 数据结构与应用场景：远不止缓存"><img class="cover" src="/img/backend-04-redis-struct.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2025-12-14</div><div class="info-item-2">Redis 数据结构与应用场景：远不止缓存</div></div><div class="info-2"><div class="info-item-1">前言提到 Redis，大多数人的第一反应是「缓存」：把热点数据放进去，减轻数据库压力。但如果你只把 Redis 当一个键值对缓存用，那就太浪费它的能力了。 Redis 真正的核心优势，在于它提供了一整套成熟的内置数据结构，从简单的字符串到有序集合，每一种都对应着一类典型的业务问题。不用自己手写链表、去重集合、排行榜，一行命令就能解决复杂的业务逻辑，这才是 Redis 不可替代的价值。 今天我们就拆解最常用的五大核心数据结构：String、Hash、List、Set、ZSet，讲透每一种的底层实现、核心特性与典型业务场景，看完就能直接对应到自己的项目里。  一、总览：两层结构设计Redis 的数据结构分为两层：  逻辑结构：我们日常开发直接使用的 API 层，也就是 String、Hash、List、Set、ZSet 五种核心类型 底层编码：每种逻辑结构对应多种底层实现，Redis 会根据元素数量、数据大小自动切换，在空间占用和执行性能之间做最优平衡  理解了底层编码，才能真正看懂不同场景下的性能差异，避免「小数据量很快、数据上来就变慢」的认知偏差。      二、逐个拆解：底层实...</div></div></div></a><a class="pagination-related" href="/2026/03/14/distributed-lock-guide/" title="Redis 分布式锁：从 Redisson 到 RedLock"><img class="cover" src="/../img/backend-06-distributed-lock.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-03-14</div><div class="info-item-2">Redis 分布式锁：从 Redisson 到 RedLock</div></div><div class="info-2"><div class="info-item-1">前言在分布式系统中，多个服务实例共同操作同一个共享资源时，本地锁已经完全失效。比如库存扣减、订单幂等、定时任务防重执行，这些场景都需要一把全局的「锁」来保证互斥性，这就是分布式锁。 实现分布式锁的方案有很多：数据库、ZooKeeper、Redis 都可以做。其中 Redis 凭借高性能、低延迟、实现简单的特点，成为绝大多数业务场景的首选。但很多人对 Redis 分布式锁的认知停留在「SETNX 加锁、DEL 解锁」的初级版本，既说不清楚 Redisson 的看门狗机制，也讲不明白 RedLock 要解决什么问题。 本文就从最基础的手写锁开始，一步步演进到工业级的 Redisson 实现，再到多集群下的 RedLock 算法，最后对比 Redis 与 ZooKeeper 两种分布式锁的选型差异，把分布式锁的底层逻辑一次性讲透。  一、为什么需要分布式锁？在单体应用中，我们用 synchronized、ReentrantLock 就能解决线程安全问题。但当服务部署了多个实例，多个 JVM 进程各自独立，本地锁就完全失效了——A 实例加的锁，B 实例根本感知不到，并发操作共享资源时依然...</div></div></div></a><a class="pagination-related" href="/2025/11/12/mysql-index-guide/" title="MySQL 索引原理：B+ 树为什么这么快"><img class="cover" src="/img/backend-01-mysql-index.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2025-11-12</div><div class="info-item-2">MySQL 索引原理：B+ 树为什么这么快</div></div><div class="info-2"><div class="info-item-1">前言做后端开发，几乎每天都在和索引打交道：慢查询加个索引，性能立刻提升好几倍。可很多人只知道「索引能提速」，却说不清背后的原理：  为什么数据库选 B+ 树做索引，而不用二叉树、哈希表？ 聚簇索引和非聚簇索引到底差在哪？什么是回表？ 联合索引为什么要遵循最左前缀原则？ 索引下推到底「推」了什么，为什么能提速？  索引从来不是什么玄学，它的所有特性、所有优化规则，都根植于底层的数据结构设计。看懂了 B+ 树，你就能理解所有索引规则的来龙去脉，写 SQL、建索引时就能预判性能，而不是靠瞎试。 今天我们从数据结构的底层逻辑出发，把 B+ 树结构、聚簇&#x2F;非聚簇索引、联合索引最左前缀、索引下推一次性讲透。  一、索引的本质：用排序换查找效率1.1 没有索引的代价没有可用索引时，查询通常只能走全表扫描：读取并检查候选记录，代价随数据页数量增长。是否慢到不可接受还取决于表大小、缓存命中率、返回比例和存储性能。 百万级表上的频繁全表扫描往往会带来明显 IO 和 CPU 压力，但小表或需要返回大部分数据时，全表扫描也可能是优化器的合理选择。 1.2 索引的核心思想对本文讨论的 InnoD...</div></div></div></a><a class="pagination-related" href="/2026/01/19/cap-base-guide/" title="CAP 与 BASE 理论：分布式系统的基石"><img class="cover" src="/../img/backend-10-cap-base.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-01-19</div><div class="info-item-2">CAP 与 BASE 理论：分布式系统的基石</div></div><div class="info-2"><div class="info-item-1">前言做分布式系统开发，绕不开 CAP 和 BASE 这两大基础理论。很多人面试时能背出「三选二」，但真到做技术选型时，却搞不清什么时候该追求强一致、什么时候该接受最终一致，也说不清楚 BASE 理论到底指导了哪些工程实践。 实际上，CAP 不是刻板的选择题，而是告诉我们一个客观事实：分布式系统必须为网络分区做好准备，分区发生时需要在一致性和可用性之间权衡。而 BASE 则提供了一种常见的工程思路：在业务允许的范围内接受暂时不一致，通过补偿和收敛换取更高的可用性与可扩展性。 今天我们就从底层逻辑到工程实践，彻底讲透 CAP 三要素的取舍、BASE 三大核心，以及最终一致性的常见落地方案。  一、CAP 定理：分布式系统的「不可能三角」CAP 猜想由计算机科学家 Eric Brewer 于 2000 年提出，2002 年由 Seth Gilbert 和 Nancy Lynch 在异步网络模型下形式化证明。更准确的结论是：当网络分区发生时，分布式系统无法同时提供线性一致性和对所有非故障节点请求的可用响应。 1.1 三要素分别是什么我们先把每个概念的真实含义讲透，避免只背定义。 一致性（...</div></div></div></a><a class="pagination-related" href="/2025/11/22/mysql-mvcc-guide/" title="MySQL 事务与锁：MVCC 是怎么实现的"><img class="cover" src="/img/backend-02-mysql-mvcc.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2025-11-22</div><div class="info-item-2">MySQL 事务与锁：MVCC 是怎么实现的</div></div><div class="info-2"><div class="info-item-1">前言在并发场景下操作数据库，我们总会遇到各种反直觉的数据问题：刚插入的数据查不到、同一个事务两次查询同一条数据结果不一样、范围更新时莫名多出不存在的行。这些问题的本质，都和事务隔离性与锁机制息息相关。 而 MVCC（多版本并发控制） 就是 InnoDB 解决读写冲突、提升并发性能的核心武器。它让读操作不用加锁、写操作不阻塞读，在保证隔离性的同时，大幅提升了数据库的并发能力。 很多人听过 MVCC 的名字，却搞不清它到底怎么实现的：undo log 起什么作用？Read View 是怎么判断可见性的？行锁、间隙锁、临键锁又和 MVCC 是什么关系？ 今天我们就从 ACID 四大特性讲起，逐层深入，把隔离级别、undo 版本链、Read View 可见性、三类行锁一次性讲透。  一、事务的基石：ACID 四大特性事务是一组原子性的 SQL 操作，要么全部执行成功，要么全部失败回滚。    特性 含义 底层实现    原子性（Atomicity） 要么全成功，要么全回滚 undo log   一致性（Consistency） 事务前后满足业务规则与数据库约束 数据库约束、应用规则以及 ...</div></div></div></a><a class="pagination-related" href="/2026/04/20/kafka-guide/" title="Kafka 核心原理：分区、副本、消费者组"><img class="cover" src="/../img/backend-09-kafka.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-04-20</div><div class="info-item-2">Kafka 核心原理：分区、副本、消费者组</div></div><div class="info-2"><div class="info-item-1">前言在高吞吐事件流场景下，Kafka 是主流选择之一：顺序追加、分区并行、可回放日志和成熟流处理生态，让它广泛用于日志采集、数据集成与事件驱动架构。具体吞吐取决于消息大小、批量、确认级别、磁盘和集群拓扑，不能只背“单机十万级”这个数字。  本文以 Kafka 4.3 的现状补充说明：Kafka 4.x 仅支持 KRaft 模式，不再依赖 ZooKeeper；经典消费者组仍然可用，同时还有新的 Consumer Rebalance Protocol 和 Share Groups。核心分区、副本与日志原理保持不变。  但很多开发者对 Kafka 的认知停留在「发消息、收消息」的表层，说不清楚分区为什么能提升吞吐、ISR 副本是怎么同步的、消费者组 Rebalance 为什么会导致消费停滞，更说不清 Exactly-Once 语义到底怎么实现。 Kafka 的高性能与高可靠，不是凭空而来的，它建立在「分区、副本、消费者组」三大核心设计之上。今天我们就从底层原理出发，逐层拆解分区存储机制、ISR 副本同步、消费者组重平衡、Exactly-Once 语义实现，彻底搞懂 Kafka 的核心骨...</div></div></div></a></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">qjngbac</div><div class="author-info-description">一个正在学习的开发者</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">42</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">139</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/qjngbac"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/qjngbac" target="_blank" title="Github"><i class="fab fa-github"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到我的博客</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%89%8D%E8%A8%80"><span class="toc-number">1.</span> <span class="toc-text">前言</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%80%E3%80%81%E5%85%88%E5%88%86%E6%B8%85%EF%BC%9A%E4%B8%89%E8%80%85%E6%A0%B9%E6%9C%AC%E4%B8%8D%E6%98%AF%E4%B8%80%E5%9B%9E%E4%BA%8B"><span class="toc-number">2.</span> <span class="toc-text">一、先分清：三者根本不是一回事</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%8C%E3%80%81%E6%8E%92%E6%9F%A5%E8%BF%87%E7%A8%8B%EF%BC%9A%E4%BB%8E%E7%8E%B0%E8%B1%A1%E5%AE%9A%E4%BD%8D%E6%A0%B9%E5%9B%A0"><span class="toc-number">3.</span> <span class="toc-text">二、排查过程：从现象定位根因</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%AC%AC%E4%B8%80%E6%AD%A5%EF%BC%9A%E7%9C%8B%E5%AE%8F%E8%A7%82%E6%8C%87%E6%A0%87%EF%BC%8C%E7%A1%AE%E8%AE%A4%E7%BC%93%E5%AD%98%E5%A4%B1%E6%95%88"><span class="toc-number">3.1.</span> <span class="toc-text">第一步：看宏观指标，确认缓存失效</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%AC%AC%E4%BA%8C%E6%AD%A5%EF%BC%9A%E5%88%86%E6%9E%90%E8%AF%B7%E6%B1%82%E7%89%B9%E5%BE%81%EF%BC%8C%E5%AE%9A%E4%BD%8D%E7%A9%BF%E9%80%8F"><span class="toc-number">3.2.</span> <span class="toc-text">第二步：分析请求特征，定位穿透</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%AC%AC%E4%B8%89%E6%AD%A5%EF%BC%9A%E7%9C%8B%E7%83%AD%E7%82%B9%E5%88%86%E5%B8%83%EF%BC%8C%E5%AE%9A%E4%BD%8D%E5%87%BB%E7%A9%BF"><span class="toc-number">3.3.</span> <span class="toc-text">第三步：看热点分布，定位击穿</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%AC%AC%E5%9B%9B%E6%AD%A5%EF%BC%9A%E7%9C%8B%E8%BF%87%E6%9C%9F%E7%AD%96%E7%95%A5%EF%BC%8C%E5%AE%9A%E4%BD%8D%E9%9B%AA%E5%B4%A9"><span class="toc-number">3.4.</span> <span class="toc-text">第四步：看过期策略，定位雪崩</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%89%E3%80%81%E9%80%90%E4%B8%AA%E5%87%BB%E7%A0%B4%EF%BC%9A%E4%BB%8E%E7%B4%A7%E6%80%A5%E6%AD%A2%E8%A1%80%E5%88%B0%E6%A0%B9%E6%B2%BB%E6%96%B9%E6%A1%88"><span class="toc-number">4.</span> <span class="toc-text">三、逐个击破：从紧急止血到根治方案</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#3-1-%E7%BC%93%E5%AD%98%E7%A9%BF%E9%80%8F%EF%BC%9A%E6%8B%A6%E4%BD%8F%E4%B8%8D%E5%AD%98%E5%9C%A8%E7%9A%84%E8%AF%B7%E6%B1%82"><span class="toc-number">4.1.</span> <span class="toc-text">3.1 缓存穿透：拦住不存在的请求</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E9%97%AE%E9%A2%98%E6%9C%AC%E8%B4%A8"><span class="toc-number">4.1.1.</span> <span class="toc-text">问题本质</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%96%B9%E6%A1%88%E4%B8%80%EF%BC%9A%E7%B4%A7%E6%80%A5%E6%AD%A2%E8%A1%80%E2%80%94%E2%80%94%E7%BC%93%E5%AD%98%E7%A9%BA%E5%80%BC"><span class="toc-number">4.1.2.</span> <span class="toc-text">方案一：紧急止血——缓存空值</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%96%B9%E6%A1%88%E4%BA%8C%EF%BC%9A%E6%A0%B9%E6%B2%BB%E6%96%B9%E6%A1%88%E2%80%94%E2%80%94%E5%B8%83%E9%9A%86%E8%BF%87%E6%BB%A4%E5%99%A8"><span class="toc-number">4.1.3.</span> <span class="toc-text">方案二：根治方案——布隆过滤器</span></a><ol class="toc-child"><li class="toc-item toc-level-5"><a class="toc-link" href="#%E5%B8%83%E9%9A%86%E8%BF%87%E6%BB%A4%E5%99%A8%E5%8E%9F%E7%90%86"><span class="toc-number">4.1.3.1.</span> <span class="toc-text">布隆过滤器原理</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#%E5%85%B3%E9%94%AE%E5%8F%82%E6%95%B0%E8%AE%A1%E7%AE%97"><span class="toc-number">4.1.3.2.</span> <span class="toc-text">关键参数计算</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#%E5%AE%9E%E6%88%98%E5%AE%9E%E7%8E%B0"><span class="toc-number">4.1.3.3.</span> <span class="toc-text">实战实现</span></a></li><li class="toc-item toc-level-5"><a class="toc-link" href="#%E6%B3%A8%E6%84%8F%E4%BA%8B%E9%A1%B9"><span class="toc-number">4.1.3.4.</span> <span class="toc-text">注意事项</span></a></li></ol></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%96%B9%E6%A1%88%E4%B8%89%EF%BC%9A%E5%89%8D%E7%BD%AE%E6%8B%A6%E6%88%AA"><span class="toc-number">4.1.4.</span> <span class="toc-text">方案三：前置拦截</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-2-%E7%BC%93%E5%AD%98%E5%87%BB%E7%A9%BF%EF%BC%9A%E7%A8%B3%E4%BD%8F%E7%83%AD%E7%82%B9-key-%E7%9A%84%E8%BF%87%E6%9C%9F%E7%9E%AC%E9%97%B4"><span class="toc-number">4.2.</span> <span class="toc-text">3.2 缓存击穿：稳住热点 key 的过期瞬间</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E9%97%AE%E9%A2%98%E6%9C%AC%E8%B4%A8-1"><span class="toc-number">4.2.1.</span> <span class="toc-text">问题本质</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%96%B9%E6%A1%88%E4%B8%80%EF%BC%9A%E4%BA%92%E6%96%A5%E9%94%81%E6%96%B9%E6%A1%88%EF%BC%88Mutex-Lock%EF%BC%89"><span class="toc-number">4.2.2.</span> <span class="toc-text">方案一：互斥锁方案（Mutex Lock）</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%96%B9%E6%A1%88%E4%BA%8C%EF%BC%9A%E7%83%AD%E7%82%B9-key-%E9%80%BB%E8%BE%91%E8%BF%87%E6%9C%9F"><span class="toc-number">4.2.3.</span> <span class="toc-text">方案二：热点 key 逻辑过期</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%96%B9%E6%A1%88%E4%B8%89%EF%BC%9A%E7%83%AD%E7%82%B9%E6%95%B0%E6%8D%AE%E4%B8%BB%E5%8A%A8%E5%88%B7%E6%96%B0"><span class="toc-number">4.2.4.</span> <span class="toc-text">方案三：热点数据主动刷新</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-3-%E7%BC%93%E5%AD%98%E9%9B%AA%E5%B4%A9%EF%BC%9A%E9%81%BF%E5%85%8D%E5%A4%A7%E9%9D%A2%E7%A7%AF%E5%A4%B1%E6%95%88%E7%9A%84%E7%81%BE%E9%9A%BE"><span class="toc-number">4.3.</span> <span class="toc-text">3.3 缓存雪崩：避免大面积失效的灾难</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E9%97%AE%E9%A2%98%E6%9C%AC%E8%B4%A8-2"><span class="toc-number">4.3.1.</span> <span class="toc-text">问题本质</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%96%B9%E6%A1%88%E4%B8%80%EF%BC%9A%E8%BF%87%E6%9C%9F%E6%97%B6%E9%97%B4%E6%89%93%E6%95%A3"><span class="toc-number">4.3.2.</span> <span class="toc-text">方案一：过期时间打散</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%96%B9%E6%A1%88%E4%BA%8C%EF%BC%9A%E5%A4%9A%E7%BA%A7%E7%BC%93%E5%AD%98%E6%9E%B6%E6%9E%84"><span class="toc-number">4.3.3.</span> <span class="toc-text">方案二：多级缓存架构</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%96%B9%E6%A1%88%E4%B8%89%EF%BC%9ARedis-%E9%AB%98%E5%8F%AF%E7%94%A8%E6%9E%B6%E6%9E%84"><span class="toc-number">4.3.4.</span> <span class="toc-text">方案三：Redis 高可用架构</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%96%B9%E6%A1%88%E5%9B%9B%EF%BC%9A%E9%99%8D%E7%BA%A7%E7%86%94%E6%96%AD%E5%85%9C%E5%BA%95"><span class="toc-number">4.3.5.</span> <span class="toc-text">方案四：降级熔断兜底</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%96%B9%E6%A1%88%E4%BA%94%EF%BC%9A%E7%BC%93%E5%AD%98%E9%A2%84%E7%83%AD"><span class="toc-number">4.3.6.</span> <span class="toc-text">方案五：缓存预热</span></a></li></ol></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9B%9B%E3%80%81%E4%BC%98%E5%8C%96%E6%95%88%E6%9E%9C%EF%BC%9A%E6%95%B0%E6%8D%AE%E9%AA%8C%E8%AF%81"><span class="toc-number">5.</span> <span class="toc-text">四、优化效果：数据验证</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%94%E3%80%81%E9%81%BF%E5%9D%91%E6%80%BB%E7%BB%93%EF%BC%9A%E7%BC%93%E5%AD%98%E8%AE%BE%E8%AE%A1%E7%9A%84%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5"><span class="toc-number">6.</span> <span class="toc-text">五、避坑总结：缓存设计的最佳实践</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%AD%E3%80%81%E9%9D%A2%E8%AF%95%E9%AB%98%E9%A2%91%E9%97%AE%E9%A2%98"><span class="toc-number">7.</span> <span class="toc-text">六、面试高频问题</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%86%99%E5%9C%A8%E6%9C%80%E5%90%8E"><span class="toc-number">8.</span> <span class="toc-text">写在最后</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"><img src="/../img/ai-10-ollama.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"/></a><div class="content"><a class="title" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成">Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成</a><time datetime="2026-07-22T02:00:00.000Z" title="发表于 2026-07-22 10:00:00">2026-07-22</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"><img src="/../img/ai-09-spring-ai.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"/></a><div class="content"><a class="title" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling">Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling</a><time datetime="2026-07-17T02:00:00.000Z" title="发表于 2026-07-17 10:00:00">2026-07-17</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"><img src="/../img/ai-08-vector-database.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"/></a><div class="content"><a class="title" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比">向量数据库选型实战：Chroma、Milvus 与 pgvector 对比</a><time datetime="2026-07-13T02:00:00.000Z" title="发表于 2026-07-13 10:00:00">2026-07-13</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度"><img src="/../img/ai-07-rag-evaluation.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 评估实战：Recall@K、MRR 与回答忠实度"/></a><div class="content"><a class="title" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度">RAG 评估实战：Recall@K、MRR 与回答忠实度</a><time datetime="2026-07-12T02:00:00.000Z" title="发表于 2026-07-12 10:00:00">2026-07-12</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"><img src="/../img/ai-06-rag-retrieval.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"/></a><div class="content"><a class="title" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker">RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker</a><time datetime="2026-07-09T02:00:00.000Z" title="发表于 2026-07-09 10:00:00">2026-07-09</time></div></div></div></div></div></div></main><footer id="footer"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2024 - 2026 By qjngbac</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 7.3.0</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.5.5</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.5.5"></script><script src="/js/main.js?v=5.5.5"></script><div class="js-pjax"></div><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

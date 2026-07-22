@@ -1,0 +1,700 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Spring Cloud 微服务实战：从零搭建一套微服务架构 | Wait</title><meta name="author" content="qjngbac"><meta name="copyright" content="qjngbac"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="前言单体应用在业务初期开发高效、部署简单；随着业务与团队规模扩大，可能逐渐出现发布耦合、整体扩容成本和故障隔离困难等问题。微服务是一种可选的应对方式，但并非必然答案：边界清晰的模块化单体同样可能长期适用。 Spring Cloud Alibaba 为 Spring Cloud 应用提供 Nacos、Sentinel、Seata 等生态集成；Gateway 和 OpenFeign 则来自 Sprin">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Spring Cloud 微服务实战：从零搭建一套微服务架构">
+<meta property="og:url" content="https://qjngbac.github.io/2025/11/02/spring-cloud-microservice-guide/index.html">
+<meta property="og:site_name" content="Wait">
+<meta property="og:description" content="前言单体应用在业务初期开发高效、部署简单；随着业务与团队规模扩大，可能逐渐出现发布耦合、整体扩容成本和故障隔离困难等问题。微服务是一种可选的应对方式，但并非必然答案：边界清晰的模块化单体同样可能长期适用。 Spring Cloud Alibaba 为 Spring Cloud 应用提供 Nacos、Sentinel、Seata 等生态集成；Gateway 和 OpenFeign 则来自 Sprin">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://qjngbac.github.io/img/java-series-09-spring-cloud.jpg">
+<meta property="article:published_time" content="2025-11-02T08:00:00.000Z">
+<meta property="article:modified_time" content="2026-07-19T09:03:42.500Z">
+<meta property="article:author" content="qjngbac">
+<meta property="article:tag" content="面试">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="微服务">
+<meta property="article:tag" content="Spring Cloud">
+<meta property="article:tag" content="Nacos">
+<meta property="article:tag" content="Gateway">
+<meta property="article:tag" content="Sentinel">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://qjngbac.github.io/img/java-series-09-spring-cloud.jpg"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "Spring Cloud 微服务实战：从零搭建一套微服务架构",
+  "url": "https://qjngbac.github.io/2025/11/02/spring-cloud-microservice-guide/",
+  "image": "https://qjngbac.github.io/img/java-series-09-spring-cloud.jpg",
+  "datePublished": "2025-11-02T08:00:00.000Z",
+  "dateModified": "2026-07-19T09:03:42.500Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "qjngbac",
+      "url": "https://qjngbac.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://qjngbac.github.io/2025/11/02/spring-cloud-microservice-guide/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.5.5"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        if (!ttl) return
+        const expiry = Date.now() + ttl * 86400000
+        localStorage.setItem(key, JSON.stringify({ value, expiry }))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return undefined
+        const { value, expiry } = JSON.parse(itemStr)
+        if (Date.now() > expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return value
+      }
+    }
+
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+        script.onload = script.onreadystatechange = () => {
+          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      }),
+      getCSS: (url, id) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onload = link.onreadystatechange = () => {
+          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+        }
+        link.onerror = reject
+        document.head.appendChild(link)
+      }),
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: true
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Spring Cloud 微服务实战：从零搭建一套微服务架构',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="generator" content="Hexo 7.3.0"></head><body><div id="loading-box"><div class="loading-left-bg"></div><div class="loading-right-bg"></div><div class="spinner-box"><div class="configure-border-1"><div class="configure-core"></div></div><div class="configure-border-2"><div class="configure-core"></div></div><div class="loading-word">加载中...</div></div></div><script>(()=>{
+  const $loadingBox = document.getElementById('loading-box')
+  const $body = document.body
+  const preloader = {
+    endLoading: () => {
+      if ($loadingBox.classList.contains('loaded')) return
+      $body.style.overflow = ''
+      $loadingBox.classList.add('loaded')
+    },
+    initLoading: () => {
+      $body.style.overflow = 'hidden'
+      $loadingBox.classList.remove('loaded')
+    }
+  }
+
+  preloader.initLoading()
+
+  if (document.readyState === 'complete') {
+    preloader.endLoading()
+  } else {
+    window.addEventListener('load', preloader.endLoading)
+    document.addEventListener('DOMContentLoaded', preloader.endLoading)
+    // Add timeout protection: force end after 7 seconds
+    setTimeout(preloader.endLoading, 7000)
+  }
+
+  if (false) {
+    btf.addGlobalFn('pjaxSend', preloader.initLoading, 'preloader_init')
+    btf.addGlobalFn('pjaxComplete', preloader.endLoading, 'preloader_end')
+  }
+})()</script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">42</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">139</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(/img/java-series-09-spring-cloud.jpg);"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">Wait</span></a><a class="nav-page-title" href="/"><span class="site-name">Spring Cloud 微服务实战：从零搭建一套微服务架构</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">Spring Cloud 微服务实战：从零搭建一套微服务架构</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2025-11-02T08:00:00.000Z" title="发表于 2025-11-02 16:00:00">2025-11-02</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-07-19T09:03:42.500Z" title="更新于 2026-07-19 17:03:42">2026-07-19</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/Java-%E6%B7%B1%E5%BA%A6/">Java 深度</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>单体应用在业务初期开发高效、部署简单；随着业务与团队规模扩大，可能逐渐出现发布耦合、整体扩容成本和故障隔离困难等问题。微服务是一种可选的应对方式，但并非必然答案：边界清晰的模块化单体同样可能长期适用。</p>
+<p>Spring Cloud Alibaba 为 Spring Cloud 应用提供 Nacos、Sentinel、Seata 等生态集成；Gateway 和 OpenFeign 则来自 Spring Cloud 自身。把这些组件组合起来，可以覆盖注册配置、网关路由、服务调用和流量治理，但身份认证、可观测性、部署、数据一致性等仍需单独设计。</p>
+<p>本文就从零开始，一步步搭建一套可运行的微服务骨架，完整覆盖四大核心组件：<strong>Nacos 注册配置中心、Spring Cloud Gateway 网关、OpenFeign 声明式调用、Sentinel 流量治理</strong>，并附上实战配置与常见踩坑指南。</p>
+<hr>
+<h2 id="一、整体架构设计"><a href="#一、整体架构设计" class="headerlink" title="一、整体架构设计"></a>一、整体架构设计</h2><h3 id="1-1-组件选型与分工"><a href="#1-1-组件选型与分工" class="headerlink" title="1.1 组件选型与分工"></a>1.1 组件选型与分工</h3><table>
+<thead>
+<tr>
+<th>组件</th>
+<th>角色</th>
+<th>替代的传统方案</th>
+<th>核心价值</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Nacos</strong></td>
+<td>注册中心 + 配置中心</td>
+<td>Eureka + Config</td>
+<td>统一服务发现和配置管理</td>
+</tr>
+<tr>
+<td><strong>Spring Cloud Gateway</strong></td>
+<td>API 网关</td>
+<td>Zuul 1.x 等</td>
+<td>统一路由、过滤和流量入口</td>
+</tr>
+<tr>
+<td><strong>OpenFeign</strong></td>
+<td>服务间调用</td>
+<td>RestTemplate</td>
+<td>声明式接口，自带负载均衡</td>
+</tr>
+<tr>
+<td><strong>Sentinel</strong></td>
+<td>流量控制与熔断降级</td>
+<td>Hystrix</td>
+<td>轻量级流量治理，控制台可视化</td>
+</tr>
+</tbody></table>
+<p><img src="/../img/spring-cloud-architecture.png" alt="Spring Cloud 用户与订单微服务整体架构"></p>
+<h3 id="1-2-服务拆分与项目结构"><a href="#1-2-服务拆分与项目结构" class="headerlink" title="1.2 服务拆分与项目结构"></a>1.2 服务拆分与项目结构</h3><p>以经典的「用户-订单」业务为例：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">spring-cloud-demo （父工程，统一管理依赖版本）</span><br><span class="line">├── common              公共模块：通用实体类、工具类、常量</span><br><span class="line">├── user-service        用户服务：端口 8001，用户信息增删改查</span><br><span class="line">├── order-service       订单服务：端口 8002，创建订单，依赖用户服务</span><br><span class="line">└── gateway-service     网关服务：端口 9000，统一流量入口</span><br></pre></td></tr></table></figure>
+
+<p>调用链路：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">前端请求 → Gateway 网关 → 路由转发到对应业务服务</span><br><span class="line">         → 服务间通过 OpenFeign 互相调用</span><br><span class="line">         → Sentinel 全程做流量保护</span><br></pre></td></tr></table></figure>
+
+<h3 id="1-3-单体-vs-微服务对比"><a href="#1-3-单体-vs-微服务对比" class="headerlink" title="1.3 单体 vs 微服务对比"></a>1.3 单体 vs 微服务对比</h3><table>
+<thead>
+<tr>
+<th>维度</th>
+<th>单体架构</th>
+<th>微服务架构</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>部署</td>
+<td>整体部署</td>
+<td>独立部署</td>
+</tr>
+<tr>
+<td>扩容</td>
+<td>整体扩容</td>
+<td>按需扩容单个服务</td>
+</tr>
+<tr>
+<td>技术栈</td>
+<td>统一</td>
+<td>可以不同服务用不同技术</td>
+</tr>
+<tr>
+<td>故障隔离</td>
+<td>进程内故障影响面通常较大</td>
+<td>具备隔离条件，但仍可能沿调用链扩散</td>
+</tr>
+<tr>
+<td>开发效率</td>
+<td>初期快，跨模块改动直接</td>
+<td>团队可独立发布，但协作与运维成本更高</td>
+</tr>
+<tr>
+<td>复杂度</td>
+<td>低</td>
+<td>高（分布式事务、链路追踪等）</td>
+</tr>
+<tr>
+<td>适用场景</td>
+<td>小团队、业务初期</td>
+<td>大团队、业务复杂</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p><strong>不要为了微服务而微服务</strong>。小团队、业务初期，单体架构往往效率更高；只有当业务规模、团队规模到了一定程度，微服务的收益才会大于成本。</p>
+</blockquote>
+<hr>
+<h2 id="二、环境准备：版本是第一大坑"><a href="#二、环境准备：版本是第一大坑" class="headerlink" title="二、环境准备：版本是第一大坑"></a>二、环境准备：版本是第一大坑</h2><p>微服务开发最容易踩的第一个坑就是<strong>版本不兼容</strong>。Spring Boot、Spring Cloud、Spring Cloud Alibaba 三者有严格的对应关系，版本错配会出现各种莫名其妙的启动报错。</p>
+<h3 id="2-1-版本对应关系（重要！）"><a href="#2-1-版本对应关系（重要！）" class="headerlink" title="2.1 版本对应关系（重要！）"></a>2.1 版本对应关系（重要！）</h3><p>版本矩阵会持续更新，不能凭版本号长得相近就自行组合。下面采用官方 2023.x 版本说明中明确列出的一组组合，作为全文一致的教学基线；创建新项目时仍应重新查看官方版本说明和各组件发布说明。</p>
+<table>
+<thead>
+<tr>
+<th>技术框架</th>
+<th>版本号</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Java</td>
+<td>17+</td>
+</tr>
+<tr>
+<td>Spring Boot</td>
+<td>3.2.4</td>
+</tr>
+<tr>
+<td>Spring Cloud</td>
+<td>2023.0.1</td>
+</tr>
+<tr>
+<td>Spring Cloud Alibaba</td>
+<td>2023.0.1.0</td>
+</tr>
+<tr>
+<td>Nacos Server &#x2F; Client</td>
+<td>2.3.2</td>
+</tr>
+<tr>
+<td>Sentinel Dashboard</td>
+<td>1.8.6</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>这是一组有明确兼容关系的示例版本，不表示它在阅读本文时仍是最新版本。升级时应把整组依赖一起验证，不要只升级其中一个 BOM。</p>
+</blockquote>
+<h3 id="2-2-父工程搭建"><a href="#2-2-父工程搭建" class="headerlink" title="2.2 父工程搭建"></a>2.2 父工程搭建</h3><p>创建 Maven 父工程，统一管理所有依赖版本：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">packaging</span>&gt;</span>pom<span class="tag">&lt;/<span class="name">packaging</span>&gt;</span></span><br><span class="line"></span><br><span class="line"><span class="tag">&lt;<span class="name">modules</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">module</span>&gt;</span>common<span class="tag">&lt;/<span class="name">module</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">module</span>&gt;</span>user-service<span class="tag">&lt;/<span class="name">module</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">module</span>&gt;</span>order-service<span class="tag">&lt;/<span class="name">module</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">module</span>&gt;</span>gateway-service<span class="tag">&lt;/<span class="name">module</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">modules</span>&gt;</span></span><br><span class="line"></span><br><span class="line"><span class="tag">&lt;<span class="name">properties</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">java.version</span>&gt;</span>17<span class="tag">&lt;/<span class="name">java.version</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">spring-boot.version</span>&gt;</span>3.2.4<span class="tag">&lt;/<span class="name">spring-boot.version</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">spring-cloud.version</span>&gt;</span>2023.0.1<span class="tag">&lt;/<span class="name">spring-cloud.version</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">spring-cloud-alibaba.version</span>&gt;</span>2023.0.1.0<span class="tag">&lt;/<span class="name">spring-cloud-alibaba.version</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">properties</span>&gt;</span></span><br><span class="line"></span><br><span class="line"><span class="tag">&lt;<span class="name">dependencyManagement</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">dependencies</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>org.springframework.boot<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>spring-boot-dependencies<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">version</span>&gt;</span>$&#123;spring-boot.version&#125;<span class="tag">&lt;/<span class="name">version</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">type</span>&gt;</span>pom<span class="tag">&lt;/<span class="name">type</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">scope</span>&gt;</span>import<span class="tag">&lt;/<span class="name">scope</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>org.springframework.cloud<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>spring-cloud-dependencies<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">version</span>&gt;</span>$&#123;spring-cloud.version&#125;<span class="tag">&lt;/<span class="name">version</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">type</span>&gt;</span>pom<span class="tag">&lt;/<span class="name">type</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">scope</span>&gt;</span>import<span class="tag">&lt;/<span class="name">scope</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>com.alibaba.cloud<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>spring-cloud-alibaba-dependencies<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">version</span>&gt;</span>$&#123;spring-cloud-alibaba.version&#125;<span class="tag">&lt;/<span class="name">version</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">type</span>&gt;</span>pom<span class="tag">&lt;/<span class="name">type</span>&gt;</span></span><br><span class="line">            <span class="tag">&lt;<span class="name">scope</span>&gt;</span>import<span class="tag">&lt;/<span class="name">scope</span>&gt;</span></span><br><span class="line">        <span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;/<span class="name">dependencies</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependencyManagement</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="三、Nacos：注册中心与配置中心"><a href="#三、Nacos：注册中心与配置中心" class="headerlink" title="三、Nacos：注册中心与配置中心"></a>三、Nacos：注册中心与配置中心</h2><p>Nacos 在示例中承担注册中心和配置中心：服务实例注册并由调用方订阅地址变化，应用也可把外部配置导入 Spring Environment。配置变更能否无重启生效，取决于属性绑定方式、<code>@RefreshScope</code>、监听器以及组件本身是否支持动态更新，并非所有配置都会自动刷新。</p>
+<h3 id="3-1-Nacos-安装启动"><a href="#3-1-Nacos-安装启动" class="headerlink" title="3.1 Nacos 安装启动"></a>3.1 Nacos 安装启动</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 下载解压后，单机模式启动</span></span><br><span class="line">sh startup.sh -m standalone    <span class="comment"># Linux</span></span><br><span class="line">startup.cmd -m standalone       <span class="comment"># Windows</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 默认端口 8848</span></span><br><span class="line"><span class="comment"># 控制台：http://localhost:8848/nacos</span></span><br><span class="line"><span class="comment"># 鉴权开关、初始账号与密钥按所安装版本的官方部署文档配置</span></span><br><span class="line"><span class="comment"># 生产环境必须开启鉴权、修改初始凭据并限制网络访问</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="3-2-服务注册"><a href="#3-2-服务注册" class="headerlink" title="3.2 服务注册"></a>3.2 服务注册</h3><p>以 <code>user-service</code> 为例：</p>
+<p><strong>引入依赖：</strong></p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>com.alibaba.cloud<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>spring-cloud-starter-alibaba-nacos-discovery<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>配置文件：</strong></p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">spring:</span></span><br><span class="line">  <span class="attr">application:</span></span><br><span class="line">    <span class="attr">name:</span> <span class="string">user-service</span></span><br><span class="line">  <span class="attr">cloud:</span></span><br><span class="line">    <span class="attr">nacos:</span></span><br><span class="line">      <span class="attr">discovery:</span></span><br><span class="line">        <span class="attr">server-addr:</span> <span class="string">localhost:8848</span></span><br><span class="line"><span class="attr">server:</span></span><br><span class="line">  <span class="attr">port:</span> <span class="number">8001</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>启动类：</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@SpringBootApplication</span></span><br><span class="line"><span class="meta">@EnableDiscoveryClient</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">UserServiceApplication</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">        SpringApplication.run(UserServiceApplication.class, args);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>启动后，Nacos 控制台 → 服务列表，就能看到 <code>user-service</code> 已注册。</p>
+<h3 id="3-3-配置中心"><a href="#3-3-配置中心" class="headerlink" title="3.3 配置中心"></a>3.3 配置中心</h3><p>把配置从项目里抽离到 Nacos，实现配置统一管理和动态刷新。</p>
+<p><strong>引入依赖：</strong></p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>com.alibaba.cloud<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>spring-cloud-starter-alibaba-nacos-config<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p>Spring Boot 2.4+ 推荐通过 Config Data API 导入外部配置，无需为了 Nacos 强制引入 <code>spring-cloud-starter-bootstrap</code>。直接在 <code>application.yml</code> 中声明：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">spring:</span></span><br><span class="line">  <span class="attr">application:</span></span><br><span class="line">    <span class="attr">name:</span> <span class="string">user-service</span></span><br><span class="line">  <span class="attr">profiles:</span></span><br><span class="line">    <span class="attr">active:</span> <span class="string">dev</span></span><br><span class="line">  <span class="attr">config:</span></span><br><span class="line">    <span class="attr">import:</span></span><br><span class="line">      <span class="bullet">-</span> <span class="string">optional:nacos:user-service-$&#123;spring.profiles.active&#125;.yml?group=DEFAULT_GROUP&amp;refreshEnabled=true</span></span><br><span class="line">  <span class="attr">cloud:</span></span><br><span class="line">    <span class="attr">nacos:</span></span><br><span class="line">      <span class="attr">config:</span></span><br><span class="line">        <span class="attr">server-addr:</span> <span class="string">localhost:8848</span></span><br><span class="line">        <span class="attr">username:</span> <span class="string">$&#123;NACOS_USERNAME&#125;</span></span><br><span class="line">        <span class="attr">password:</span> <span class="string">$&#123;NACOS_PASSWORD&#125;</span></span><br></pre></td></tr></table></figure>
+
+<p><code>optional:</code> 表示 Nacos 暂时不可用时不因缺少该配置源直接阻止启动；对关键生产配置，如果希望“取不到就失败”，应去掉 <code>optional:</code>。Data ID、Group、Namespace 和扩展名必须与控制台配置完全一致。</p>
+<p><strong>Nacos 控制台新建配置：</strong></p>
+<ul>
+<li>Data ID：<code>user-service-dev.yml</code></li>
+<li>配置格式：YAML</li>
+<li>配置内容：写入业务配置</li>
+</ul>
+<p><strong>代码读取配置：</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@RestController</span></span><br><span class="line"><span class="meta">@RefreshScope</span>  <span class="comment">// 支持配置动态刷新</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">UserController</span> &#123;</span><br><span class="line">    </span><br><span class="line">    <span class="meta">@Value(&quot;$&#123;user.name:默认值&#125;&quot;)</span></span><br><span class="line">    <span class="keyword">private</span> String userName;</span><br><span class="line">    </span><br><span class="line">    <span class="meta">@GetMapping(&quot;/user/get&quot;)</span></span><br><span class="line">    <span class="keyword">public</span> String <span class="title function_">getUser</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> userName;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-4-命名空间隔离环境"><a href="#3-4-命名空间隔离环境" class="headerlink" title="3.4 命名空间隔离环境"></a>3.4 命名空间隔离环境</h3><p>生产环境一定要用命名空间隔离开发、测试、生产环境：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">命名空间：</span><br><span class="line">├── dev（开发环境）</span><br><span class="line">│   ├── user-service-dev.yml</span><br><span class="line">│   └── order-service-dev.yml</span><br><span class="line">├── test（测试环境）</span><br><span class="line">│   ├── user-service-test.yml</span><br><span class="line">│   └── order-service-test.yml</span><br><span class="line">└── prod（生产环境）</span><br><span class="line">    ├── user-service-prod.yml</span><br><span class="line">    └── order-service-prod.yml</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">spring:</span></span><br><span class="line">  <span class="attr">cloud:</span></span><br><span class="line">    <span class="attr">nacos:</span></span><br><span class="line">      <span class="attr">config:</span></span><br><span class="line">        <span class="attr">namespace:</span> <span class="string">$&#123;NACOS_NAMESPACE&#125;</span>  <span class="comment"># 通过环境变量指定命名空间</span></span><br></pre></td></tr></table></figure>
+
+<p>命名空间 ID 与显示名称不是一回事，配置中应填写控制台展示的 Namespace ID。生产环境还应开启 Nacos 鉴权、使用独立凭据并限制网络访问，不能沿用默认账号密码。</p>
+<hr>
+<h2 id="四、OpenFeign：声明式服务间调用"><a href="#四、OpenFeign：声明式服务间调用" class="headerlink" title="四、OpenFeign：声明式服务间调用"></a>四、OpenFeign：声明式服务间调用</h2><p>OpenFeign 把 HTTP 调用声明成 Java 接口，减少手动拼接地址和序列化代码；结合 Spring Cloud LoadBalancer 后可以按服务名选择实例。但它仍是远程调用，必须显式考虑超时、失败、幂等、认证和可观测性，不能按本地方法的可靠性理解。</p>
+<h3 id="4-1-集成步骤"><a href="#4-1-集成步骤" class="headerlink" title="4.1 集成步骤"></a>4.1 集成步骤</h3><p><strong>引入依赖：</strong></p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>org.springframework.cloud<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>spring-cloud-starter-openfeign<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br><span class="line"><span class="comment">&lt;!-- 负载均衡需要 --&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>org.springframework.cloud<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>spring-cloud-starter-loadbalancer<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>启动类开启 Feign：</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@SpringBootApplication</span></span><br><span class="line"><span class="meta">@EnableFeignClients</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">OrderServiceApplication</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">        SpringApplication.run(OrderServiceApplication.class, args);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>编写 Feign 接口：</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@FeignClient(&quot;user-service&quot;)</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">UserFeignClient</span> &#123;</span><br><span class="line">    </span><br><span class="line">    <span class="meta">@GetMapping(&quot;/user/getById/&#123;userId&#125;&quot;)</span></span><br><span class="line">    String <span class="title function_">getById</span><span class="params">(<span class="meta">@PathVariable(&quot;userId&quot;)</span> Long userId)</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>业务代码直接调用：</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@RestController</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">OrderController</span> &#123;</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">final</span> UserFeignClient userFeignClient;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="title function_">OrderController</span><span class="params">(UserFeignClient userFeignClient)</span> &#123;</span><br><span class="line">        <span class="built_in">this</span>.userFeignClient = userFeignClient;</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="meta">@GetMapping(&quot;/order/create/&#123;userId&#125;&quot;)</span></span><br><span class="line">    <span class="keyword">public</span> String <span class="title function_">createOrder</span><span class="params">(<span class="meta">@PathVariable</span> Long userId)</span> &#123;</span><br><span class="line">        <span class="type">String</span> <span class="variable">user</span> <span class="operator">=</span> userFeignClient.getById(userId);</span><br><span class="line">        <span class="keyword">return</span> <span class="string">&quot;为用户【&quot;</span> + user + <span class="string">&quot;】创建订单成功&quot;</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="4-2-Feign-的底层原理"><a href="#4-2-Feign-的底层原理" class="headerlink" title="4.2 Feign 的底层原理"></a>4.2 Feign 的底层原理</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">调用流程：</span><br><span class="line">OrderController</span><br><span class="line">    ↓ 调用接口方法</span><br><span class="line">UserFeignClient.getById()</span><br><span class="line">    ↓ 动态代理拦截</span><br><span class="line">FeignInvocationHandler</span><br><span class="line">    ↓ 构建 HTTP 请求</span><br><span class="line">LoadBalancerClient（负载均衡，选择一个服务实例）</span><br><span class="line">    ↓ 发送 HTTP 请求</span><br><span class="line">user-service 实例（http://192.168.1.10:8001/user/getById/1）</span><br></pre></td></tr></table></figure>
+
+<p>Feign 的核心是<strong>动态代理</strong>：<code>@FeignClient</code> 标注的接口会被 JDK 动态代理，调用接口方法时，代理类会将方法调用转换为 HTTP 请求，通过负载均衡选择服务实例发送请求。</p>
+<h3 id="4-3-常用配置"><a href="#4-3-常用配置" class="headerlink" title="4.3 常用配置"></a>4.3 常用配置</h3><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">spring:</span></span><br><span class="line">  <span class="attr">cloud:</span></span><br><span class="line">    <span class="attr">openfeign:</span></span><br><span class="line">      <span class="attr">client:</span></span><br><span class="line">        <span class="attr">config:</span></span><br><span class="line">          <span class="attr">default:</span></span><br><span class="line">            <span class="attr">connectTimeout:</span> <span class="number">3000</span></span><br><span class="line">            <span class="attr">readTimeout:</span> <span class="number">5000</span></span><br><span class="line">            <span class="attr">loggerLevel:</span> <span class="string">basic</span></span><br><span class="line">      <span class="attr">compression:</span></span><br><span class="line">        <span class="attr">request:</span></span><br><span class="line">          <span class="attr">enabled:</span> <span class="literal">true</span></span><br><span class="line">        <span class="attr">response:</span></span><br><span class="line">          <span class="attr">enabled:</span> <span class="literal">true</span></span><br><span class="line"></span><br><span class="line"><span class="attr">feign:</span></span><br><span class="line">  <span class="attr">sentinel:</span></span><br><span class="line">    <span class="attr">enabled:</span> <span class="literal">true</span>  <span class="comment"># 开启 Sentinel 熔断支持</span></span><br></pre></td></tr></table></figure>
+
+<p>生产环境通常不应长期使用 <code>loggerLevel: full</code>，因为请求头和请求体可能包含令牌、个人信息或大对象。超时值也不能照抄，应让单次调用超时、有限重试和上游总预算彼此匹配。</p>
+<hr>
+<h2 id="五、Spring-Cloud-Gateway：统一-API-网关"><a href="#五、Spring-Cloud-Gateway：统一-API-网关" class="headerlink" title="五、Spring Cloud Gateway：统一 API 网关"></a>五、Spring Cloud Gateway：统一 API 网关</h2><p>面向同一客户端的一组服务通常会通过网关统一入口，以集中处理路由、认证、跨域和流量控制；内部服务是否完全禁止直连，还取决于网络分区、服务网格和运维设计。</p>
+<h3 id="5-1-路由配置"><a href="#5-1-路由配置" class="headerlink" title="5.1 路由配置"></a>5.1 路由配置</h3><p><strong>引入依赖：</strong></p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>org.springframework.cloud<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>spring-cloud-starter-gateway<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>com.alibaba.cloud<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>spring-cloud-starter-alibaba-nacos-discovery<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>org.springframework.cloud<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>spring-cloud-starter-loadbalancer<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>本节使用的是经典响应式 <code>spring-cloud-starter-gateway</code>，应避免把它与基于 Spring MVC 的 <code>spring-boot-starter-web</code> 混在同一应用。较新的 Spring Cloud 也提供 Gateway Server Web MVC 路线，选择 starter 时要先明确采用 WebFlux 还是 MVC。</p>
+</blockquote>
+<p><strong>路由配置：</strong></p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">server:</span></span><br><span class="line">  <span class="attr">port:</span> <span class="number">9000</span></span><br><span class="line"><span class="attr">spring:</span></span><br><span class="line">  <span class="attr">application:</span></span><br><span class="line">    <span class="attr">name:</span> <span class="string">gateway-service</span></span><br><span class="line">  <span class="attr">cloud:</span></span><br><span class="line">    <span class="attr">nacos:</span></span><br><span class="line">      <span class="attr">discovery:</span></span><br><span class="line">        <span class="attr">server-addr:</span> <span class="string">localhost:8848</span></span><br><span class="line">    <span class="attr">gateway:</span></span><br><span class="line">      <span class="attr">discovery:</span></span><br><span class="line">        <span class="attr">locator:</span></span><br><span class="line">          <span class="attr">enabled:</span> <span class="literal">false</span></span><br><span class="line">      <span class="attr">routes:</span></span><br><span class="line">        <span class="bullet">-</span> <span class="attr">id:</span> <span class="string">user-service-route</span></span><br><span class="line">          <span class="attr">uri:</span> <span class="string">lb://user-service</span></span><br><span class="line">          <span class="attr">predicates:</span></span><br><span class="line">            <span class="bullet">-</span> <span class="string">Path=/user/**</span></span><br><span class="line">        </span><br><span class="line">        <span class="bullet">-</span> <span class="attr">id:</span> <span class="string">order-service-route</span></span><br><span class="line">          <span class="attr">uri:</span> <span class="string">lb://order-service</span></span><br><span class="line">          <span class="attr">predicates:</span></span><br><span class="line">            <span class="bullet">-</span> <span class="string">Path=/order/**</span></span><br></pre></td></tr></table></figure>
+
+<p>路由效果：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">http://localhost:9000/user/getById/1   → user-service</span><br><span class="line">http://localhost:9000/order/create/1   → order-service</span><br></pre></td></tr></table></figure>
+
+<h3 id="5-2-全局过滤器：统一鉴权"><a href="#5-2-全局过滤器：统一鉴权" class="headerlink" title="5.2 全局过滤器：统一鉴权"></a>5.2 全局过滤器：统一鉴权</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Component</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">AuthGlobalFilter</span> <span class="keyword">implements</span> <span class="title class_">GlobalFilter</span>, Ordered &#123;</span><br><span class="line">    </span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> Mono&lt;Void&gt; <span class="title function_">filter</span><span class="params">(ServerWebExchange exchange, GatewayFilterChain chain)</span> &#123;</span><br><span class="line">        <span class="type">String</span> <span class="variable">token</span> <span class="operator">=</span> exchange.getRequest().getHeaders().getFirst(<span class="string">&quot;Authorization&quot;</span>);</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 白名单路径不需要鉴权</span></span><br><span class="line">        <span class="type">String</span> <span class="variable">path</span> <span class="operator">=</span> exchange.getRequest().getURI().getPath();</span><br><span class="line">        <span class="keyword">if</span> (path.equals(<span class="string">&quot;/auth&quot;</span>) || path.startsWith(<span class="string">&quot;/auth/&quot;</span>)) &#123;</span><br><span class="line">            <span class="keyword">return</span> chain.filter(exchange);</span><br><span class="line">        &#125;</span><br><span class="line">        </span><br><span class="line">        <span class="comment">// 校验 Token</span></span><br><span class="line">        <span class="keyword">if</span> (token == <span class="literal">null</span> || !validateToken(token)) &#123;</span><br><span class="line">            exchange.getResponse().setStatusCode(HttpStatus.UNAUTHORIZED);</span><br><span class="line">            <span class="keyword">return</span> exchange.getResponse().setComplete();</span><br><span class="line">        &#125;</span><br><span class="line">        </span><br><span class="line">        <span class="keyword">return</span> chain.filter(exchange);</span><br><span class="line">    &#125;</span><br><span class="line">    </span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="type">int</span> <span class="title function_">getOrder</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> -<span class="number">1</span>;  <span class="comment">// 优先级</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="5-3-全局跨域配置"><a href="#5-3-全局跨域配置" class="headerlink" title="5.3 全局跨域配置"></a>5.3 全局跨域配置</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Configuration</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">CorsConfig</span> &#123;</span><br><span class="line">    </span><br><span class="line">    <span class="meta">@Bean</span></span><br><span class="line">    <span class="keyword">public</span> CorsWebFilter <span class="title function_">corsWebFilter</span><span class="params">()</span> &#123;</span><br><span class="line">        <span class="type">CorsConfiguration</span> <span class="variable">config</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">CorsConfiguration</span>();</span><br><span class="line">        config.setAllowedOrigins(List.of(<span class="string">&quot;https://www.example.com&quot;</span>));</span><br><span class="line">        config.addAllowedMethod(<span class="string">&quot;*&quot;</span>);</span><br><span class="line">        config.addAllowedHeader(<span class="string">&quot;*&quot;</span>);</span><br><span class="line">        config.setAllowCredentials(<span class="literal">true</span>);</span><br><span class="line">        </span><br><span class="line">        <span class="type">UrlBasedCorsConfigurationSource</span> <span class="variable">source</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">UrlBasedCorsConfigurationSource</span>();</span><br><span class="line">        source.registerCorsConfiguration(<span class="string">&quot;/**&quot;</span>, config);</span><br><span class="line">        </span><br><span class="line">        <span class="keyword">return</span> <span class="keyword">new</span> <span class="title class_">CorsWebFilter</span>(source);</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>开启凭据时不要对任意来源放行。实际项目应从受控配置中读取明确的 HTTPS Origin 列表，并同时做好 CSRF、Token 校验和预检请求策略。</p>
+<hr>
+<h2 id="六、Sentinel：流量治理与熔断降级"><a href="#六、Sentinel：流量治理与熔断降级" class="headerlink" title="六、Sentinel：流量治理与熔断降级"></a>六、Sentinel：流量治理与熔断降级</h2><p>微服务链路中，任何一个服务故障都可能沿着调用链扩散，最终导致全站雪崩。Sentinel 就是微服务的”保险丝”。</p>
+<h3 id="6-1-核心概念"><a href="#6-1-核心概念" class="headerlink" title="6.1 核心概念"></a>6.1 核心概念</h3><table>
+<thead>
+<tr>
+<th>概念</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>资源</strong></td>
+<td>需要保护的代码块（方法、接口）</td>
+</tr>
+<tr>
+<td><strong>规则</strong></td>
+<td>对资源的保护策略（限流、熔断）</td>
+</tr>
+<tr>
+<td><strong>流控</strong></td>
+<td>限制进入资源的 QPS 或并发数</td>
+</tr>
+<tr>
+<td><strong>熔断</strong></td>
+<td>下游故障时快速失败，避免拖垮上游</td>
+</tr>
+<tr>
+<td><strong>降级</strong></td>
+<td>熔断后的兜底逻辑（返回默认值）</td>
+</tr>
+</tbody></table>
+<p><img src="/../img/sentinel-flow-control.png" alt="Sentinel 流控与熔断降级流程"></p>
+<h3 id="6-2-服务集成"><a href="#6-2-服务集成" class="headerlink" title="6.2 服务集成"></a>6.2 服务集成</h3><figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>com.alibaba.cloud<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>spring-cloud-starter-alibaba-sentinel<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">spring:</span></span><br><span class="line">  <span class="attr">cloud:</span></span><br><span class="line">    <span class="attr">sentinel:</span></span><br><span class="line">      <span class="attr">transport:</span></span><br><span class="line">        <span class="attr">dashboard:</span> <span class="string">localhost:8080</span>  <span class="comment"># 按 Sentinel 控制台实际启动端口填写</span></span><br><span class="line">        <span class="attr">port:</span> <span class="number">8719</span></span><br></pre></td></tr></table></figure>
+
+<p>Sentinel 是懒加载机制，有流量之后控制台才会显示服务信息。</p>
+<h3 id="6-3-流量控制"><a href="#6-3-流量控制" class="headerlink" title="6.3 流量控制"></a>6.3 流量控制</h3><p>Sentinel 控制台 → 簇点链路 → 选择接口 → 流控：</p>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>阈值类型</td>
+<td>QPS 或并发线程数</td>
+</tr>
+<tr>
+<td>单机阈值</td>
+<td>每秒允许的请求数</td>
+</tr>
+<tr>
+<td>流控模式</td>
+<td>直接、关联、链路</td>
+</tr>
+<tr>
+<td>流控效果</td>
+<td>快速失败、Warm Up、排队等待</td>
+</tr>
+</tbody></table>
+<p>自定义限流返回：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Component</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">SentinelBlockHandler</span> <span class="keyword">implements</span> <span class="title class_">BlockExceptionHandler</span> &#123;</span><br><span class="line">    </span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">handle</span><span class="params">(HttpServletRequest request, HttpServletResponse response,</span></span><br><span class="line"><span class="params">                       BlockException e)</span> &#123;</span><br><span class="line">        response.setStatus(HttpStatus.TOO_MANY_REQUESTS.value());</span><br><span class="line">        response.setContentType(<span class="string">&quot;application/json;charset=UTF-8&quot;</span>);</span><br><span class="line">        response.getWriter().write(JSON.toJSONString(</span><br><span class="line">            Result.error(<span class="number">429</span>, <span class="string">&quot;请求过于频繁，请稍后再试&quot;</span>)</span><br><span class="line">        ));</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="6-4-熔断降级"><a href="#6-4-熔断降级" class="headerlink" title="6.4 熔断降级"></a>6.4 熔断降级</h3><p>当下游服务故障或响应过慢时，直接熔断返回兜底数据：</p>
+<p><strong>编写降级类：</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Component</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">UserFeignFallback</span> <span class="keyword">implements</span> <span class="title class_">UserFeignClient</span> &#123;</span><br><span class="line">    </span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="keyword">public</span> String <span class="title function_">getById</span><span class="params">(Long userId)</span> &#123;</span><br><span class="line">        <span class="keyword">return</span> <span class="string">&quot;用户服务暂时不可用，请稍后再试&quot;</span>;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>Feign 接口指定降级：</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@FeignClient(value = &quot;user-service&quot;, fallback = UserFeignFallback.class)</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">UserFeignClient</span> &#123;</span><br><span class="line">    <span class="meta">@GetMapping(&quot;/user/getById/&#123;userId&#125;&quot;)</span></span><br><span class="line">    String <span class="title function_">getById</span><span class="params">(<span class="meta">@PathVariable(&quot;userId&quot;)</span> Long userId)</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>fallback 不是越多越好。查询接口可以返回明确标记为降级的数据；创建订单、扣款等写操作若伪装成“成功”会造成数据不一致，应保留失败语义，并配合告警、幂等和人工&#x2F;异步补偿。无论哪种 fallback，都要记录原始异常和熔断指标，避免故障被静默掩盖。</p>
+<p><strong>熔断规则配置：</strong></p>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>说明</th>
+<th>示例值</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>熔断策略</td>
+<td>慢调用比例 &#x2F; 异常比例 &#x2F; 异常数</td>
+<td>慢调用比例</td>
+</tr>
+<tr>
+<td>最大 RT</td>
+<td>超过此时间算慢调用</td>
+<td>1000ms</td>
+</tr>
+<tr>
+<td>比例阈值</td>
+<td>触发熔断的比例</td>
+<td>0.5</td>
+</tr>
+<tr>
+<td>熔断时长</td>
+<td>熔断持续时间</td>
+<td>10s</td>
+</tr>
+<tr>
+<td>最小请求数</td>
+<td>触发统计的最小请求数</td>
+<td>5</td>
+</tr>
+</tbody></table>
+<h3 id="6-5-规则持久化"><a href="#6-5-规则持久化" class="headerlink" title="6.5 规则持久化"></a>6.5 规则持久化</h3><p>默认规则存在内存中，服务重启就丢失。生产环境要持久化到 Nacos：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">spring:</span></span><br><span class="line">  <span class="attr">cloud:</span></span><br><span class="line">    <span class="attr">sentinel:</span></span><br><span class="line">      <span class="attr">datasource:</span></span><br><span class="line">        <span class="attr">flow:</span></span><br><span class="line">          <span class="attr">nacos:</span></span><br><span class="line">            <span class="attr">server-addr:</span> <span class="string">localhost:8848</span></span><br><span class="line">            <span class="attr">dataId:</span> <span class="string">$&#123;spring.application.name&#125;-flow-rules</span></span><br><span class="line">            <span class="attr">groupId:</span> <span class="string">SENTINEL_GROUP</span></span><br><span class="line">            <span class="attr">rule-type:</span> <span class="string">flow</span></span><br><span class="line">        <span class="attr">degrade:</span></span><br><span class="line">          <span class="attr">nacos:</span></span><br><span class="line">            <span class="attr">server-addr:</span> <span class="string">localhost:8848</span></span><br><span class="line">            <span class="attr">dataId:</span> <span class="string">$&#123;spring.application.name&#125;-degrade-rules</span></span><br><span class="line">            <span class="attr">groupId:</span> <span class="string">SENTINEL_GROUP</span></span><br><span class="line">            <span class="attr">rule-type:</span> <span class="string">degrade</span></span><br></pre></td></tr></table></figure>
+
+<p>上面的 Nacos 数据源让客户端从 Nacos 读取规则，Nacos 应成为规则事实来源。直接在 Sentinel Dashboard 中临时修改内存规则，并不会天然反向写回 Nacos；若需要控制台改动可持久化，必须部署经过改造的推送模式或使用具备规则发布能力的治理平台，否则重启后仍可能丢失。</p>
+<hr>
+<h2 id="七、分布式事务简介（Seata）"><a href="#七、分布式事务简介（Seata）" class="headerlink" title="七、分布式事务简介（Seata）"></a>七、分布式事务简介（Seata）</h2><p>微服务架构下，一个业务操作可能涉及多个服务的数据库操作，传统的本地事务无法保证跨服务的数据一致性。</p>
+<h3 id="7-1-什么是分布式事务"><a href="#7-1-什么是分布式事务" class="headerlink" title="7.1 什么是分布式事务"></a>7.1 什么是分布式事务</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">下单流程（分布式事务）：</span><br><span class="line">1. 订单服务 → 创建订单（订单库）</span><br><span class="line">2. 库存服务 → 扣减库存（库存库）</span><br><span class="line">3. 用户服务 → 扣减余额（用户库）</span><br><span class="line"></span><br><span class="line">三个操作必须全部成功或全部失败，这就是分布式事务。</span><br></pre></td></tr></table></figure>
+
+<h3 id="7-2-Seata-简介"><a href="#7-2-Seata-简介" class="headerlink" title="7.2 Seata 简介"></a>7.2 Seata 简介</h3><p>Seata 是阿里开源的分布式事务解决方案，支持 AT、TCC、Saga 等多种模式：</p>
+<table>
+<thead>
+<tr>
+<th>模式</th>
+<th>原理</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>AT</td>
+<td>记录前后镜像并通过 <code>undo_log</code> 补偿</td>
+<td>支持的关系型数据库与 SQL 场景，业务侵入较低</td>
+</tr>
+<tr>
+<td>TCC</td>
+<td>手动编写 Try&#x2F;Confirm&#x2F;Cancel</td>
+<td>高性能场景，业务侵入大</td>
+</tr>
+<tr>
+<td>Saga</td>
+<td>长事务，正向操作+补偿操作</td>
+<td>长流程业务</td>
+</tr>
+</tbody></table>
+<p>AT 模式对业务代码侵入较低，但不是“加一个注解就覆盖所有场景”：需要数据源代理、各业务库建立 <code>undo_log</code>、全局事务上下文正确传播，并确认 SQL 类型、数据库和隔离语义受支持。外部系统调用、消息发送和不受支持的 SQL 仍要使用 TCC、Saga、事务消息或补偿设计。</p>
+<h3 id="7-3-集成步骤（简述）"><a href="#7-3-集成步骤（简述）" class="headerlink" title="7.3 集成步骤（简述）"></a>7.3 集成步骤（简述）</h3><figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>com.alibaba.cloud<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>spring-cloud-starter-alibaba-seata<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Service</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">OrderService</span> &#123;</span><br><span class="line">    </span><br><span class="line">    <span class="meta">@GlobalTransactional</span>  <span class="comment">// 开启分布式事务</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">createOrder</span><span class="params">(Order order)</span> &#123;</span><br><span class="line">        <span class="comment">// 1. 创建订单</span></span><br><span class="line">        orderMapper.insert(order);</span><br><span class="line">        <span class="comment">// 2. 远程调用扣减库存</span></span><br><span class="line">        storageFeignClient.deduct(order.getProductId(), order.getCount());</span><br><span class="line">        <span class="comment">// 3. 远程调用扣减余额</span></span><br><span class="line">        accountFeignClient.deduct(order.getUserId(), order.getTotalAmount());</span><br><span class="line">        <span class="comment">// 满足 AT 前提且异常正确抛出时，Seata 才能协调各分支回滚</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="八、链路追踪简介（SkyWalking）"><a href="#八、链路追踪简介（SkyWalking）" class="headerlink" title="八、链路追踪简介（SkyWalking）"></a>八、链路追踪简介（SkyWalking）</h2><p>微服务调用链路复杂，出了问题很难定位。链路追踪可以记录每次请求经过了哪些服务、每个服务耗时多少。</p>
+<h3 id="8-1-为什么需要链路追踪"><a href="#8-1-为什么需要链路追踪" class="headerlink" title="8.1 为什么需要链路追踪"></a>8.1 为什么需要链路追踪</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">用户请求 → Gateway(5ms) → OrderService(50ms) → UserService(200ms)</span><br><span class="line">                                                    ↓</span><br><span class="line">                                              MySQL(150ms) ← 慢查询！</span><br><span class="line"></span><br><span class="line">链路追踪能清晰展示：哪个环节最慢、是否有异常、调用了哪些服务。</span><br></pre></td></tr></table></figure>
+
+<h3 id="8-2-SkyWalking-简介"><a href="#8-2-SkyWalking-简介" class="headerlink" title="8.2 SkyWalking 简介"></a>8.2 SkyWalking 简介</h3><p>SkyWalking 是国产开源的 APM（应用性能管理）工具，支持：</p>
+<ul>
+<li>分布式链路追踪</li>
+<li>服务拓扑图</li>
+<li>性能指标监控</li>
+<li>告警</li>
+</ul>
+<p>集成方式：通过 Java Agent 无侵入接入，不需要改业务代码。</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">java -javaagent:skywalking-agent.jar -jar your-app.jar</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="九、全链路联调验证"><a href="#九、全链路联调验证" class="headerlink" title="九、全链路联调验证"></a>九、全链路联调验证</h2><p>整套微服务架构搭建完成后，验证步骤：</p>
+<ol>
+<li><strong>启动基础设施</strong>：Nacos、Sentinel 控制台</li>
+<li><strong>启动业务服务</strong>：user-service → order-service → gateway-service</li>
+<li><strong>验证注册</strong>：Nacos 控制台三个服务都在线</li>
+<li><strong>验证网关路由</strong>：<code>http://localhost:9000/order/create/1</code></li>
+<li><strong>验证服务调用</strong>：返回结果包含用户信息</li>
+<li><strong>验证限流</strong>：快速刷新触发 Sentinel 流控</li>
+<li><strong>验证降级</strong>：停掉用户服务，返回降级兜底文案</li>
+</ol>
+<hr>
+<h2 id="十、常见踩坑与最佳实践"><a href="#十、常见踩坑与最佳实践" class="headerlink" title="十、常见踩坑与最佳实践"></a>十、常见踩坑与最佳实践</h2><h3 id="10-1-踩坑清单"><a href="#10-1-踩坑清单" class="headerlink" title="10.1 踩坑清单"></a>10.1 踩坑清单</h3><table>
+<thead>
+<tr>
+<th>问题</th>
+<th>原因</th>
+<th>解决方案</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>版本不兼容</td>
+<td>Boot&#x2F;Cloud&#x2F;Alibaba 版本不匹配</td>
+<td>严格遵循官方版本对应表</td>
+</tr>
+<tr>
+<td>Nacos 配置不生效</td>
+<td><code>spring.config.import</code>、Data ID&#x2F;Group&#x2F;Namespace 不匹配</td>
+<td>核对 Config Data 导入和控制台配置</td>
+</tr>
+<tr>
+<td>响应式 Gateway 启动报错</td>
+<td>混入 Spring MVC starter</td>
+<td>统一选择 WebFlux Gateway 或 Gateway MVC 路线</td>
+</tr>
+<tr>
+<td>Feign 调用超时</td>
+<td>超时时间太短</td>
+<td>配置 connectTimeout 和 readTimeout</td>
+</tr>
+<tr>
+<td>Feign 调用 404</td>
+<td>路径不匹配</td>
+<td>检查 @GetMapping 路径和 @PathVariable</td>
+</tr>
+<tr>
+<td>Sentinel 不显示</td>
+<td>懒加载，没有流量</td>
+<td>先访问一次接口</td>
+</tr>
+<tr>
+<td>循环依赖报错</td>
+<td>Bean 职责双向耦合，Boot 默认禁止循环引用</td>
+<td>优先重构依赖方向，必要时局部 @Lazy</td>
+</tr>
+</tbody></table>
+<h3 id="10-2-最佳实践"><a href="#10-2-最佳实践" class="headerlink" title="10.2 最佳实践"></a>10.2 最佳实践</h3><ol>
+<li><strong>版本管理</strong>：父工程统一管理版本，子模块不指定版本</li>
+<li><strong>配置隔离</strong>：Nacos 命名空间隔离环境</li>
+<li><strong>网关鉴权</strong>：全局过滤器统一处理</li>
+<li><strong>失败策略</strong>：按读写语义设计超时、熔断和 fallback，写操作不能伪装成功</li>
+<li><strong>规则持久化</strong>：以 Nacos 等配置源为事实来源，明确规则发布方向</li>
+<li><strong>日志链路</strong>：接入 SkyWalking 或 Micrometer Tracing</li>
+<li><strong>容器化部署</strong>：Docker + K8s</li>
+</ol>
+<hr>
+<h2 id="十一、面试高频问题"><a href="#十一、面试高频问题" class="headerlink" title="十一、面试高频问题"></a>十一、面试高频问题</h2><p><strong>Q1：微服务的核心组件有哪些？</strong></p>
+<p>注册中心（Nacos）、配置中心（Nacos）、网关（Gateway）、服务调用（OpenFeign）、流量治理（Sentinel）、分布式事务（Seata）、链路追踪（SkyWalking）。</p>
+<p><strong>Q2：Nacos 作为注册中心和配置中心的原理？</strong></p>
+<p>注册中心：服务实例向 Nacos 注册地址、端口和元数据，客户端订阅服务实例变化并在本地做负载均衡。不同 Nacos 版本、临时&#x2F;持久实例的健康检查和连接机制并不完全相同，不应把所有情况都概括成固定频率的 HTTP 心跳。</p>
+<p>配置中心：应用启动时把 Nacos 配置导入 Spring Environment，并通过客户端监听配置变化；收到通知后更新本地配置源，<code>@RefreshScope</code> 或相应动态配置能力再决定 Bean 是否刷新。底层通信方式会随客户端版本演进。</p>
+<p><strong>Q3：OpenFeign 的工作原理？</strong></p>
+<p>基于动态代理：<code>@FeignClient</code> 接口被 JDK 动态代理，调用方法时转换为 HTTP 请求，通过 LoadBalancer 负载均衡选择服务实例，发送请求并返回结果。</p>
+<p><strong>Q4：Sentinel 和 Hystrix 的区别？</strong></p>
+<table>
+<thead>
+<tr>
+<th>对比项</th>
+<th>Sentinel</th>
+<th>Hystrix</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>熔断策略</td>
+<td>慢调用比例、异常比例、异常数</td>
+<td>异常比例</td>
+</tr>
+<tr>
+<td>流控</td>
+<td>QPS、并发线程数、热点参数</td>
+<td>主要是线程池&#x2F;信号量隔离，不提供同等粒度的 QPS 流控</td>
+</tr>
+<tr>
+<td>控制台</td>
+<td>有可视化控制台</td>
+<td>有 Hystrix Dashboard，但生态已停更</td>
+</tr>
+<tr>
+<td>规则推送</td>
+<td>动态推送，支持持久化</td>
+<td>主要依赖配置中心或本地配置，动态治理能力较弱</td>
+</tr>
+<tr>
+<td>扩展性</td>
+<td>插件丰富</td>
+<td>已停止维护</td>
+</tr>
+</tbody></table>
+<p><strong>Q5：Gateway 和 Zuul 的区别？</strong></p>
+<p>经典 Spring Cloud Gateway 基于 WebFlux，Zuul 1.x 基于 Servlet 阻塞模型；两者的线程与扩展模型不同。不能脱离过滤器逻辑、下游延迟、连接池和部署资源直接断言性能高低。较新的 Gateway 还提供 MVC 路线，因此比较时应明确具体产品与版本。</p>
+<p><strong>Q6：什么是服务雪崩？怎么预防？</strong></p>
+<p>服务雪崩：一个服务故障，导致调用方阻塞等待，最终拖垮整个调用链。</p>
+<p>预防措施：</p>
+<ul>
+<li>限流：控制进入服务的请求量</li>
+<li>熔断：下游故障时快速失败</li>
+<li>降级：返回兜底数据</li>
+<li>超时：设置合理的超时时间</li>
+<li>重试：仅对幂等操作做有上限、带退避和抖动且受总超时预算约束的重试</li>
+</ul>
+<hr>
+<h2 id="写在最后"><a href="#写在最后" class="headerlink" title="写在最后"></a>写在最后</h2><p>这套示例覆盖了注册发现、配置管理、网关路由、服务调用和流量治理的基础链路，适合用来理解组件如何协作，但离生产落地仍有距离：还需要身份与密钥管理、高可用部署、容量规划、可观测性、数据一致性、安全基线和故障演练。</p>
+<p>完整的微服务体系还可能包含链路追踪、分布式事务、消息系统、密钥管理和容器编排等能力。是否引入 Seata、分布式锁或 K8s 应由真实一致性与运维需求驱动，不能因为组件常见就默认全部加入。</p>
+<p>微服务不是银弹，它带来分布式复杂度的同时，也带来了更好的扩展性和可维护性。选择架构时，要根据团队规模、业务复杂度、运维能力综合考虑，不要盲目追新。</p>
+<hr>
+<blockquote>
+<p><strong>系列文章预告</strong>：</p>
+<ul>
+<li>上一篇：Spring Bean 生命周期：从创建到销毁的全过程</li>
+<li>下一篇：HashMap 源码深度解析</li>
+</ul>
+</blockquote>
+<p><em>如果觉得有帮助，欢迎点赞收藏，有问题欢迎评论区交流。</em></p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://qjngbac.github.io">qjngbac</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://qjngbac.github.io/2025/11/02/spring-cloud-microservice-guide/">https://qjngbac.github.io/2025/11/02/spring-cloud-microservice-guide/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://qjngbac.github.io" target="_blank">Wait</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><a class="post-meta__tags" href="/tags/Java/">Java</a><a class="post-meta__tags" href="/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/">微服务</a><a class="post-meta__tags" href="/tags/Spring-Cloud/">Spring Cloud</a><a class="post-meta__tags" href="/tags/Nacos/">Nacos</a><a class="post-meta__tags" href="/tags/Gateway/">Gateway</a><a class="post-meta__tags" href="/tags/Sentinel/">Sentinel</a></div><div class="post-share"><div class="social-share" data-image="/img/java-series-09-spring-cloud.jpg" data-sites="facebook,x,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/2025/11/12/mysql-index-guide/" title="MySQL 索引原理：B+ 树为什么这么快"><img class="cover" src="/img/backend-01-mysql-index.jpg" onerror="onerror=null;src='/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">MySQL 索引原理：B+ 树为什么这么快</div></div><div class="info-2"><div class="info-item-1">前言做后端开发，几乎每天都在和索引打交道：慢查询加个索引，性能立刻提升好几倍。可很多人只知道「索引能提速」，却说不清背后的原理：  为什么数据库选 B+ 树做索引，而不用二叉树、哈希表？ 聚簇索引和非聚簇索引到底差在哪？什么是回表？ 联合索引为什么要遵循最左前缀原则？ 索引下推到底「推」了什么，为什么能提速？  索引从来不是什么玄学，它的所有特性、所有优化规则，都根植于底层的数据结构设计。看懂了 B+ 树，你就能理解所有索引规则的来龙去脉，写 SQL、建索引时就能预判性能，而不是靠瞎试。 今天我们从数据结构的底层逻辑出发，把 B+ 树结构、聚簇&#x2F;非聚簇索引、联合索引最左前缀、索引下推一次性讲透。  一、索引的本质：用排序换查找效率1.1 没有索引的代价没有可用索引时，查询通常只能走全表扫描：读取并检查候选记录，代价随数据页数量增长。是否慢到不可接受还取决于表大小、缓存命中率、返回比例和存储性能。 百万级表上的频繁全表扫描往往会带来明显 IO 和 CPU 压力，但小表或需要返回大部分数据时，全表扫描也可能是优化器的合理选择。 1.2 索引的核心思想对本文讨论的 InnoD...</div></div></div></a><a class="pagination-related" href="/2025/10/07/spring-boot-autoconfigure-guide/" title="Spring Boot 自动装配原理：@SpringBootApplication 背后做了什么"><img class="cover" src="/img/java-series-07-spring-boot.jpg" onerror="onerror=null;src='/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Spring Boot 自动装配原理：@SpringBootApplication 背后做了什么</div></div><div class="info-2"><div class="info-item-1">前言做 Spring Boot 开发的人，每天都会写 @SpringBootApplication 注解。点一下启动类，服务就能跑起来；引入一个 mybatis-spring-boot-starter，不用写 SqlSessionFactory 配置，直接就能注入 Mapper 使用。 我们常说 Spring Boot “开箱即用”，这份便利的背后，核心就是自动装配机制。但很多人对它的认知停留在”面试要背的八股”层面，既说不清楚 @EnableAutoConfiguration 到底干了什么，也讲不明白自动配置候选类是怎么被加载的，遇到 starter 不生效的问题只能瞎试。 自动装配不是什么黑魔法，它是一套设计精巧的组件扩展机制。今天我们就从最熟悉的启动注解切入，逐层拆解 @SpringBootApplication 的内部构成，把自动配置候选加载机制、条件注解筛选逻辑、完整装配流程一次性讲透。  一、@SpringBootApplication：原来是个组合注解很多人以为它是一个全新的魔法注解，其实点开源码就会发现，它本质是一个组合注解，封装了三个核心注解： 12345678...</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/2025/11/19/sql-optimization-guide/" title="SQL 优化实战：一条 SQL 从 5 秒到 50 毫秒"><img class="cover" src="/img/java-series-15-sql-optimization.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2025-11-19</div><div class="info-item-2">SQL 优化实战：一条 SQL 从 5 秒到 50 毫秒</div></div><div class="info-2"><div class="info-item-1">前言后台管理系统的订单列表页，一直是慢查询的重灾区。初期数据量小的时候一切正常，随着订单量积累到百万级，翻到后面几十页时，页面加载要转圈好几秒，接口直接超时。查日志发现核心查询 SQL 单条耗时达到 5 秒，已经严重影响运营使用。 SQL 优化不是靠瞎蒙索引，而是一套标准化的排查流程：先定位慢 SQL，再用 EXPLAIN 拆解执行计划，判断索引是否生效、扫描了多少行、有没有额外排序。找到瓶颈后针对性优化，往往能带来数量级的性能提升。 本文就以这条订单列表查询 SQL 为例，从 5 秒优化到 50 毫秒，完整覆盖 EXPLAIN 执行计划分析、索引失效场景、深分页优化 三大核心内容。  一、问题现场：慢 SQL 长什么样1.1 业务场景运营后台的订单列表，支持按创建时间、订单状态、用户 ID 筛选，按创建时间倒序排列，支持分页翻页。数据量约 120 万条。 原始 SQL： 123456SELECT id, order_no, user_id, status, amount, create_timeFROM t_orderWHERE status = 2   AND create_...</div></div></div></a><a class="pagination-related" href="/2025/10/07/spring-boot-autoconfigure-guide/" title="Spring Boot 自动装配原理：@SpringBootApplication 背后做了什么"><img class="cover" src="/img/java-series-07-spring-boot.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2025-10-07</div><div class="info-item-2">Spring Boot 自动装配原理：@SpringBootApplication 背后做了什么</div></div><div class="info-2"><div class="info-item-1">前言做 Spring Boot 开发的人，每天都会写 @SpringBootApplication 注解。点一下启动类，服务就能跑起来；引入一个 mybatis-spring-boot-starter，不用写 SqlSessionFactory 配置，直接就能注入 Mapper 使用。 我们常说 Spring Boot “开箱即用”，这份便利的背后，核心就是自动装配机制。但很多人对它的认知停留在”面试要背的八股”层面，既说不清楚 @EnableAutoConfiguration 到底干了什么，也讲不明白自动配置候选类是怎么被加载的，遇到 starter 不生效的问题只能瞎试。 自动装配不是什么黑魔法，它是一套设计精巧的组件扩展机制。今天我们就从最熟悉的启动注解切入，逐层拆解 @SpringBootApplication 的内部构成，把自动配置候选加载机制、条件注解筛选逻辑、完整装配流程一次性讲透。  一、@SpringBootApplication：原来是个组合注解很多人以为它是一个全新的魔法注解，其实点开源码就会发现，它本质是一个组合注解，封装了三个核心注解： 12345678...</div></div></div></a><a class="pagination-related" href="/2025/07/16/hashmap-source-guide/" title="HashMap 源码深度解析：从 put 到 resize 的每一步"><img class="cover" src="/img/java-series-10-hashmap.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2025-07-16</div><div class="info-item-2">HashMap 源码深度解析：从 put 到 resize 的每一步</div></div><div class="info-2"><div class="info-item-1">前言写 Java 代码的人，几乎没有一天不用 HashMap：存键值对、做数据缓存、接口参数传递，随手就能 new 一个。可一旦被问到底层原理，很多人只能说出「数组加链表」，再追问下去就含糊不清：  红黑树到底什么时候才会触发转换？ 扩容时数据是怎么重新迁移的？ 为什么容量必须是 2 的整数次幂？ JDK 1.8 修复了哪些旧问题，为什么仍然不能并发使用？  HashMap 是 Java 集合框架的重中之重，也是面试必考题。它不只是一个简单的工具类，更浓缩了非常多经典的工程设计思想：空间换时间、位运算性能优化、冲突平衡策略、数据结构动态切换。 今天我们从底层数据结构出发，一步步拆解 put 插入、resize 扩容的完整流程，把哈希冲突、树化退化、扩容迁移这些核心机制讲透。  一、底层结构：数组+链表+红黑树的三位一体JDK 1.8 是 HashMap 一次重要的版本迭代，它将原本的「数组+链表」结构升级为「数组+链表+红黑树」的混合结构，解决了长链表查询效率低下的问题。 1.1 整体架构12345678910111213141516171819202122HashMap 内部结...</div></div></div></a><a class="pagination-related" href="/2025/10/04/spring-bean-lifecycle-guide/" title="Spring Bean 生命周期：从创建到销毁的全过程"><img class="cover" src="/img/java-series-08-spring-bean.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2025-10-04</div><div class="info-item-2">Spring Bean 生命周期：从创建到销毁的全过程</div></div><div class="info-2"><div class="info-item-1">前言做 Spring 开发的人，每天都在和 Bean 打交道：加个 @Service 就把类交给容器管理，写个 @Autowired 就能注入依赖。可一旦被问到「Bean 从创建到销毁经历了哪些步骤」「三级缓存是怎么解决循环依赖的」，很多人就只能说出个大概，说不清楚完整流程。 Bean 的生命周期是 Spring 最核心的基础机制，也是面试的高频考点。它不只是用来背的八股，更是我们排查 Bean 创建失败、依赖注入异常、循环依赖报错的底层依据。从一个普通的 Java 对象，到一个能被容器管理的 Spring Bean，中间经历了非常多的步骤和扩展点。 今天我们就把整个生命周期拆解开，从实例化、属性注入、初始化到销毁，完整走一遍全流程，再把三级缓存与循环依赖的底层逻辑讲透。  一、总览：Bean 生命周期的四大阶段Spring Bean 的完整生命周期，可以概括为四个核心大阶段：  实例化（Instantiation）：选择构造器或工厂方法并创建对象；构造器本身可能已经写入字段和构造器依赖，并非一定是“空对象” 属性注入（Populate）：为对象的属性赋值，完成依赖注入 初始化（...</div></div></div></a><a class="pagination-related" href="/2025/08/30/concurrenthashmap-guide/" title="ConcurrentHashMap 源码：它为什么是线程安全的"><img class="cover" src="/img/java-series-12-concurrent-hashmap.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2025-08-30</div><div class="info-item-2">ConcurrentHashMap 源码：它为什么是线程安全的</div></div><div class="info-2"><div class="info-item-1">前言在并发场景下，HashMap 会出现元素覆盖、丢失、计数不准等问题；JDK 7 的并发扩容还可能形成链表环。Hashtable 虽然线程安全，却主要依赖整表级 synchronized，并发写入容易形成明显竞争。 为了兼顾「线程安全」与「并发性能」，JDK 推出了 ConcurrentHashMap。它也是面试中的高频考点：分段锁是什么？JDK 1.8 为什么改用 CAS + synchronized？并发下 size() 怎么统计才准确？这些问题的背后，是一整套精细的并发控制思想。 今天我们就从 JDK 1.7 到 1.8 的演进入手，拆解 ConcurrentHashMap 的线程安全实现，把分段锁、CAS 桶锁、分散计数、并发扩容这些核心机制一次性讲透。  一、演进之路：从粗粒度锁到细粒度锁ConcurrentHashMap 的核心设计目标很明确：在保证线程安全的前提下，尽可能降低锁的粒度，减少锁竞争，提升并发吞吐量。    版本 核心实现 锁粒度 并发度 底层结构    JDK 1.7 分段锁（Segment） 锁整个分段 默认 16 个分段 分段数组 + 链表   ...</div></div></div></a><a class="pagination-related" href="/2026/03/16/seata-at-guide/" title="分布式事务实战：Seata 的 AT 模式原理"><img class="cover" src="/../img/backend-11-seata.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-03-16</div><div class="info-item-2">分布式事务实战：Seata 的 AT 模式原理</div></div><div class="info-2"><div class="info-item-1">前言微服务架构下，单体应用被拆成多个服务，数据库也随之按业务拆分。原本一个本地事务就能搞定的下单流程，现在变成了「订单服务建单 + 库存服务扣库 + 账户服务扣钱」跨三个服务、三个数据库的操作。单个服务的本地事务只能保证自己的数据正确，只要有一个环节失败，就会出现订单建了但库存没扣、钱扣了但订单没生成的数据不一致问题。 这就是分布式事务要解决的核心问题：跨服务、跨数据源场景下，如何保证多个操作要么全部成功、要么全部失败。 业界分布式事务方案有很多：TCC、Saga、可靠消息最终一致等等。Seata AT 模式通过代理 JDBC 数据源、自动记录数据镜像和生成补偿操作，把业务侵入降得很低；业务代码通常只需标记全局事务，但数据库表、SQL 类型、数据源代理和调用链透传仍需满足框架约束。 本文就从架构角色、核心原理到完整实战，一次性讲透 Seata AT 模式的底层逻辑与落地方法。  一、Seata 核心架构：三个角色 + 两个层级Seata 把分布式事务拆分为「全局事务」和「分支事务」，并通过三个核心角色协同完成整个事务的协调与执行。 1.1 两个事务层级 全局事务：贯穿整个业务链路...</div></div></div></a></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">qjngbac</div><div class="author-info-description">一个正在学习的开发者</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">42</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">139</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/qjngbac"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/qjngbac" target="_blank" title="Github"><i class="fab fa-github"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到我的博客</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%89%8D%E8%A8%80"><span class="toc-number">1.</span> <span class="toc-text">前言</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%80%E3%80%81%E6%95%B4%E4%BD%93%E6%9E%B6%E6%9E%84%E8%AE%BE%E8%AE%A1"><span class="toc-number">2.</span> <span class="toc-text">一、整体架构设计</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-1-%E7%BB%84%E4%BB%B6%E9%80%89%E5%9E%8B%E4%B8%8E%E5%88%86%E5%B7%A5"><span class="toc-number">2.1.</span> <span class="toc-text">1.1 组件选型与分工</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#1-2-%E6%9C%8D%E5%8A%A1%E6%8B%86%E5%88%86%E4%B8%8E%E9%A1%B9%E7%9B%AE%E7%BB%93%E6%9E%84"><span class="toc-number">2.2.</span> <span class="toc-text">1.2 服务拆分与项目结构</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#1-3-%E5%8D%95%E4%BD%93-vs-%E5%BE%AE%E6%9C%8D%E5%8A%A1%E5%AF%B9%E6%AF%94"><span class="toc-number">2.3.</span> <span class="toc-text">1.3 单体 vs 微服务对比</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%8C%E3%80%81%E7%8E%AF%E5%A2%83%E5%87%86%E5%A4%87%EF%BC%9A%E7%89%88%E6%9C%AC%E6%98%AF%E7%AC%AC%E4%B8%80%E5%A4%A7%E5%9D%91"><span class="toc-number">3.</span> <span class="toc-text">二、环境准备：版本是第一大坑</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#2-1-%E7%89%88%E6%9C%AC%E5%AF%B9%E5%BA%94%E5%85%B3%E7%B3%BB%EF%BC%88%E9%87%8D%E8%A6%81%EF%BC%81%EF%BC%89"><span class="toc-number">3.1.</span> <span class="toc-text">2.1 版本对应关系（重要！）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-2-%E7%88%B6%E5%B7%A5%E7%A8%8B%E6%90%AD%E5%BB%BA"><span class="toc-number">3.2.</span> <span class="toc-text">2.2 父工程搭建</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%89%E3%80%81Nacos%EF%BC%9A%E6%B3%A8%E5%86%8C%E4%B8%AD%E5%BF%83%E4%B8%8E%E9%85%8D%E7%BD%AE%E4%B8%AD%E5%BF%83"><span class="toc-number">4.</span> <span class="toc-text">三、Nacos：注册中心与配置中心</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#3-1-Nacos-%E5%AE%89%E8%A3%85%E5%90%AF%E5%8A%A8"><span class="toc-number">4.1.</span> <span class="toc-text">3.1 Nacos 安装启动</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-2-%E6%9C%8D%E5%8A%A1%E6%B3%A8%E5%86%8C"><span class="toc-number">4.2.</span> <span class="toc-text">3.2 服务注册</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-3-%E9%85%8D%E7%BD%AE%E4%B8%AD%E5%BF%83"><span class="toc-number">4.3.</span> <span class="toc-text">3.3 配置中心</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-4-%E5%91%BD%E5%90%8D%E7%A9%BA%E9%97%B4%E9%9A%94%E7%A6%BB%E7%8E%AF%E5%A2%83"><span class="toc-number">4.4.</span> <span class="toc-text">3.4 命名空间隔离环境</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9B%9B%E3%80%81OpenFeign%EF%BC%9A%E5%A3%B0%E6%98%8E%E5%BC%8F%E6%9C%8D%E5%8A%A1%E9%97%B4%E8%B0%83%E7%94%A8"><span class="toc-number">5.</span> <span class="toc-text">四、OpenFeign：声明式服务间调用</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#4-1-%E9%9B%86%E6%88%90%E6%AD%A5%E9%AA%A4"><span class="toc-number">5.1.</span> <span class="toc-text">4.1 集成步骤</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-2-Feign-%E7%9A%84%E5%BA%95%E5%B1%82%E5%8E%9F%E7%90%86"><span class="toc-number">5.2.</span> <span class="toc-text">4.2 Feign 的底层原理</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-3-%E5%B8%B8%E7%94%A8%E9%85%8D%E7%BD%AE"><span class="toc-number">5.3.</span> <span class="toc-text">4.3 常用配置</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%94%E3%80%81Spring-Cloud-Gateway%EF%BC%9A%E7%BB%9F%E4%B8%80-API-%E7%BD%91%E5%85%B3"><span class="toc-number">6.</span> <span class="toc-text">五、Spring Cloud Gateway：统一 API 网关</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#5-1-%E8%B7%AF%E7%94%B1%E9%85%8D%E7%BD%AE"><span class="toc-number">6.1.</span> <span class="toc-text">5.1 路由配置</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-2-%E5%85%A8%E5%B1%80%E8%BF%87%E6%BB%A4%E5%99%A8%EF%BC%9A%E7%BB%9F%E4%B8%80%E9%89%B4%E6%9D%83"><span class="toc-number">6.2.</span> <span class="toc-text">5.2 全局过滤器：统一鉴权</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-3-%E5%85%A8%E5%B1%80%E8%B7%A8%E5%9F%9F%E9%85%8D%E7%BD%AE"><span class="toc-number">6.3.</span> <span class="toc-text">5.3 全局跨域配置</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%AD%E3%80%81Sentinel%EF%BC%9A%E6%B5%81%E9%87%8F%E6%B2%BB%E7%90%86%E4%B8%8E%E7%86%94%E6%96%AD%E9%99%8D%E7%BA%A7"><span class="toc-number">7.</span> <span class="toc-text">六、Sentinel：流量治理与熔断降级</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#6-1-%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5"><span class="toc-number">7.1.</span> <span class="toc-text">6.1 核心概念</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#6-2-%E6%9C%8D%E5%8A%A1%E9%9B%86%E6%88%90"><span class="toc-number">7.2.</span> <span class="toc-text">6.2 服务集成</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#6-3-%E6%B5%81%E9%87%8F%E6%8E%A7%E5%88%B6"><span class="toc-number">7.3.</span> <span class="toc-text">6.3 流量控制</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#6-4-%E7%86%94%E6%96%AD%E9%99%8D%E7%BA%A7"><span class="toc-number">7.4.</span> <span class="toc-text">6.4 熔断降级</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#6-5-%E8%A7%84%E5%88%99%E6%8C%81%E4%B9%85%E5%8C%96"><span class="toc-number">7.5.</span> <span class="toc-text">6.5 规则持久化</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%83%E3%80%81%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1%E7%AE%80%E4%BB%8B%EF%BC%88Seata%EF%BC%89"><span class="toc-number">8.</span> <span class="toc-text">七、分布式事务简介（Seata）</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#7-1-%E4%BB%80%E4%B9%88%E6%98%AF%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1"><span class="toc-number">8.1.</span> <span class="toc-text">7.1 什么是分布式事务</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#7-2-Seata-%E7%AE%80%E4%BB%8B"><span class="toc-number">8.2.</span> <span class="toc-text">7.2 Seata 简介</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#7-3-%E9%9B%86%E6%88%90%E6%AD%A5%E9%AA%A4%EF%BC%88%E7%AE%80%E8%BF%B0%EF%BC%89"><span class="toc-number">8.3.</span> <span class="toc-text">7.3 集成步骤（简述）</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%AB%E3%80%81%E9%93%BE%E8%B7%AF%E8%BF%BD%E8%B8%AA%E7%AE%80%E4%BB%8B%EF%BC%88SkyWalking%EF%BC%89"><span class="toc-number">9.</span> <span class="toc-text">八、链路追踪简介（SkyWalking）</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#8-1-%E4%B8%BA%E4%BB%80%E4%B9%88%E9%9C%80%E8%A6%81%E9%93%BE%E8%B7%AF%E8%BF%BD%E8%B8%AA"><span class="toc-number">9.1.</span> <span class="toc-text">8.1 为什么需要链路追踪</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#8-2-SkyWalking-%E7%AE%80%E4%BB%8B"><span class="toc-number">9.2.</span> <span class="toc-text">8.2 SkyWalking 简介</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B9%9D%E3%80%81%E5%85%A8%E9%93%BE%E8%B7%AF%E8%81%94%E8%B0%83%E9%AA%8C%E8%AF%81"><span class="toc-number">10.</span> <span class="toc-text">九、全链路联调验证</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8D%81%E3%80%81%E5%B8%B8%E8%A7%81%E8%B8%A9%E5%9D%91%E4%B8%8E%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5"><span class="toc-number">11.</span> <span class="toc-text">十、常见踩坑与最佳实践</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#10-1-%E8%B8%A9%E5%9D%91%E6%B8%85%E5%8D%95"><span class="toc-number">11.1.</span> <span class="toc-text">10.1 踩坑清单</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#10-2-%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5"><span class="toc-number">11.2.</span> <span class="toc-text">10.2 最佳实践</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8D%81%E4%B8%80%E3%80%81%E9%9D%A2%E8%AF%95%E9%AB%98%E9%A2%91%E9%97%AE%E9%A2%98"><span class="toc-number">12.</span> <span class="toc-text">十一、面试高频问题</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%86%99%E5%9C%A8%E6%9C%80%E5%90%8E"><span class="toc-number">13.</span> <span class="toc-text">写在最后</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"><img src="/../img/ai-10-ollama.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"/></a><div class="content"><a class="title" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成">Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成</a><time datetime="2026-07-22T02:00:00.000Z" title="发表于 2026-07-22 10:00:00">2026-07-22</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"><img src="/../img/ai-09-spring-ai.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"/></a><div class="content"><a class="title" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling">Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling</a><time datetime="2026-07-17T02:00:00.000Z" title="发表于 2026-07-17 10:00:00">2026-07-17</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"><img src="/../img/ai-08-vector-database.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"/></a><div class="content"><a class="title" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比">向量数据库选型实战：Chroma、Milvus 与 pgvector 对比</a><time datetime="2026-07-13T02:00:00.000Z" title="发表于 2026-07-13 10:00:00">2026-07-13</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度"><img src="/../img/ai-07-rag-evaluation.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 评估实战：Recall@K、MRR 与回答忠实度"/></a><div class="content"><a class="title" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度">RAG 评估实战：Recall@K、MRR 与回答忠实度</a><time datetime="2026-07-12T02:00:00.000Z" title="发表于 2026-07-12 10:00:00">2026-07-12</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"><img src="/../img/ai-06-rag-retrieval.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"/></a><div class="content"><a class="title" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker">RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker</a><time datetime="2026-07-09T02:00:00.000Z" title="发表于 2026-07-09 10:00:00">2026-07-09</time></div></div></div></div></div></div></main><footer id="footer"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2024 - 2026 By qjngbac</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 7.3.0</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.5.5</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.5.5"></script><script src="/js/main.js?v=5.5.5"></script><div class="js-pjax"></div><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

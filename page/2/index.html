@@ -1,0 +1,264 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Wait - 记录学习与成长</title><meta name="author" content="qjngbac"><meta name="copyright" content="qjngbac"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta property="og:type" content="website">
+<meta property="og:title" content="Wait">
+<meta property="og:url" content="https://qjngbac.github.io/page/2/index.html">
+<meta property="og:site_name" content="Wait">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://qjngbac.github.io/img/butterfly-icon.png">
+<meta property="article:author" content="qjngbac">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://qjngbac.github.io/img/butterfly-icon.png"><script type="application/ld+json"></script><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://qjngbac.github.io/page/2/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.5.5"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        if (!ttl) return
+        const expiry = Date.now() + ttl * 86400000
+        localStorage.setItem(key, JSON.stringify({ value, expiry }))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return undefined
+        const { value, expiry } = JSON.parse(itemStr)
+        if (Date.now() > expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return value
+      }
+    }
+
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+        script.onload = script.onreadystatechange = () => {
+          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      }),
+      getCSS: (url, id) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onload = link.onreadystatechange = () => {
+          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+        }
+        link.onerror = reject
+        document.head.appendChild(link)
+      }),
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: true
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Wait',
+  isHighlightShrink: false,
+  isToc: false,
+  pageType: 'home'
+}</script><meta name="generator" content="Hexo 7.3.0"></head><body><div id="loading-box"><div class="loading-left-bg"></div><div class="loading-right-bg"></div><div class="spinner-box"><div class="configure-border-1"><div class="configure-core"></div></div><div class="configure-border-2"><div class="configure-core"></div></div><div class="loading-word">加载中...</div></div></div><script>(()=>{
+  const $loadingBox = document.getElementById('loading-box')
+  const $body = document.body
+  const preloader = {
+    endLoading: () => {
+      if ($loadingBox.classList.contains('loaded')) return
+      $body.style.overflow = ''
+      $loadingBox.classList.add('loaded')
+    },
+    initLoading: () => {
+      $body.style.overflow = 'hidden'
+      $loadingBox.classList.remove('loaded')
+    }
+  }
+
+  preloader.initLoading()
+
+  if (document.readyState === 'complete') {
+    preloader.endLoading()
+  } else {
+    window.addEventListener('load', preloader.endLoading)
+    document.addEventListener('DOMContentLoaded', preloader.endLoading)
+    // Add timeout protection: force end after 7 seconds
+    setTimeout(preloader.endLoading, 7000)
+  }
+
+  if (false) {
+    btf.addGlobalFn('pjaxSend', preloader.initLoading, 'preloader_init')
+    btf.addGlobalFn('pjaxComplete', preloader.endLoading, 'preloader_end')
+  }
+})()</script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">42</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">139</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div></div></div><div class="page" id="body-wrap"><header class="full_page" id="page-header" style="background-image: url(https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1920&amp;q=80);"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">Wait</span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="site-info"><h1 id="site-title">Wait</h1><div id="site_social_icons"><a class="social-icon" href="https://github.com/qjngbac" target="_blank" title="Github"><i class="fab fa-github"></i></a></div></div><div id="scroll-down"><i class="fas fa-angle-down scroll-down-effects"></i></div></header><main class="layout" id="content-inner"><div class="recent-posts nc" id="recent-posts"><div class="recent-post-items"><div class="recent-post-item"><div class="post_cover left"><a href="/2026/06/23/03-function-calling-java/" title="Function Calling 实战：让大模型安全调用 Java 业务能力"><img class="post-bg" src="/../img/ai-03-function-calling.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Function Calling 实战：让大模型安全调用 Java 业务能力"></a></div><div class="recent-post-info"><a class="article-title" href="/2026/06/23/03-function-calling-java/" title="Function Calling 实战：让大模型安全调用 Java 业务能力">Function Calling 实战：让大模型安全调用 Java 业务能力</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2026-06-23T02:00:00.000Z" title="发表于 2026-06-23 10:00:00">2026-06-23</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/AI%E5%B7%A5%E7%A8%8B/">AI工程</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%A4%A7%E6%A8%A1%E5%9E%8B/">大模型</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/AI%E5%B7%A5%E7%A8%8B/">AI工程</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Function-Calling/">Function Calling</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Tool-Calling/">Tool Calling</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Java/">Java</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Spring-Boot/">Spring Boot</a></span></div><div class="content">前言普通聊天模型只能根据输入生成文字。如果用户问“文档 42 的最新版本是谁创建的”，模型并不知道你的数据库内容；如果用户说“帮我把文档设为只读”，模型也没有权限直接修改业务数据。 Function Calling（也叫 Tool Calling）提供了一座桥梁：应用把可用工具的名称、描述和参数 Schema 告诉模型；模型在需要时返回“调用哪个工具、传什么参数”；真正执行函数的仍然是你的 Java 服务；执行结果再交给模型生成最终回答。 它不是让模型直接访问数据库，更不是绕过后端权限。正确的理解是：模型负责选择与生成参数，应用负责校验、授权、执行、审计和返回结果。  一、Function Calling 的完整流程12345678910111213用户问题   ↓应用把问题 + 工具定义发给模型   ↓模型返回 tool call（工具名 + JSON 参数）   ↓应用校验参数、权限和风险   ↓Java 方法执行真实业务   ↓应用把工具结果返回模型   ↓模型生成最终自然语言回答  关键点：模型返回的是请求，不是执行结果。无论模型声称“已删除成功”还是“已退款”，只有后端...</div></div></div><div class="recent-post-item"><div class="post_cover right"><a href="/2026/06/19/02-prompt-context-engineering/" title="Prompt 与上下文工程实战：稳定输出、结构化响应与注入防护"><img class="post-bg" src="/../img/ai-02-prompt-context.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Prompt 与上下文工程实战：稳定输出、结构化响应与注入防护"></a></div><div class="recent-post-info"><a class="article-title" href="/2026/06/19/02-prompt-context-engineering/" title="Prompt 与上下文工程实战：稳定输出、结构化响应与注入防护">Prompt 与上下文工程实战：稳定输出、结构化响应与注入防护</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2026-06-19T02:00:00.000Z" title="发表于 2026-06-19 10:00:00">2026-06-19</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/AI%E5%B7%A5%E7%A8%8B/">AI工程</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%A4%A7%E6%A8%A1%E5%9E%8B/">大模型</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/AI%E5%B7%A5%E7%A8%8B/">AI工程</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Prompt%E5%B7%A5%E7%A8%8B/">Prompt工程</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B/">上下文工程</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Structured-Outputs/">Structured Outputs</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Prompt-Injection/">Prompt Injection</a></span></div><div class="content">前言很多大模型应用效果不稳定，并不是模型能力不足，而是输入没有把任务讲清楚：目标模糊、上下文混乱、格式只靠自然语言约束、示例互相冲突，甚至把用户上传文档中的指令当成系统命令执行。 Prompt 工程不等于堆砌“你是一位顶级专家”。它真正解决的是：如何把任务、规则、数据和输出契约组织成模型更容易遵循的输入。随着应用变复杂，还要进一步考虑上下文选择、长对话裁剪、检索结果排序、工具结果注入和安全边界，这就是上下文工程。 本文从消息层级、零样本与少样本、结构化输出、模板版本管理、长上下文治理和 Prompt Injection 防护几个方面，给出一套适合后端项目的实战方法。  一、一个高质量 Prompt 的基本结构推荐把 Prompt 拆成五部分： 12345角色与目标→ 输入数据说明→ 必须遵守的约束→ 输出格式→ 必要的示例  示例： 1234567891011121314151617181920212223242526你是 Java 后端面试题整理助手。任务：根据提供的知识片段回答问题。约束：1. 只使用知识片段中能够支持的内容。2. 资料不足时明确回答“现有资料无法确定”。3....</div></div></div><div class="recent-post-item"><div class="post_cover left"><a href="/2026/06/18/01-llm-api-engineering/" title="大模型 API 工程化实战：从 curl 到流式调用、重试与成本治理"><img class="post-bg" src="/../img/ai-01-llm-api.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="大模型 API 工程化实战：从 curl 到流式调用、重试与成本治理"></a></div><div class="recent-post-info"><a class="article-title" href="/2026/06/18/01-llm-api-engineering/" title="大模型 API 工程化实战：从 curl 到流式调用、重试与成本治理">大模型 API 工程化实战：从 curl 到流式调用、重试与成本治理</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2026-06-18T02:00:00.000Z" title="发表于 2026-06-18 10:00:00">2026-06-18</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/AI%E5%B7%A5%E7%A8%8B/">AI工程</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%A4%A7%E6%A8%A1%E5%9E%8B/">大模型</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/OpenAI-API/">OpenAI API</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/SSE/">SSE</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E6%B5%81%E5%BC%8F%E8%BE%93%E5%87%BA/">流式输出</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%90%8E%E7%AB%AF/">后端</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/AI%E5%B7%A5%E7%A8%8B/">AI工程</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a></span></div><div class="content">前言很多人第一次接入大模型，只需要几行代码：传入一段文字，等待模型返回答案。但一旦把它放进真实后端系统，问题会立刻变多：请求超时怎么办？限流后是否重试？流式响应中途断开怎么处理？如何统计 Token 和费用？怎样在多个模型之间切换？日志里又该记录什么，哪些内容不能记录？ 因此，大模型 API 接入不能只停留在“能调用”。真正的工程目标是把不稳定、成本可变、响应时间较长的外部模型服务，封装成一个可超时、可重试、可观测、可降级、可替换的基础能力。 本文以 OpenAI Responses API 的通用调用方式为例，从 curl 开始，逐步搭建同步调用、流式输出、异常处理、统一网关与成本治理方案。示例中的模型名统一从环境变量读取，实际使用时应替换为账号当前可用的模型。  一、一次大模型请求到底包含什么大模型 API 本质上仍然是 HTTP API。一次请求通常包含四部分：    部分 作用 常见内容    URL 指定服务和接口 /v1/responses   Header 身份认证与请求格式 Authorization、Content-Type   Body 模型、输入和生成参数 ...</div></div></div><div class="recent-post-item"><div class="post_cover right"><a href="/2026/06/02/slow-api-optimization-guide/" title="接口响应慢排查：从 3 秒优化到 200 毫秒"><img class="post-bg" src="/img/java-series-13-slow-api.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="接口响应慢排查：从 3 秒优化到 200 毫秒"></a></div><div class="recent-post-info"><a class="article-title" href="/2026/06/02/slow-api-optimization-guide/" title="接口响应慢排查：从 3 秒优化到 200 毫秒">接口响应慢排查：从 3 秒优化到 200 毫秒</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2026-06-02T06:00:00.000Z" title="发表于 2026-06-02 14:00:00">2026-06-02</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/Java-%E6%B7%B1%E5%BA%A6/">Java 深度</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Java/">Java</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/">性能优化</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E6%85%A2%E6%9F%A5%E8%AF%A2/">慢查询</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Arthas/">Arthas</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%93%BE%E8%B7%AF%E8%BF%BD%E8%B8%AA/">链路追踪</a></span></div><div class="content">前言上线前一切正常，上线后接口超时告警响个不停；压测时平均响应 3 秒，前端页面加载转圈，用户体验直线下降。接口慢是后端开发者最常遇到的性能问题，但很多人排查时全靠猜：一会儿加索引，一会儿加缓存，改了半天，耗时纹丝不动。 性能优化的核心原则永远是：先定位瓶颈，再动手优化。没有数据支撑的优化都是瞎忙活。 本文就以一次真实的订单列表接口优化为例，带你走完从 3000ms 到 200ms 的完整排查过程，覆盖三大核心工具：慢查询日志、全链路追踪、Arthas 火焰图，教你一套可复用的慢接口排查方法论。  一、故障初现：接口耗时远超预期1.1 现场现象本次优化的对象是用户侧的「订单列表查询接口」，上线后压测数据非常糟糕：  平均响应时间：3000ms P95 响应时间：5200ms 单并发下就已经超过 1s，10 并发直接超时 数据库 CPU 使用率居高不下  业务要求接口平均耗时必须控制在 300ms 以内，优化空间非常大。 1.2 排查整体思路很多人一上来就翻代码、加缓存，这是效率很低的做法。更稳妥的方式是先确认慢请求范围、并发量、P95&#x2F;P99、错误率以及上下游耗时，再按...</div></div></div><div class="recent-post-item"><div class="post_cover left"><a href="/2026/06/01/k8s-guide/" title="K8s 核心概念：Pod/Service/Deployment"><img class="post-bg" src="/../img/backend-14-k8s.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="K8s 核心概念：Pod/Service/Deployment"></a></div><div class="recent-post-info"><a class="article-title" href="/2026/06/01/k8s-guide/" title="K8s 核心概念：Pod/Service/Deployment">K8s 核心概念：Pod/Service/Deployment</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2026-06-01T07:00:00.000Z" title="发表于 2026-06-01 15:00:00">2026-06-01</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/%E5%90%8E%E7%AB%AF%E5%B7%A5%E7%A8%8B/">后端工程</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%90%8E%E7%AB%AF/">后端</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Kubernetes/">Kubernetes</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/K8s/">K8s</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%AE%B9%E5%99%A8%E7%BC%96%E6%8E%92/">容器编排</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/">微服务</a></span></div><div class="content">前言Docker 解决了容器的构建与运行问题，但当业务从几个容器扩展到几十上百个容器时，单机管理就不够用了：实例异常了怎么自动恢复？流量上来了怎么横向扩容？多机集群怎么统一调度？怎样在满足条件时实现尽量不中断服务的滚动发布？ 这些问题，正是 Kubernetes（简称 K8s）要解决的。作为容器编排领域的事实标准，K8s 提供了一整套容器调度、服务发现、滚动发布、自动扩缩容的能力，而支撑这一切的，是三个最核心的基础资源：Pod、Service、Deployment。 本文就从「为什么需要」出发，逐层拆解三大核心资源的设计思想、工作原理与典型用法，同时覆盖 Pod 生命周期、服务发现、滚动更新、配置管理等关键知识点，帮你建立起 K8s 的核心认知框架。   一、Pod：K8s 最小的调度单元很多刚接触 K8s 的人会问：已经有容器了，为什么还要抽象出一个 Pod？ 1.1 Pod 是什么Pod 是 K8s 中最小的可部署计算单元，也是调度器直接调度的对象。它不是替代容器，而是封装一个或多个需要共同运行的容器。  一个 Pod 可以包含 1 个主容器 + 多个辅助容器（Sidecar...</div></div></div><div class="recent-post-item"><div class="post_cover right"><a href="/2026/05/05/docker-guide/" title="Docker 实战：从 Dockerfile 到容器编排"><img class="post-bg" src="/../img/backend-13-docker.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Docker 实战：从 Dockerfile 到容器编排"></a></div><div class="recent-post-info"><a class="article-title" href="/2026/05/05/docker-guide/" title="Docker 实战：从 Dockerfile 到容器编排">Docker 实战：从 Dockerfile 到容器编排</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2026-05-05T06:00:00.000Z" title="发表于 2026-05-05 14:00:00">2026-05-05</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/%E5%90%8E%E7%AB%AF%E5%B7%A5%E7%A8%8B/">后端工程</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%90%8E%E7%AB%AF/">后端</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Docker/">Docker</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%AE%B9%E5%99%A8/">容器</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Dockerfile/">Dockerfile</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Docker-Compose/">Docker Compose</a></span></div><div class="content">前言在没有容器化的年代，部署服务是件非常折腾的事：开发环境能跑，上线就报错；机器换一台，就要从头装一遍依赖、配一遍环境；多服务部署还要挨个处理端口冲突、依赖顺序，效率极低。 Docker 的出现改变了这一局面：把应用及其运行时依赖构建为镜像后，可以在兼容的容器运行时上以更一致的方式交付。它提升了部署效率和进程隔离能力，但容器仍然共享宿主机内核，并不等同于虚拟机级别的隔离。但很多人用了很久 Docker，依然只会抄 Dockerfile、敲 run 命令，说不清楚镜像为什么能复用、数据怎么持久化、多服务怎么编排。 本文就从底层原理到实战落地，完整覆盖镜像分层机制、Dockerfile 最佳实践、数据卷与网络、Docker Compose 多容器编排，带你从零掌握容器化的核心能力。  一、镜像底层：分层存储的核心逻辑Docker 镜像最精妙的设计就是分层存储，理解了分层，你就能看懂所有镜像优化技巧的本质。 1.1 什么是镜像分层Docker 镜像由一组只读文件系统层和镜像配置共同组成。RUN、COPY、ADD 等会改变文件系统的构建步骤通常会形成新的文件系统层；CMD、EXPOSE ...</div></div></div><div class="recent-post-item"><div class="post_cover left"><a href="/2026/04/20/kafka-guide/" title="Kafka 核心原理：分区、副本、消费者组"><img class="post-bg" src="/../img/backend-09-kafka.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Kafka 核心原理：分区、副本、消费者组"></a></div><div class="recent-post-info"><a class="article-title" href="/2026/04/20/kafka-guide/" title="Kafka 核心原理：分区、副本、消费者组">Kafka 核心原理：分区、副本、消费者组</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2026-04-20T08:00:00.000Z" title="发表于 2026-04-20 16:00:00">2026-04-20</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/%E5%90%8E%E7%AB%AF%E5%B7%A5%E7%A8%8B/">后端工程</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%90%8E%E7%AB%AF/">后端</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F/">分布式</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97/">消息队列</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Kafka/">Kafka</a></span></div><div class="content">前言在高吞吐事件流场景下，Kafka 是主流选择之一：顺序追加、分区并行、可回放日志和成熟流处理生态，让它广泛用于日志采集、数据集成与事件驱动架构。具体吞吐取决于消息大小、批量、确认级别、磁盘和集群拓扑，不能只背“单机十万级”这个数字。  本文以 Kafka 4.3 的现状补充说明：Kafka 4.x 仅支持 KRaft 模式，不再依赖 ZooKeeper；经典消费者组仍然可用，同时还有新的 Consumer Rebalance Protocol 和 Share Groups。核心分区、副本与日志原理保持不变。  但很多开发者对 Kafka 的认知停留在「发消息、收消息」的表层，说不清楚分区为什么能提升吞吐、ISR 副本是怎么同步的、消费者组 Rebalance 为什么会导致消费停滞，更说不清 Exactly-Once 语义到底怎么实现。 Kafka 的高性能与高可靠，不是凭空而来的，它建立在「分区、副本、消费者组」三大核心设计之上。今天我们就从底层原理出发，逐层拆解分区存储机制、ISR 副本同步、消费者组重平衡、Exactly-Once 语义实现，彻底搞懂 Kafka 的核心骨...</div></div></div><div class="recent-post-item"><div class="post_cover right"><a href="/2026/04/15/mq-reliability-guide/" title="消息可靠性保证：消息丢失/重复/顺序问题"><img class="post-bg" src="/../img/backend-08-mq-reliability.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="消息可靠性保证：消息丢失/重复/顺序问题"></a></div><div class="recent-post-info"><a class="article-title" href="/2026/04/15/mq-reliability-guide/" title="消息可靠性保证：消息丢失/重复/顺序问题">消息可靠性保证：消息丢失/重复/顺序问题</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2026-04-15T07:00:00.000Z" title="发表于 2026-04-15 15:00:00">2026-04-15</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/%E5%90%8E%E7%AB%AF%E5%B7%A5%E7%A8%8B/">后端工程</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%90%8E%E7%AB%AF/">后端</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97/">消息队列</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/MQ/">MQ</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Kafka/">Kafka</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/RocketMQ/">RocketMQ</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%8F%AF%E9%9D%A0%E6%80%A7/">可靠性</a></span></div><div class="content">前言引入消息队列之后，很多团队都会踩同一类坑：下单成功了用户却没收到通知、统计数据总是对不上、库存重复扣减导致超卖、订单状态更新乱序出现业务异常。 很多人以为「把消息发出去、消费端拿到执行」就完事了，实际上不同 MQ 和客户端的默认语义并不相同，默认值也不能替代端到端设计。消息丢失、重复消费、顺序错乱，是必须明确处理的三类风险。 消息可靠性从来不是单点优化，而是一套覆盖生产端、Broker、消费端的全链路组合拳。本文就从三个经典问题切入，完整讲解生产确认、持久化刷盘、消费端 ACK、幂等设计、顺序消费的实现方案，帮你把消息可靠性从「随缘」变成「可控」。   一、先统一认知：消息投递的三个语义等级在讲方案之前，先明确消息投递的三个语义等级，不同等级对应的实现成本天差地别。    投递语义 含义 特点 适用场景    最多一次（At most once） 消息最多投递一次，丢了就丢了，绝不重复 性能最高，可靠性最差 日志、埋点、可丢失的非核心数据   至少一次（At least once） 消息保证至少投递到消费端一次，可能重复 不丢失，但可能重复，业界主流实现 绝大多数业务场景  ...</div></div></div><div class="recent-post-item"><div class="post_cover left"><a href="/2026/04/15/mq-intro-guide/" title="消息队列入门：为什么需要 MQ"><img class="post-bg" src="/../img/backend-07-mq-intro.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="消息队列入门：为什么需要 MQ"></a></div><div class="recent-post-info"><a class="article-title" href="/2026/04/15/mq-intro-guide/" title="消息队列入门：为什么需要 MQ">消息队列入门：为什么需要 MQ</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2026-04-15T06:00:00.000Z" title="发表于 2026-04-15 14:00:00">2026-04-15</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/%E5%90%8E%E7%AB%AF%E5%B7%A5%E7%A8%8B/">后端工程</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%90%8E%E7%AB%AF/">后端</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97/">消息队列</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/MQ/">MQ</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Kafka/">Kafka</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/RocketMQ/">RocketMQ</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/RabbitMQ/">RabbitMQ</a></span></div><div class="content">前言很多刚接触后端开发的同学都会有一个疑问：好好的同步调用不用，为什么非要引入消息队列？平白多了一个中间件，系统复杂度上去了，还要处理消息丢失、重复消费、积压等一堆问题，这不是给自己找麻烦吗？ 有这个疑问太正常了。在业务量小、逻辑简单的阶段，同步调用确实简单直接、调试方便。但随着业务增长、系统拆分、流量上升，你会发现同步调用的天花板越来越明显：接口响应越来越慢、上下游改一处全链路都要改、活动峰值一来系统直接被打垮。 消息队列（Message Queue，简称 MQ）不是什么炫技的黑科技，它本质是解决「异步、解耦、削峰」三大问题的标准方案，是分布式系统的核心组件之一。 今天我们就从真实业务场景出发，讲清楚为什么需要 MQ，它的三大核心价值是什么，再对比三款最主流的 MQ 产品，帮你搞定选型难题。  一、没有 MQ 的日子：同步调用的三大痛点我们用最经典的「下单流程」举例，看看随着业务迭代，同步调用会遇到哪些无法回避的问题。 1. 初期：简单高效业务早期，下单逻辑很简单：创建订单 + 扣减库存。两个步骤同步串行执行，总耗时约 100ms，用户体验良好，代码也简单直观。 2. 迭代一：...</div></div></div><div class="recent-post-item"><div class="post_cover right"><a href="/2026/03/16/seata-at-guide/" title="分布式事务实战：Seata 的 AT 模式原理"><img class="post-bg" src="/../img/backend-11-seata.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="分布式事务实战：Seata 的 AT 模式原理"></a></div><div class="recent-post-info"><a class="article-title" href="/2026/03/16/seata-at-guide/" title="分布式事务实战：Seata 的 AT 模式原理">分布式事务实战：Seata 的 AT 模式原理</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2026-03-16T07:00:00.000Z" title="发表于 2026-03-16 15:00:00">2026-03-16</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/%E5%90%8E%E7%AB%AF%E5%B7%A5%E7%A8%8B/">后端工程</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%90%8E%E7%AB%AF/">后端</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/">微服务</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/">分布式事务</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Seata/">Seata</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/AT%E6%A8%A1%E5%BC%8F/">AT模式</a></span></div><div class="content">前言微服务架构下，单体应用被拆成多个服务，数据库也随之按业务拆分。原本一个本地事务就能搞定的下单流程，现在变成了「订单服务建单 + 库存服务扣库 + 账户服务扣钱」跨三个服务、三个数据库的操作。单个服务的本地事务只能保证自己的数据正确，只要有一个环节失败，就会出现订单建了但库存没扣、钱扣了但订单没生成的数据不一致问题。 这就是分布式事务要解决的核心问题：跨服务、跨数据源场景下，如何保证多个操作要么全部成功、要么全部失败。 业界分布式事务方案有很多：TCC、Saga、可靠消息最终一致等等。Seata AT 模式通过代理 JDBC 数据源、自动记录数据镜像和生成补偿操作，把业务侵入降得很低；业务代码通常只需标记全局事务，但数据库表、SQL 类型、数据源代理和调用链透传仍需满足框架约束。 本文就从架构角色、核心原理到完整实战，一次性讲透 Seata AT 模式的底层逻辑与落地方法。  一、Seata 核心架构：三个角色 + 两个层级Seata 把分布式事务拆分为「全局事务」和「分支事务」，并通过三个核心角色协同完成整个事务的协调与执行。 1.1 两个事务层级 全局事务：贯穿整个业务链路...</div></div></div></div><nav id="pagination"><div class="pagination"><a class="extend prev" rel="prev" href="/"><i class="fas fa-chevron-left fa-fw"></i></a><a class="page-number" href="/">1</a><span class="page-number current">2</span><a class="page-number" href="/page/3/#content-inner">3</a><span class="space">&hellip;</span><a class="page-number" href="/page/5/#content-inner">5</a><a class="extend next" rel="next" href="/page/3/#content-inner"><i class="fas fa-chevron-right fa-fw"></i></a></div></nav></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">qjngbac</div><div class="author-info-description">一个正在学习的开发者</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">42</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">139</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/qjngbac"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/qjngbac" target="_blank" title="Github"><i class="fab fa-github"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到我的博客</div></div><div class="sticky_layout"><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"><img src="/../img/ai-10-ollama.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"/></a><div class="content"><a class="title" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成">Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成</a><time datetime="2026-07-22T02:00:00.000Z" title="发表于 2026-07-22 10:00:00">2026-07-22</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"><img src="/../img/ai-09-spring-ai.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"/></a><div class="content"><a class="title" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling">Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling</a><time datetime="2026-07-17T02:00:00.000Z" title="发表于 2026-07-17 10:00:00">2026-07-17</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"><img src="/../img/ai-08-vector-database.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"/></a><div class="content"><a class="title" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比">向量数据库选型实战：Chroma、Milvus 与 pgvector 对比</a><time datetime="2026-07-13T02:00:00.000Z" title="发表于 2026-07-13 10:00:00">2026-07-13</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度"><img src="/../img/ai-07-rag-evaluation.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 评估实战：Recall@K、MRR 与回答忠实度"/></a><div class="content"><a class="title" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度">RAG 评估实战：Recall@K、MRR 与回答忠实度</a><time datetime="2026-07-12T02:00:00.000Z" title="发表于 2026-07-12 10:00:00">2026-07-12</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"><img src="/../img/ai-06-rag-retrieval.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"/></a><div class="content"><a class="title" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker">RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker</a><time datetime="2026-07-09T02:00:00.000Z" title="发表于 2026-07-09 10:00:00">2026-07-09</time></div></div></div></div><div class="card-widget card-categories"><div class="item-headline">
+            <i class="fas fa-folder-open"></i>
+            <span>分类</span>
+            
+          </div>
+          <ul class="card-category-list" id="aside-cat-list">
+            <li class="card-category-list-item "><a class="card-category-list-link" href="/categories/AI%E5%B7%A5%E7%A8%8B/"><span class="card-category-list-name">AI工程</span><span class="card-category-list-count">10</span></a></li><li class="card-category-list-item "><a class="card-category-list-link" href="/categories/Java-%E6%B7%B1%E5%BA%A6/"><span class="card-category-list-name">Java 深度</span><span class="card-category-list-count">15</span></a></li><li class="card-category-list-item "><a class="card-category-list-link" href="/categories/%E5%90%8E%E7%AB%AF%E5%9F%BA%E7%A1%80/"><span class="card-category-list-name">后端基础</span><span class="card-category-list-count">1</span></a></li><li class="card-category-list-item "><a class="card-category-list-link" href="/categories/%E5%90%8E%E7%AB%AF%E5%B7%A5%E7%A8%8B/"><span class="card-category-list-name">后端工程</span><span class="card-category-list-count">14</span></a></li><li class="card-category-list-item "><a class="card-category-list-link" href="/categories/%E6%8A%80%E6%9C%AF%E7%A7%91%E6%99%AE/"><span class="card-category-list-name">技术科普</span><span class="card-category-list-count">2</span></a></li>
+          </ul></div><div class="card-widget card-tags"><div class="item-headline"><i class="fas fa-tags"></i><span>标签</span></div><div class="card-tag-cloud"><a href="/tags/%E5%A4%A7%E6%A8%A1%E5%9E%8B/" style="font-size: 1.24em; color: rgb(106, 50, 50);">大模型</a><a href="/tags/OpenAI-API/" style="font-size: 1.15em; color: rgb(50, 200, 83);">OpenAI API</a><a href="/tags/SSE/" style="font-size: 1.15em; color: rgb(83, 50, 112);">SSE</a><a href="/tags/%E6%B5%81%E5%BC%8F%E8%BE%93%E5%87%BA/" style="font-size: 1.15em; color: rgb(111, 56, 180);">流式输出</a><a href="/tags/%E5%90%8E%E7%AB%AF/" style="font-size: 1.41em; color: rgb(50, 72, 185);">后端</a><a href="/tags/AI%E5%B7%A5%E7%A8%8B/" style="font-size: 1.32em; color: rgb(193, 52, 50);">AI工程</a><a href="/tags/%E9%9D%A2%E8%AF%95/" style="font-size: 1.45em; color: rgb(120, 50, 169);">面试</a><a href="/tags/Function-Calling/" style="font-size: 1.15em; color: rgb(174, 83, 180);">Function Calling</a><a href="/tags/Tool-Calling/" style="font-size: 1.19em; color: rgb(50, 50, 70);">Tool Calling</a><a href="/tags/Java/" style="font-size: 1.36em; color: rgb(50, 144, 50);">Java</a><a href="/tags/Spring-Boot/" style="font-size: 1.28em; color: rgb(135, 50, 79);">Spring Boot</a><a href="/tags/AI-Agent/" style="font-size: 1.15em; color: rgb(103, 50, 74);">AI Agent</a><a href="/tags/LangChain/" style="font-size: 1.19em; color: rgb(67, 97, 88);">LangChain</a><a href="/tags/LangGraph/" style="font-size: 1.15em; color: rgb(50, 183, 88);">LangGraph</a><a href="/tags/ReAct/" style="font-size: 1.15em; color: rgb(95, 50, 187);">ReAct</a><a href="/tags/%E7%8A%B6%E6%80%81%E6%9C%BA/" style="font-size: 1.15em; color: rgb(88, 50, 92);">状态机</a><a href="/tags/%E5%B7%A5%E5%85%B7%E8%B0%83%E7%94%A8/" style="font-size: 1.15em; color: rgb(66, 147, 130);">工具调用</a><a href="/tags/Prompt%E5%B7%A5%E7%A8%8B/" style="font-size: 1.15em; color: rgb(50, 135, 50);">Prompt工程</a><a href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B/" style="font-size: 1.15em; color: rgb(78, 156, 50);">上下文工程</a><a href="/tags/Structured-Outputs/" style="font-size: 1.15em; color: rgb(59, 191, 170);">Structured Outputs</a><a href="/tags/Prompt-Injection/" style="font-size: 1.15em; color: rgb(116, 93, 92);">Prompt Injection</a><a href="/tags/RAG/" style="font-size: 1.28em; color: rgb(133, 145, 106);">RAG</a><a href="/tags/Chroma/" style="font-size: 1.19em; color: rgb(182, 82, 95);">Chroma</a><a href="/tags/Embedding/" style="font-size: 1.15em; color: rgb(56, 100, 62);">Embedding</a><a href="/tags/%E6%96%87%E6%A1%A3%E5%88%87%E5%88%86/" style="font-size: 1.15em; color: rgb(50, 50, 50);">文档切分</a><a href="/tags/%E7%9F%A5%E8%AF%86%E5%BA%93/" style="font-size: 1.15em; color: rgb(50, 54, 70);">知识库</a><a href="/tags/%E6%B7%B7%E5%90%88%E6%A3%80%E7%B4%A2/" style="font-size: 1.15em; color: rgb(50, 64, 61);">混合检索</a><a href="/tags/BM25/" style="font-size: 1.15em; color: rgb(54, 160, 50);">BM25</a><a href="/tags/RRF/" style="font-size: 1.15em; color: rgb(105, 67, 50);">RRF</a><a href="/tags/Reranker/" style="font-size: 1.15em; color: rgb(101, 125, 50);">Reranker</a><a href="/tags/Query-Rewrite/" style="font-size: 1.15em; color: rgb(82, 199, 50);">Query Rewrite</a><a href="/tags/%E5%90%91%E9%87%8F%E6%95%B0%E6%8D%AE%E5%BA%93/" style="font-size: 1.15em; color: rgb(177, 116, 50);">向量数据库</a><a href="/tags/Milvus/" style="font-size: 1.15em; color: rgb(181, 92, 50);">Milvus</a><a href="/tags/pgvector/" style="font-size: 1.15em; color: rgb(193, 156, 167);">pgvector</a><a href="/tags/HNSW/" style="font-size: 1.15em; color: rgb(125, 50, 153);">HNSW</a><a href="/tags/Spring-AI/" style="font-size: 1.15em; color: rgb(51, 137, 53);">Spring AI</a><a href="/tags/ChatClient/" style="font-size: 1.15em; color: rgb(196, 112, 135);">ChatClient</a><a href="/tags/Ollama/" style="font-size: 1.15em; color: rgb(165, 185, 167);">Ollama</a><a href="/tags/%E6%9C%AC%E5%9C%B0%E5%A4%A7%E6%A8%A1%E5%9E%8B/" style="font-size: 1.15em; color: rgb(50, 50, 166);">本地大模型</a><a href="/tags/LLM/" style="font-size: 1.15em; color: rgb(50, 50, 165);">LLM</a></div></div><div class="card-widget card-archives">
+    <div class="item-headline">
+      <i class="fas fa-archive"></i>
+      <span>归档</span>
+      <a class="card-more-btn" href="/archives/"
+            title="查看更多">
+            <i class="fas fa-angle-right"></i>
+          </a>
+    </div>
+  
+    <ul class="card-archive-list">
+      
+        <li class="card-archive-list-item">
+          <a class="card-archive-list-link" href="/archives/2026/07/">
+            <span class="card-archive-list-date">
+              七月 2026
+            </span>
+            <span class="card-archive-list-count">9</span>
+          </a>
+        </li>
+      
+        <li class="card-archive-list-item">
+          <a class="card-archive-list-link" href="/archives/2026/06/">
+            <span class="card-archive-list-date">
+              六月 2026
+            </span>
+            <span class="card-archive-list-count">6</span>
+          </a>
+        </li>
+      
+        <li class="card-archive-list-item">
+          <a class="card-archive-list-link" href="/archives/2026/05/">
+            <span class="card-archive-list-date">
+              五月 2026
+            </span>
+            <span class="card-archive-list-count">1</span>
+          </a>
+        </li>
+      
+        <li class="card-archive-list-item">
+          <a class="card-archive-list-link" href="/archives/2026/04/">
+            <span class="card-archive-list-date">
+              四月 2026
+            </span>
+            <span class="card-archive-list-count">3</span>
+          </a>
+        </li>
+      
+        <li class="card-archive-list-item">
+          <a class="card-archive-list-link" href="/archives/2026/03/">
+            <span class="card-archive-list-date">
+              三月 2026
+            </span>
+            <span class="card-archive-list-count">2</span>
+          </a>
+        </li>
+      
+        <li class="card-archive-list-item">
+          <a class="card-archive-list-link" href="/archives/2026/01/">
+            <span class="card-archive-list-date">
+              一月 2026
+            </span>
+            <span class="card-archive-list-count">2</span>
+          </a>
+        </li>
+      
+        <li class="card-archive-list-item">
+          <a class="card-archive-list-link" href="/archives/2025/12/">
+            <span class="card-archive-list-date">
+              十二月 2025
+            </span>
+            <span class="card-archive-list-count">3</span>
+          </a>
+        </li>
+      
+        <li class="card-archive-list-item">
+          <a class="card-archive-list-link" href="/archives/2025/11/">
+            <span class="card-archive-list-date">
+              十一月 2025
+            </span>
+            <span class="card-archive-list-count">4</span>
+          </a>
+        </li>
+      
+    </ul>
+  </div><div class="card-widget card-webinfo"><div class="item-headline"><i class="fas fa-chart-line"></i><span>网站信息</span></div><div class="webinfo"><div class="webinfo-item"><div class="item-name">文章数目 :</div><div class="item-count">42</div></div><div class="webinfo-item"><div class="item-name">本站访客数 :</div><div class="item-count" id="busuanzi_value_site_uv"><i class="fa-solid fa-spinner fa-spin"></i></div></div><div class="webinfo-item"><div class="item-name">本站总浏览量 :</div><div class="item-count" id="busuanzi_value_site_pv"><i class="fa-solid fa-spinner fa-spin"></i></div></div><div class="webinfo-item"><div class="item-name">最后更新时间 :</div><div class="item-count" id="last-push-date" data-lastPushDate="2026-07-22T13:17:58.557Z"><i class="fa-solid fa-spinner fa-spin"></i></div></div></div></div></div></div></main><footer id="footer"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2024 - 2026 By qjngbac</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 7.3.0</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.5.5</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.5.5"></script><script src="/js/main.js?v=5.5.5"></script><div class="js-pjax"></div><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

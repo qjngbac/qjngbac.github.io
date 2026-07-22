@@ -1,0 +1,264 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Wait - 记录学习与成长</title><meta name="author" content="qjngbac"><meta name="copyright" content="qjngbac"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta property="og:type" content="website">
+<meta property="og:title" content="Wait">
+<meta property="og:url" content="https://qjngbac.github.io/page/4/index.html">
+<meta property="og:site_name" content="Wait">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://qjngbac.github.io/img/butterfly-icon.png">
+<meta property="article:author" content="qjngbac">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://qjngbac.github.io/img/butterfly-icon.png"><script type="application/ld+json"></script><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://qjngbac.github.io/page/4/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.5.5"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        if (!ttl) return
+        const expiry = Date.now() + ttl * 86400000
+        localStorage.setItem(key, JSON.stringify({ value, expiry }))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return undefined
+        const { value, expiry } = JSON.parse(itemStr)
+        if (Date.now() > expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return value
+      }
+    }
+
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+        script.onload = script.onreadystatechange = () => {
+          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      }),
+      getCSS: (url, id) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onload = link.onreadystatechange = () => {
+          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+        }
+        link.onerror = reject
+        document.head.appendChild(link)
+      }),
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: true
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Wait',
+  isHighlightShrink: false,
+  isToc: false,
+  pageType: 'home'
+}</script><meta name="generator" content="Hexo 7.3.0"></head><body><div id="loading-box"><div class="loading-left-bg"></div><div class="loading-right-bg"></div><div class="spinner-box"><div class="configure-border-1"><div class="configure-core"></div></div><div class="configure-border-2"><div class="configure-core"></div></div><div class="loading-word">加载中...</div></div></div><script>(()=>{
+  const $loadingBox = document.getElementById('loading-box')
+  const $body = document.body
+  const preloader = {
+    endLoading: () => {
+      if ($loadingBox.classList.contains('loaded')) return
+      $body.style.overflow = ''
+      $loadingBox.classList.add('loaded')
+    },
+    initLoading: () => {
+      $body.style.overflow = 'hidden'
+      $loadingBox.classList.remove('loaded')
+    }
+  }
+
+  preloader.initLoading()
+
+  if (document.readyState === 'complete') {
+    preloader.endLoading()
+  } else {
+    window.addEventListener('load', preloader.endLoading)
+    document.addEventListener('DOMContentLoaded', preloader.endLoading)
+    // Add timeout protection: force end after 7 seconds
+    setTimeout(preloader.endLoading, 7000)
+  }
+
+  if (false) {
+    btf.addGlobalFn('pjaxSend', preloader.initLoading, 'preloader_init')
+    btf.addGlobalFn('pjaxComplete', preloader.endLoading, 'preloader_end')
+  }
+})()</script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">42</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">139</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div></div></div><div class="page" id="body-wrap"><header class="full_page" id="page-header" style="background-image: url(https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1920&amp;q=80);"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">Wait</span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="site-info"><h1 id="site-title">Wait</h1><div id="site_social_icons"><a class="social-icon" href="https://github.com/qjngbac" target="_blank" title="Github"><i class="fab fa-github"></i></a></div></div><div id="scroll-down"><i class="fas fa-angle-down scroll-down-effects"></i></div></header><main class="layout" id="content-inner"><div class="recent-posts nc" id="recent-posts"><div class="recent-post-items"><div class="recent-post-item"><div class="post_cover left"><a href="/2025/10/07/spring-boot-autoconfigure-guide/" title="Spring Boot 自动装配原理：@SpringBootApplication 背后做了什么"><img class="post-bg" src="/img/java-series-07-spring-boot.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Spring Boot 自动装配原理：@SpringBootApplication 背后做了什么"></a></div><div class="recent-post-info"><a class="article-title" href="/2025/10/07/spring-boot-autoconfigure-guide/" title="Spring Boot 自动装配原理：@SpringBootApplication 背后做了什么">Spring Boot 自动装配原理：@SpringBootApplication 背后做了什么</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2025-10-07T06:00:00.000Z" title="发表于 2025-10-07 14:00:00">2025-10-07</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/Java-%E6%B7%B1%E5%BA%A6/">Java 深度</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Java/">Java</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Spring-Boot/">Spring Boot</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E6%BA%90%E7%A0%81/">源码</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E8%87%AA%E5%8A%A8%E8%A3%85%E9%85%8D/">自动装配</a></span></div><div class="content">前言做 Spring Boot 开发的人，每天都会写 @SpringBootApplication 注解。点一下启动类，服务就能跑起来；引入一个 mybatis-spring-boot-starter，不用写 SqlSessionFactory 配置，直接就能注入 Mapper 使用。 我们常说 Spring Boot “开箱即用”，这份便利的背后，核心就是自动装配机制。但很多人对它的认知停留在”面试要背的八股”层面，既说不清楚 @EnableAutoConfiguration 到底干了什么，也讲不明白自动配置候选类是怎么被加载的，遇到 starter 不生效的问题只能瞎试。 自动装配不是什么黑魔法，它是一套设计精巧的组件扩展机制。今天我们就从最熟悉的启动注解切入，逐层拆解 @SpringBootApplication 的内部构成，把自动配置候选加载机制、条件注解筛选逻辑、完整装配流程一次性讲透。  一、@SpringBootApplication：原来是个组合注解很多人以为它是一个全新的魔法注解，其实点开源码就会发现，它本质是一个组合注解，封装了三个核心注解： 12345678...</div></div></div><div class="recent-post-item"><div class="post_cover right"><a href="/2025/10/04/spring-bean-lifecycle-guide/" title="Spring Bean 生命周期：从创建到销毁的全过程"><img class="post-bg" src="/img/java-series-08-spring-bean.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Spring Bean 生命周期：从创建到销毁的全过程"></a></div><div class="recent-post-info"><a class="article-title" href="/2025/10/04/spring-bean-lifecycle-guide/" title="Spring Bean 生命周期：从创建到销毁的全过程">Spring Bean 生命周期：从创建到销毁的全过程</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2025-10-04T07:00:00.000Z" title="发表于 2025-10-04 15:00:00">2025-10-04</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/Java-%E6%B7%B1%E5%BA%A6/">Java 深度</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Java/">Java</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Spring/">Spring</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Bean/">Bean</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F/">生命周期</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%BE%AA%E7%8E%AF%E4%BE%9D%E8%B5%96/">循环依赖</a></span></div><div class="content">前言做 Spring 开发的人，每天都在和 Bean 打交道：加个 @Service 就把类交给容器管理，写个 @Autowired 就能注入依赖。可一旦被问到「Bean 从创建到销毁经历了哪些步骤」「三级缓存是怎么解决循环依赖的」，很多人就只能说出个大概，说不清楚完整流程。 Bean 的生命周期是 Spring 最核心的基础机制，也是面试的高频考点。它不只是用来背的八股，更是我们排查 Bean 创建失败、依赖注入异常、循环依赖报错的底层依据。从一个普通的 Java 对象，到一个能被容器管理的 Spring Bean，中间经历了非常多的步骤和扩展点。 今天我们就把整个生命周期拆解开，从实例化、属性注入、初始化到销毁，完整走一遍全流程，再把三级缓存与循环依赖的底层逻辑讲透。  一、总览：Bean 生命周期的四大阶段Spring Bean 的完整生命周期，可以概括为四个核心大阶段：  实例化（Instantiation）：选择构造器或工厂方法并创建对象；构造器本身可能已经写入字段和构造器依赖，并非一定是“空对象” 属性注入（Populate）：为对象的属性赋值，完成依赖注入 初始化（...</div></div></div><div class="recent-post-item"><div class="post_cover left"><a href="/2025/10/02/completablefuture-guide/" title="CompletableFuture 实战：异步编程不再痛苦"><img class="post-bg" src="/img/java-series-06-completable-future.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="CompletableFuture 实战：异步编程不再痛苦"></a></div><div class="recent-post-info"><a class="article-title" href="/2025/10/02/completablefuture-guide/" title="CompletableFuture 实战：异步编程不再痛苦">CompletableFuture 实战：异步编程不再痛苦</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2025-10-02T10:00:00.000Z" title="发表于 2025-10-02 18:00:00">2025-10-02</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/Java-%E6%B7%B1%E5%BA%A6/">Java 深度</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Java/">Java</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B/">并发编程</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/CompletableFuture/">CompletableFuture</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%BC%82%E6%AD%A5/">异步</a></span></div><div class="content">前言在日常后端开发中，我们总在追求更快的接口响应、更高的系统吞吐量。一个常见的场景：一个接口要先后调用 3 个远程服务，每个耗时 200ms，串行下来光调用就需要 600ms，再加上业务逻辑，接口很容易超时。 很多人第一反应是「用多线程异步化」，但传统的 Future 用起来十分鸡肋：只能通过阻塞的 get() 拿结果，无法链式编排多个异步任务，异常处理也极其麻烦，写出来的代码又丑又难维护。 直到 Java 8 推出了 CompletableFuture，Java 才算真正拥有了优雅的异步编程能力。它支持链式调用、任务组合、异常处理、超时控制，能轻松应对各种复杂的异步编排场景。 今天我们就从 API 到实战，一次性讲透 CompletableFuture，让异步编程不再是代码里的痛点。  一、为什么我们需要 CompletableFuture？1.1 传统 Future 的三大痛点1. 结果获取只能阻塞 调用 get() 方法会一直阻塞，直到任务返回结果。本质上还是同步等待，没有发挥异步的价值。 12Future&lt;String&gt; future = executor.s...</div></div></div><div class="recent-post-item"><div class="post_cover right"><a href="/2025/09/08/thread-pool-guide/" title="线程池原理：面试必问的 ThreadPoolExecutor 你真的懂吗？"><img class="post-bg" src="/img/java-series-04-thread-pool.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="线程池原理：面试必问的 ThreadPoolExecutor 你真的懂吗？"></a></div><div class="recent-post-info"><a class="article-title" href="/2025/09/08/thread-pool-guide/" title="线程池原理：面试必问的 ThreadPoolExecutor 你真的懂吗？">线程池原理：面试必问的 ThreadPoolExecutor 你真的懂吗？</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2025-09-08T06:00:00.000Z" title="发表于 2025-09-08 14:00:00">2025-09-08</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/Java-%E6%B7%B1%E5%BA%A6/">Java 深度</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Java/">Java</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B/">并发编程</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E7%BA%BF%E7%A8%8B%E6%B1%A0/">线程池</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/ThreadPoolExecutor/">ThreadPoolExecutor</a></span></div><div class="content">前言做 Java 开发的人，几乎天天都在跟线程池打交道：业务异步解耦用线程池，接口并行聚合用线程池，定时任务也离不开线程池。很多人随手一个 Executors.newFixedThreadPool() 就用起来了，可一旦被面试官追问：  核心线程和非核心线程有什么区别？ 任务提交后线程池的完整执行流程是什么？ execute 和 submit 有什么本质区别？ 四种拒绝策略分别适用什么场景？  能完整答上来的人并不多。线程池不是简单的”一堆线程凑个池子”，它是一套完整的资源管控与任务调度机制，ThreadPoolExecutor 就是这套机制的核心实现。 它既是面试高频考点，也是线上最容易出问题的地方：无界队列导致 OOM、线程数失控打满 CPU、任务异常静默丢失…… 这些问题的根因，往往都是对线程池原理理解不到位。 今天我们就从底层源码视角出发，把 ThreadPoolExecutor 的核心参数、执行流程、拒绝策略、方法对比一次性讲透。  一、为什么我们需要线程池？在讲原理之前，先想清楚一个最基础的问题：为什么不直接 new Thread() 跑任务，非要用线程池？ 1234...</div></div></div><div class="recent-post-item"><div class="post_cover left"><a href="/2025/08/30/concurrenthashmap-guide/" title="ConcurrentHashMap 源码：它为什么是线程安全的"><img class="post-bg" src="/img/java-series-12-concurrent-hashmap.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="ConcurrentHashMap 源码：它为什么是线程安全的"></a></div><div class="recent-post-info"><a class="article-title" href="/2025/08/30/concurrenthashmap-guide/" title="ConcurrentHashMap 源码：它为什么是线程安全的">ConcurrentHashMap 源码：它为什么是线程安全的</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2025-08-30T08:00:00.000Z" title="发表于 2025-08-30 16:00:00">2025-08-30</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/Java-%E6%B7%B1%E5%BA%A6/">Java 深度</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Java/">Java</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E6%BA%90%E7%A0%81/">源码</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9B%86%E5%90%88/">集合</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/ConcurrentHashMap/">ConcurrentHashMap</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%B9%B6%E5%8F%91/">并发</a></span></div><div class="content">前言在并发场景下，HashMap 会出现元素覆盖、丢失、计数不准等问题；JDK 7 的并发扩容还可能形成链表环。Hashtable 虽然线程安全，却主要依赖整表级 synchronized，并发写入容易形成明显竞争。 为了兼顾「线程安全」与「并发性能」，JDK 推出了 ConcurrentHashMap。它也是面试中的高频考点：分段锁是什么？JDK 1.8 为什么改用 CAS + synchronized？并发下 size() 怎么统计才准确？这些问题的背后，是一整套精细的并发控制思想。 今天我们就从 JDK 1.7 到 1.8 的演进入手，拆解 ConcurrentHashMap 的线程安全实现，把分段锁、CAS 桶锁、分散计数、并发扩容这些核心机制一次性讲透。  一、演进之路：从粗粒度锁到细粒度锁ConcurrentHashMap 的核心设计目标很明确：在保证线程安全的前提下，尽可能降低锁的粒度，减少锁竞争，提升并发吞吐量。    版本 核心实现 锁粒度 并发度 底层结构    JDK 1.7 分段锁（Segment） 锁整个分段 默认 16 个分段 分段数组 + 链表   ...</div></div></div><div class="recent-post-item"><div class="post_cover right"><a href="/2025/08/26/aqs-reentrantlock-guide/" title="AQS 源码分析：ReentrantLock 背后的秘密"><img class="post-bg" src="/img/java-series-05-aqs.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="AQS 源码分析：ReentrantLock 背后的秘密"></a></div><div class="recent-post-info"><a class="article-title" href="/2025/08/26/aqs-reentrantlock-guide/" title="AQS 源码分析：ReentrantLock 背后的秘密">AQS 源码分析：ReentrantLock 背后的秘密</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2025-08-26T07:00:00.000Z" title="发表于 2025-08-26 15:00:00">2025-08-26</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/Java-%E6%B7%B1%E5%BA%A6/">Java 深度</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Java/">Java</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%B9%B6%E5%8F%91%E7%BC%96%E7%A8%8B/">并发编程</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/AQS/">AQS</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/ReentrantLock/">ReentrantLock</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E6%BA%90%E7%A0%81/">源码</a></span></div><div class="content">前言写 Java 并发代码，ReentrantLock 是常用的显式锁：它可配置公平策略，并支持可重入、可中断和超时获取，在需要这些能力时比 synchronized 更灵活。但很多人用了很久，却不知道它的底层建立在 AQS 之上。 面试中 AQS 更是并发模块的必考题：state 变量有什么用？CLH 队列怎么工作？公平锁和非公平锁到底差在哪？这些问题看似是八股，实则是理解整个 JUC 并发工具包的钥匙。 ReentrantLock 本身几乎没有复杂逻辑，它的全部锁能力，都委托给了内部的 AQS 实现类。今天我们就从 ReentrantLock 切入，逐层拆解 AQS 的核心设计：state 同步状态、CLH 等待队列、公平与非公平实现，彻底搞懂显式锁的底层原理。  一、AQS 是什么？JUC 并发的基石AQS 全称 AbstractQueuedSynchronizer，抽象队列同步器，是 java.util.concurrent 包的核心骨架。 它本质上是一个抽象框架：用一个共享变量维护同步状态，再用一个近似 FIFO 的等待队列管理竞争失败的线程。基于这套框架，JDK 实现...</div></div></div><div class="recent-post-item"><div class="post_cover left"><a href="/2025/08/11/oom-troubleshooting-guide/" title="OOM 问题定位：线上内存溢出的完整排查流程"><img class="post-bg" src="/img/java-series-14-oom.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="OOM 问题定位：线上内存溢出的完整排查流程"></a></div><div class="recent-post-info"><a class="article-title" href="/2025/08/11/oom-troubleshooting-guide/" title="OOM 问题定位：线上内存溢出的完整排查流程">OOM 问题定位：线上内存溢出的完整排查流程</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2025-08-11T07:00:00.000Z" title="发表于 2025-08-11 15:00:00">2025-08-11</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/Java-%E6%B7%B1%E5%BA%A6/">Java 深度</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Java/">Java</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/JVM/">JVM</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/OOM/">OOM</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%86%85%E5%AD%98%E6%BA%A2%E5%87%BA/">内存溢出</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/MAT/">MAT</a></span></div><div class="content">前言凌晨运维告警群突然炸锅：核心服务 Pod 频繁重启，错误日志里反复出现 java.lang.OutOfMemoryError。很多开发遇到线上 OOM 的第一反应是重启服务先恢复业务，重启完就没了下文，结果过几天问题复现，周而复始。 OOM 不是玄学，但也不只等于“Java 堆里对象太多”。根因可能是对象泄漏或容量不足，也可能来自元空间、直接内存、线程创建、超大数组，甚至是容器的 cgroup 内存上限。先确认内存区域和退出原因，再选择堆快照、线程栈或原生内存工具，才能避免查错方向。 本文就以一次真实的线上堆溢出为例，带你走完从现场保留、dump 抓取、MAT 深度分析到根因定位的完整流程，最后总结五大高频 OOM 场景的识别与排查方法。  一、故障第一现场：先止血，再排查1.1 第一步：确认异常类型不同报错对应完全不同的根因：    OOM 类型 报错信息 根因方向    堆溢出 Java heap space 内存泄漏 &#x2F; 堆太小   GC 过度 GC overhead limit exceeded 堆接近耗尽   元空间 Metaspace 类加载泄漏   直...</div></div></div><div class="recent-post-item"><div class="post_cover right"><a href="/2025/07/30/gc-tuning-guide/" title="GC 调优实战：一次线上 OOM 的排查经历"><img class="post-bg" src="/img/java-series-02-gc-tuning.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="GC 调优实战：一次线上 OOM 的排查经历"></a></div><div class="recent-post-info"><a class="article-title" href="/2025/07/30/gc-tuning-guide/" title="GC 调优实战：一次线上 OOM 的排查经历">GC 调优实战：一次线上 OOM 的排查经历</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2025-07-30T06:30:00.000Z" title="发表于 2025-07-30 14:30:00">2025-07-30</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/Java-%E6%B7%B1%E5%BA%A6/">Java 深度</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%90%8E%E7%AB%AF/">后端</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Java/">Java</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/JVM/">JVM</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/GC/">GC</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E6%80%A7%E8%83%BD%E8%B0%83%E4%BC%98/">性能调优</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/OOM/">OOM</a></span></div><div class="content">前言凌晨两点，运维告警群突然弹出一连串红色预警：核心订单服务多个实例响应超时，K8s Pod 频繁自动重启，错误日志中反复出现 java.lang.OutOfMemoryError: Java heap space。 作为后端团队的核心开发，我紧急介入排查。整个过程从 GC 现象观察到堆内存定位，从收集器原理到参数调优落地，前后三小时彻底解决问题。 很多人觉得 GC 调优是”玄学”，靠背参数就能应付。但真实线上场景里，懂 GC 算法原理、会用原生工具定位问题，才是解决 OOM 的核心能力。本文就以这次实战为线索，系统梳理 GC 核心算法、主流收集器选型，以及 jstat、jmap 的实战用法。  一、故障初现：线上 OOM 的现场信息1.1 故障现象当时正值业务高峰期，监控平台显示：  接口平均响应时间从 50ms 飙升至 800ms，大量请求超时熔断 Pod 每 10 分钟左右触发一次自动重启，服务完全无法稳定承载流量 JVM 监控显示老年代内存占用持续走高，Full GC 频率远超正常水平  1.2 初步日志定位登录容器查看服务错误日志，核心报错非常明确： 1java.lan...</div></div></div><div class="recent-post-item"><div class="post_cover left"><a href="/2025/07/22/jvm-memory-model/" title="JVM 运行时内存区域：你真的理解堆和栈吗？"><img class="post-bg" src="/img/java-series-01-jvm-memory.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="JVM 运行时内存区域：你真的理解堆和栈吗？"></a></div><div class="recent-post-info"><a class="article-title" href="/2025/07/22/jvm-memory-model/" title="JVM 运行时内存区域：你真的理解堆和栈吗？">JVM 运行时内存区域：你真的理解堆和栈吗？</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2025-07-22T08:00:00.000Z" title="发表于 2025-07-22 16:00:00">2025-07-22</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/Java-%E6%B7%B1%E5%BA%A6/">Java 深度</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%90%8E%E7%AB%AF/">后端</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Java/">Java</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/JVM/">JVM</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B/">内存模型</a></span></div><div class="content">前言写了多年 Java 代码，new 了无数个对象，调用了数不清的方法，但被问到”JVM 内存里堆和栈有什么区别”时，很多人依然只能说出”堆存对象，栈存变量”。面试被追问方法区、程序计数器、对象创建流程时，更是容易卡壳。 JVM 运行时内存区域是 Java 工程师的基本功，它不仅是面试高频考点，更是我们排查内存溢出、理解 GC 机制、进行性能调优的底层基石。今天我们就系统梳理一遍 JVM 运行时数据区，把堆、栈、方法区、程序计数器讲透，再完整走一遍对象从加载到创建的全过程。  一、JVM 运行时数据区总览Java 虚拟机在执行 Java 程序的过程中，会把它管理的内存划分为若干个不同的数据区域。这些区域各有用途、创建销毁时间各不相同：有的随着虚拟机进程启动而存在，有的则依赖用户线程的启动和结束而建立和销毁。 按照线程共享和线程私有两大维度，可以划分为以下区域：  线程私有：随线程生而生，随线程灭而灭 程序计数器 Java 虚拟机栈 本地方法栈   线程共享：所有线程共享，随虚拟机启动而创建 Java 堆 方法区（JDK 8 后演变为元空间） 运行时常量池（方法区的一部分）    ...</div></div></div><div class="recent-post-item"><div class="post_cover right"><a href="/2025/07/20/class-loading-mechanism/" title="类加载机制：为什么你的代码会报 ClassNotFoundException"><img class="post-bg" src="/img/java-series-03-classloading.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="类加载机制：为什么你的代码会报 ClassNotFoundException"></a></div><div class="recent-post-info"><a class="article-title" href="/2025/07/20/class-loading-mechanism/" title="类加载机制：为什么你的代码会报 ClassNotFoundException">类加载机制：为什么你的代码会报 ClassNotFoundException</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2025-07-20T06:00:00.000Z" title="发表于 2025-07-20 14:00:00">2025-07-20</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/Java-%E6%B7%B1%E5%BA%A6/">Java 深度</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%90%8E%E7%AB%AF/">后端</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Java/">Java</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/JVM/">JVM</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E7%B1%BB%E5%8A%A0%E8%BD%BD/">类加载</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/ClassLoader/">ClassLoader</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/ClassNotFoundException/">ClassNotFoundException</a></span></div><div class="content">前言刚改完的代码本地跑得好好的，一上测试环境就抛出 java.lang.ClassNotFoundException；Maven 依赖明明已经引入，打包也没报错，翻遍 lib 目录也能找到对应 jar 包，可 JVM 就是说找不到类。 很多人遇到这类问题，第一反应都是”缺包了””依赖没打进去”。这当然是最常见原因，但并不是全部。真实线上场景里，类明明存在却依然加载失败，往往和类加载器隔离、双亲委派模型、线程上下文类加载器、容器自定义加载规则有关。 类加载是 Java 最核心的基础机制之一，也是面试高频考点，更是我们排查依赖冲突、容器隔离、插件化、热部署问题的底层依据。本文就从 ClassNotFoundException 切入，把类加载流程、双亲委派模型、自定义类加载器，以及打破双亲委派的典型场景一次讲透。  一、前置认知：一个类从源码到执行要走几步Java 源码会先被编译成 .class 字节码文件。JVM 运行时不会直接执行 .java 文件，而是通过类加载机制把描述类的数据从 Class 文件、jar 包、网络或其他来源加载到内存中，再完成校验、转换、解析和初始化，最终形成...</div></div></div></div><nav id="pagination"><div class="pagination"><a class="extend prev" rel="prev" href="/page/3/#content-inner"><i class="fas fa-chevron-left fa-fw"></i></a><a class="page-number" href="/">1</a><span class="space">&hellip;</span><a class="page-number" href="/page/3/#content-inner">3</a><span class="page-number current">4</span><a class="page-number" href="/page/5/#content-inner">5</a><a class="extend next" rel="next" href="/page/5/#content-inner"><i class="fas fa-chevron-right fa-fw"></i></a></div></nav></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">qjngbac</div><div class="author-info-description">一个正在学习的开发者</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">42</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">139</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/qjngbac"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/qjngbac" target="_blank" title="Github"><i class="fab fa-github"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到我的博客</div></div><div class="sticky_layout"><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"><img src="/../img/ai-10-ollama.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"/></a><div class="content"><a class="title" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成">Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成</a><time datetime="2026-07-22T02:00:00.000Z" title="发表于 2026-07-22 10:00:00">2026-07-22</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"><img src="/../img/ai-09-spring-ai.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"/></a><div class="content"><a class="title" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling">Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling</a><time datetime="2026-07-17T02:00:00.000Z" title="发表于 2026-07-17 10:00:00">2026-07-17</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"><img src="/../img/ai-08-vector-database.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"/></a><div class="content"><a class="title" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比">向量数据库选型实战：Chroma、Milvus 与 pgvector 对比</a><time datetime="2026-07-13T02:00:00.000Z" title="发表于 2026-07-13 10:00:00">2026-07-13</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度"><img src="/../img/ai-07-rag-evaluation.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 评估实战：Recall@K、MRR 与回答忠实度"/></a><div class="content"><a class="title" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度">RAG 评估实战：Recall@K、MRR 与回答忠实度</a><time datetime="2026-07-12T02:00:00.000Z" title="发表于 2026-07-12 10:00:00">2026-07-12</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"><img src="/../img/ai-06-rag-retrieval.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"/></a><div class="content"><a class="title" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker">RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker</a><time datetime="2026-07-09T02:00:00.000Z" title="发表于 2026-07-09 10:00:00">2026-07-09</time></div></div></div></div><div class="card-widget card-categories"><div class="item-headline">
+            <i class="fas fa-folder-open"></i>
+            <span>分类</span>
+            
+          </div>
+          <ul class="card-category-list" id="aside-cat-list">
+            <li class="card-category-list-item "><a class="card-category-list-link" href="/categories/AI%E5%B7%A5%E7%A8%8B/"><span class="card-category-list-name">AI工程</span><span class="card-category-list-count">10</span></a></li><li class="card-category-list-item "><a class="card-category-list-link" href="/categories/Java-%E6%B7%B1%E5%BA%A6/"><span class="card-category-list-name">Java 深度</span><span class="card-category-list-count">15</span></a></li><li class="card-category-list-item "><a class="card-category-list-link" href="/categories/%E5%90%8E%E7%AB%AF%E5%9F%BA%E7%A1%80/"><span class="card-category-list-name">后端基础</span><span class="card-category-list-count">1</span></a></li><li class="card-category-list-item "><a class="card-category-list-link" href="/categories/%E5%90%8E%E7%AB%AF%E5%B7%A5%E7%A8%8B/"><span class="card-category-list-name">后端工程</span><span class="card-category-list-count">14</span></a></li><li class="card-category-list-item "><a class="card-category-list-link" href="/categories/%E6%8A%80%E6%9C%AF%E7%A7%91%E6%99%AE/"><span class="card-category-list-name">技术科普</span><span class="card-category-list-count">2</span></a></li>
+          </ul></div><div class="card-widget card-tags"><div class="item-headline"><i class="fas fa-tags"></i><span>标签</span></div><div class="card-tag-cloud"><a href="/tags/%E5%A4%A7%E6%A8%A1%E5%9E%8B/" style="font-size: 1.24em; color: rgb(106, 50, 50);">大模型</a><a href="/tags/OpenAI-API/" style="font-size: 1.15em; color: rgb(50, 200, 83);">OpenAI API</a><a href="/tags/SSE/" style="font-size: 1.15em; color: rgb(83, 50, 112);">SSE</a><a href="/tags/%E6%B5%81%E5%BC%8F%E8%BE%93%E5%87%BA/" style="font-size: 1.15em; color: rgb(111, 56, 180);">流式输出</a><a href="/tags/%E5%90%8E%E7%AB%AF/" style="font-size: 1.41em; color: rgb(50, 72, 185);">后端</a><a href="/tags/AI%E5%B7%A5%E7%A8%8B/" style="font-size: 1.32em; color: rgb(193, 52, 50);">AI工程</a><a href="/tags/%E9%9D%A2%E8%AF%95/" style="font-size: 1.45em; color: rgb(120, 50, 169);">面试</a><a href="/tags/Function-Calling/" style="font-size: 1.15em; color: rgb(174, 83, 180);">Function Calling</a><a href="/tags/Tool-Calling/" style="font-size: 1.19em; color: rgb(50, 50, 70);">Tool Calling</a><a href="/tags/Java/" style="font-size: 1.36em; color: rgb(50, 144, 50);">Java</a><a href="/tags/Spring-Boot/" style="font-size: 1.28em; color: rgb(135, 50, 79);">Spring Boot</a><a href="/tags/AI-Agent/" style="font-size: 1.15em; color: rgb(103, 50, 74);">AI Agent</a><a href="/tags/LangChain/" style="font-size: 1.19em; color: rgb(67, 97, 88);">LangChain</a><a href="/tags/LangGraph/" style="font-size: 1.15em; color: rgb(50, 183, 88);">LangGraph</a><a href="/tags/ReAct/" style="font-size: 1.15em; color: rgb(95, 50, 187);">ReAct</a><a href="/tags/%E7%8A%B6%E6%80%81%E6%9C%BA/" style="font-size: 1.15em; color: rgb(88, 50, 92);">状态机</a><a href="/tags/%E5%B7%A5%E5%85%B7%E8%B0%83%E7%94%A8/" style="font-size: 1.15em; color: rgb(66, 147, 130);">工具调用</a><a href="/tags/Prompt%E5%B7%A5%E7%A8%8B/" style="font-size: 1.15em; color: rgb(50, 135, 50);">Prompt工程</a><a href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B/" style="font-size: 1.15em; color: rgb(78, 156, 50);">上下文工程</a><a href="/tags/Structured-Outputs/" style="font-size: 1.15em; color: rgb(59, 191, 170);">Structured Outputs</a><a href="/tags/Prompt-Injection/" style="font-size: 1.15em; color: rgb(116, 93, 92);">Prompt Injection</a><a href="/tags/RAG/" style="font-size: 1.28em; color: rgb(133, 145, 106);">RAG</a><a href="/tags/Chroma/" style="font-size: 1.19em; color: rgb(182, 82, 95);">Chroma</a><a href="/tags/Embedding/" style="font-size: 1.15em; color: rgb(56, 100, 62);">Embedding</a><a href="/tags/%E6%96%87%E6%A1%A3%E5%88%87%E5%88%86/" style="font-size: 1.15em; color: rgb(50, 50, 50);">文档切分</a><a href="/tags/%E7%9F%A5%E8%AF%86%E5%BA%93/" style="font-size: 1.15em; color: rgb(50, 54, 70);">知识库</a><a href="/tags/%E6%B7%B7%E5%90%88%E6%A3%80%E7%B4%A2/" style="font-size: 1.15em; color: rgb(50, 64, 61);">混合检索</a><a href="/tags/BM25/" style="font-size: 1.15em; color: rgb(54, 160, 50);">BM25</a><a href="/tags/RRF/" style="font-size: 1.15em; color: rgb(105, 67, 50);">RRF</a><a href="/tags/Reranker/" style="font-size: 1.15em; color: rgb(101, 125, 50);">Reranker</a><a href="/tags/Query-Rewrite/" style="font-size: 1.15em; color: rgb(82, 199, 50);">Query Rewrite</a><a href="/tags/%E5%90%91%E9%87%8F%E6%95%B0%E6%8D%AE%E5%BA%93/" style="font-size: 1.15em; color: rgb(177, 116, 50);">向量数据库</a><a href="/tags/Milvus/" style="font-size: 1.15em; color: rgb(181, 92, 50);">Milvus</a><a href="/tags/pgvector/" style="font-size: 1.15em; color: rgb(193, 156, 167);">pgvector</a><a href="/tags/HNSW/" style="font-size: 1.15em; color: rgb(125, 50, 153);">HNSW</a><a href="/tags/Spring-AI/" style="font-size: 1.15em; color: rgb(51, 137, 53);">Spring AI</a><a href="/tags/ChatClient/" style="font-size: 1.15em; color: rgb(196, 112, 135);">ChatClient</a><a href="/tags/Ollama/" style="font-size: 1.15em; color: rgb(165, 185, 167);">Ollama</a><a href="/tags/%E6%9C%AC%E5%9C%B0%E5%A4%A7%E6%A8%A1%E5%9E%8B/" style="font-size: 1.15em; color: rgb(50, 50, 166);">本地大模型</a><a href="/tags/LLM/" style="font-size: 1.15em; color: rgb(50, 50, 165);">LLM</a></div></div><div class="card-widget card-archives">
+    <div class="item-headline">
+      <i class="fas fa-archive"></i>
+      <span>归档</span>
+      <a class="card-more-btn" href="/archives/"
+            title="查看更多">
+            <i class="fas fa-angle-right"></i>
+          </a>
+    </div>
+  
+    <ul class="card-archive-list">
+      
+        <li class="card-archive-list-item">
+          <a class="card-archive-list-link" href="/archives/2026/07/">
+            <span class="card-archive-list-date">
+              七月 2026
+            </span>
+            <span class="card-archive-list-count">9</span>
+          </a>
+        </li>
+      
+        <li class="card-archive-list-item">
+          <a class="card-archive-list-link" href="/archives/2026/06/">
+            <span class="card-archive-list-date">
+              六月 2026
+            </span>
+            <span class="card-archive-list-count">6</span>
+          </a>
+        </li>
+      
+        <li class="card-archive-list-item">
+          <a class="card-archive-list-link" href="/archives/2026/05/">
+            <span class="card-archive-list-date">
+              五月 2026
+            </span>
+            <span class="card-archive-list-count">1</span>
+          </a>
+        </li>
+      
+        <li class="card-archive-list-item">
+          <a class="card-archive-list-link" href="/archives/2026/04/">
+            <span class="card-archive-list-date">
+              四月 2026
+            </span>
+            <span class="card-archive-list-count">3</span>
+          </a>
+        </li>
+      
+        <li class="card-archive-list-item">
+          <a class="card-archive-list-link" href="/archives/2026/03/">
+            <span class="card-archive-list-date">
+              三月 2026
+            </span>
+            <span class="card-archive-list-count">2</span>
+          </a>
+        </li>
+      
+        <li class="card-archive-list-item">
+          <a class="card-archive-list-link" href="/archives/2026/01/">
+            <span class="card-archive-list-date">
+              一月 2026
+            </span>
+            <span class="card-archive-list-count">2</span>
+          </a>
+        </li>
+      
+        <li class="card-archive-list-item">
+          <a class="card-archive-list-link" href="/archives/2025/12/">
+            <span class="card-archive-list-date">
+              十二月 2025
+            </span>
+            <span class="card-archive-list-count">3</span>
+          </a>
+        </li>
+      
+        <li class="card-archive-list-item">
+          <a class="card-archive-list-link" href="/archives/2025/11/">
+            <span class="card-archive-list-date">
+              十一月 2025
+            </span>
+            <span class="card-archive-list-count">4</span>
+          </a>
+        </li>
+      
+    </ul>
+  </div><div class="card-widget card-webinfo"><div class="item-headline"><i class="fas fa-chart-line"></i><span>网站信息</span></div><div class="webinfo"><div class="webinfo-item"><div class="item-name">文章数目 :</div><div class="item-count">42</div></div><div class="webinfo-item"><div class="item-name">本站访客数 :</div><div class="item-count" id="busuanzi_value_site_uv"><i class="fa-solid fa-spinner fa-spin"></i></div></div><div class="webinfo-item"><div class="item-name">本站总浏览量 :</div><div class="item-count" id="busuanzi_value_site_pv"><i class="fa-solid fa-spinner fa-spin"></i></div></div><div class="webinfo-item"><div class="item-name">最后更新时间 :</div><div class="item-count" id="last-push-date" data-lastPushDate="2026-07-22T13:17:58.557Z"><i class="fa-solid fa-spinner fa-spin"></i></div></div></div></div></div></div></main><footer id="footer"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2024 - 2026 By qjngbac</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 7.3.0</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.5.5</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.5.5"></script><script src="/js/main.js?v=5.5.5"></script><div class="js-pjax"></div><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

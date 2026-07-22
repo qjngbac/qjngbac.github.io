@@ -1,0 +1,264 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>Wait - 记录学习与成长</title><meta name="author" content="qjngbac"><meta name="copyright" content="qjngbac"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta property="og:type" content="website">
+<meta property="og:title" content="Wait">
+<meta property="og:url" content="https://qjngbac.github.io/page/3/index.html">
+<meta property="og:site_name" content="Wait">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://qjngbac.github.io/img/butterfly-icon.png">
+<meta property="article:author" content="qjngbac">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://qjngbac.github.io/img/butterfly-icon.png"><script type="application/ld+json"></script><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://qjngbac.github.io/page/3/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.5.5"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        if (!ttl) return
+        const expiry = Date.now() + ttl * 86400000
+        localStorage.setItem(key, JSON.stringify({ value, expiry }))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return undefined
+        const { value, expiry } = JSON.parse(itemStr)
+        if (Date.now() > expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return value
+      }
+    }
+
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+        script.onload = script.onreadystatechange = () => {
+          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      }),
+      getCSS: (url, id) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onload = link.onreadystatechange = () => {
+          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+        }
+        link.onerror = reject
+        document.head.appendChild(link)
+      }),
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: true
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'Wait',
+  isHighlightShrink: false,
+  isToc: false,
+  pageType: 'home'
+}</script><meta name="generator" content="Hexo 7.3.0"></head><body><div id="loading-box"><div class="loading-left-bg"></div><div class="loading-right-bg"></div><div class="spinner-box"><div class="configure-border-1"><div class="configure-core"></div></div><div class="configure-border-2"><div class="configure-core"></div></div><div class="loading-word">加载中...</div></div></div><script>(()=>{
+  const $loadingBox = document.getElementById('loading-box')
+  const $body = document.body
+  const preloader = {
+    endLoading: () => {
+      if ($loadingBox.classList.contains('loaded')) return
+      $body.style.overflow = ''
+      $loadingBox.classList.add('loaded')
+    },
+    initLoading: () => {
+      $body.style.overflow = 'hidden'
+      $loadingBox.classList.remove('loaded')
+    }
+  }
+
+  preloader.initLoading()
+
+  if (document.readyState === 'complete') {
+    preloader.endLoading()
+  } else {
+    window.addEventListener('load', preloader.endLoading)
+    document.addEventListener('DOMContentLoaded', preloader.endLoading)
+    // Add timeout protection: force end after 7 seconds
+    setTimeout(preloader.endLoading, 7000)
+  }
+
+  if (false) {
+    btf.addGlobalFn('pjaxSend', preloader.initLoading, 'preloader_init')
+    btf.addGlobalFn('pjaxComplete', preloader.endLoading, 'preloader_end')
+  }
+})()</script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">42</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">139</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div></div></div><div class="page" id="body-wrap"><header class="full_page" id="page-header" style="background-image: url(https://images.unsplash.com/photo-1519681393784-d120267933ba?w=1920&amp;q=80);"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">Wait</span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="site-info"><h1 id="site-title">Wait</h1><div id="site_social_icons"><a class="social-icon" href="https://github.com/qjngbac" target="_blank" title="Github"><i class="fab fa-github"></i></a></div></div><div id="scroll-down"><i class="fas fa-angle-down scroll-down-effects"></i></div></header><main class="layout" id="content-inner"><div class="recent-posts nc" id="recent-posts"><div class="recent-post-items"><div class="recent-post-item"><div class="post_cover left"><a href="/2026/03/14/distributed-lock-guide/" title="Redis 分布式锁：从 Redisson 到 RedLock"><img class="post-bg" src="/../img/backend-06-distributed-lock.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Redis 分布式锁：从 Redisson 到 RedLock"></a></div><div class="recent-post-info"><a class="article-title" href="/2026/03/14/distributed-lock-guide/" title="Redis 分布式锁：从 Redisson 到 RedLock">Redis 分布式锁：从 Redisson 到 RedLock</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2026-03-14T08:00:00.000Z" title="发表于 2026-03-14 16:00:00">2026-03-14</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/%E5%90%8E%E7%AB%AF%E5%B7%A5%E7%A8%8B/">后端工程</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%90%8E%E7%AB%AF/">后端</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Redis/">Redis</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E9%94%81/">分布式锁</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Redisson/">Redisson</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/RedLock/">RedLock</a></span></div><div class="content">前言在分布式系统中，多个服务实例共同操作同一个共享资源时，本地锁已经完全失效。比如库存扣减、订单幂等、定时任务防重执行，这些场景都需要一把全局的「锁」来保证互斥性，这就是分布式锁。 实现分布式锁的方案有很多：数据库、ZooKeeper、Redis 都可以做。其中 Redis 凭借高性能、低延迟、实现简单的特点，成为绝大多数业务场景的首选。但很多人对 Redis 分布式锁的认知停留在「SETNX 加锁、DEL 解锁」的初级版本，既说不清楚 Redisson 的看门狗机制，也讲不明白 RedLock 要解决什么问题。 本文就从最基础的手写锁开始，一步步演进到工业级的 Redisson 实现，再到多集群下的 RedLock 算法，最后对比 Redis 与 ZooKeeper 两种分布式锁的选型差异，把分布式锁的底层逻辑一次性讲透。  一、为什么需要分布式锁？在单体应用中，我们用 synchronized、ReentrantLock 就能解决线程安全问题。但当服务部署了多个实例，多个 JVM 进程各自独立，本地锁就完全失效了——A 实例加的锁，B 实例根本感知不到，并发操作共享资源时依然...</div></div></div><div class="recent-post-item"><div class="post_cover right"><a href="/2026/01/25/distributed-id-guide/" title="分布式 ID 生成：Snowflake 方案的取舍"><img class="post-bg" src="/../img/backend-12-distributed-id.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="分布式 ID 生成：Snowflake 方案的取舍"></a></div><div class="recent-post-info"><a class="article-title" href="/2026/01/25/distributed-id-guide/" title="分布式 ID 生成：Snowflake 方案的取舍">分布式 ID 生成：Snowflake 方案的取舍</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2026-01-25T08:00:00.000Z" title="发表于 2026-01-25 16:00:00">2026-01-25</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/%E5%90%8E%E7%AB%AF%E5%B7%A5%E7%A8%8B/">后端工程</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%90%8E%E7%AB%AF/">后端</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F/">分布式</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Snowflake/">Snowflake</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8FID/">分布式ID</a></span></div><div class="content">前言微服务与分库分表架构下，单库的自增主键已经无法满足需求：跨服务、跨库的业务需要全局唯一的 ID 来标识订单、流水、用户等数据。一个看似简单的「生成唯一编号」需求，背后却藏着不少工程化的权衡：全局唯一、趋势递增、高性能、高可用、信息安全，每个要求都在考验方案设计。 业界实现分布式 ID 的方案有很多：UUID、数据库自增、Redis 自增、雪花算法等等。其中 Snowflake 雪花算法凭借「本地生成、高性能、趋势递增」的特点，成为互联网公司的主流选择，但它也不是完美的——时钟回拨问题始终是绕不开的痛点。 本文就从主流方案对比出发，深入拆解 Snowflake 的原理与痛点，再延伸到美团 Leaf 这类工业级方案的优化思路，讲清楚每一种方案的取舍边界。  一、主流方案横向对比：四种实现的优劣在讲雪花算法之前，我们先把四类最常见的分布式 ID 方案放在一起对比，看看各自的适用场景和短板。 1.1 UUID：最简单，但要谨慎用作数据库主键UUID 是很多人第一个想到的方案，Java 自带 UUID.randomUUID() 就能生成，完全本地计算，无任何外部依赖。  优点：实现成本...</div></div></div><div class="recent-post-item"><div class="post_cover left"><a href="/2026/01/19/cap-base-guide/" title="CAP 与 BASE 理论：分布式系统的基石"><img class="post-bg" src="/../img/backend-10-cap-base.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="CAP 与 BASE 理论：分布式系统的基石"></a></div><div class="recent-post-info"><a class="article-title" href="/2026/01/19/cap-base-guide/" title="CAP 与 BASE 理论：分布式系统的基石">CAP 与 BASE 理论：分布式系统的基石</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2026-01-19T06:00:00.000Z" title="发表于 2026-01-19 14:00:00">2026-01-19</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/%E5%90%8E%E7%AB%AF%E5%B7%A5%E7%A8%8B/">后端工程</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%90%8E%E7%AB%AF/">后端</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F/">分布式</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/CAP/">CAP</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/BASE/">BASE</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E4%B8%80%E8%87%B4%E6%80%A7/">一致性</a></span></div><div class="content">前言做分布式系统开发，绕不开 CAP 和 BASE 这两大基础理论。很多人面试时能背出「三选二」，但真到做技术选型时，却搞不清什么时候该追求强一致、什么时候该接受最终一致，也说不清楚 BASE 理论到底指导了哪些工程实践。 实际上，CAP 不是刻板的选择题，而是告诉我们一个客观事实：分布式系统必须为网络分区做好准备，分区发生时需要在一致性和可用性之间权衡。而 BASE 则提供了一种常见的工程思路：在业务允许的范围内接受暂时不一致，通过补偿和收敛换取更高的可用性与可扩展性。 今天我们就从底层逻辑到工程实践，彻底讲透 CAP 三要素的取舍、BASE 三大核心，以及最终一致性的常见落地方案。  一、CAP 定理：分布式系统的「不可能三角」CAP 猜想由计算机科学家 Eric Brewer 于 2000 年提出，2002 年由 Seth Gilbert 和 Nancy Lynch 在异步网络模型下形式化证明。更准确的结论是：当网络分区发生时，分布式系统无法同时提供线性一致性和对所有非故障节点请求的可用响应。 1.1 三要素分别是什么我们先把每个概念的真实含义讲透，避免只背定义。 一致性（...</div></div></div><div class="recent-post-item"><div class="post_cover right"><a href="/2025/12/27/cache-penetration-guide/" title="缓存穿透/击穿/雪崩：一次缓存故障的排查与解决"><img class="post-bg" src="/../img/backend-05-cache-avalanche.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="缓存穿透/击穿/雪崩：一次缓存故障的排查与解决"></a></div><div class="recent-post-info"><a class="article-title" href="/2025/12/27/cache-penetration-guide/" title="缓存穿透/击穿/雪崩：一次缓存故障的排查与解决">缓存穿透/击穿/雪崩：一次缓存故障的排查与解决</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2025-12-27T07:00:00.000Z" title="发表于 2025-12-27 15:00:00">2025-12-27</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/%E5%90%8E%E7%AB%AF%E5%B7%A5%E7%A8%8B/">后端工程</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%90%8E%E7%AB%AF/">后端</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Redis/">Redis</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E7%BC%93%E5%AD%98/">缓存</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%B8%83%E9%9A%86%E8%BF%87%E6%BB%A4%E5%99%A8/">布隆过滤器</a></span></div><div class="content">前言大促预热活动上线当晚，运维告警群突然炸锅：商品详情接口大面积超时，数据库 CPU 飙升至 98%，连接池被打满，大量请求直接报错。第一反应是流量突增，但拉监控一看，Redis 的 QPS 并不高，缓存命中率跌到了 30% 以下——很明显，缓存层出问题了。 很多人做缓存设计时，只想着「把数据放进 Redis 就能提速」，却忽略了缓存失效带来的反向冲击。缓存穿透、击穿、雪崩是三种最经典的缓存故障，很多人经常把三者混为一谈，但它们的触发原因、影响范围、解决方案完全不同。 本文就以这次真实的线上故障为例，先理清三者的本质区别，再从紧急止血到根治优化，完整讲解布隆过滤器、互斥锁、热点 key 治理等核心方案，最后给出一套可复用的缓存稳定性设计原则。  一、先分清：三者根本不是一回事很多人面试时背得滚瓜烂熟，真遇到故障却分不清是哪一种。我们先用一张表把核心差异说清楚：    问题类型 核心原因 典型特征 影响范围    缓存穿透 请求的 key 在缓存和数据库中都不存在 缓存命中率极低，大量请求直接打数据库 全量无效请求都打库   缓存击穿 单个热点 key 突然过期失效，大量并发同时打...</div></div></div><div class="recent-post-item"><div class="post_cover left"><a href="/2025/12/14/redis-datatype-guide/" title="Redis 数据结构与应用场景：远不止缓存"><img class="post-bg" src="/img/backend-04-redis-struct.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Redis 数据结构与应用场景：远不止缓存"></a></div><div class="recent-post-info"><a class="article-title" href="/2025/12/14/redis-datatype-guide/" title="Redis 数据结构与应用场景：远不止缓存">Redis 数据结构与应用场景：远不止缓存</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2025-12-14T06:00:00.000Z" title="发表于 2025-12-14 14:00:00">2025-12-14</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/%E5%90%8E%E7%AB%AF%E5%B7%A5%E7%A8%8B/">后端工程</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%90%8E%E7%AB%AF/">后端</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84/">数据结构</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Redis/">Redis</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E7%BC%93%E5%AD%98/">缓存</a></span></div><div class="content">前言提到 Redis，大多数人的第一反应是「缓存」：把热点数据放进去，减轻数据库压力。但如果你只把 Redis 当一个键值对缓存用，那就太浪费它的能力了。 Redis 真正的核心优势，在于它提供了一整套成熟的内置数据结构，从简单的字符串到有序集合，每一种都对应着一类典型的业务问题。不用自己手写链表、去重集合、排行榜，一行命令就能解决复杂的业务逻辑，这才是 Redis 不可替代的价值。 今天我们就拆解最常用的五大核心数据结构：String、Hash、List、Set、ZSet，讲透每一种的底层实现、核心特性与典型业务场景，看完就能直接对应到自己的项目里。  一、总览：两层结构设计Redis 的数据结构分为两层：  逻辑结构：我们日常开发直接使用的 API 层，也就是 String、Hash、List、Set、ZSet 五种核心类型 底层编码：每种逻辑结构对应多种底层实现，Redis 会根据元素数量、数据大小自动切换，在空间占用和执行性能之间做最优平衡  理解了底层编码，才能真正看懂不同场景下的性能差异，避免「小数据量很快、数据上来就变慢」的认知偏差。      二、逐个拆解：底层实...</div></div></div><div class="recent-post-item"><div class="post_cover right"><a href="/2025/12/07/sharding-guide/" title="分库分表实战：百万级表的水平拆分策略"><img class="post-bg" src="/img/backend-03-sharding.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="分库分表实战：百万级表的水平拆分策略"></a></div><div class="recent-post-info"><a class="article-title" href="/2025/12/07/sharding-guide/" title="分库分表实战：百万级表的水平拆分策略">分库分表实战：百万级表的水平拆分策略</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2025-12-07T08:00:00.000Z" title="发表于 2025-12-07 16:00:00">2025-12-07</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/%E5%90%8E%E7%AB%AF%E5%B7%A5%E7%A8%8B/">后端工程</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%90%8E%E7%AB%AF/">后端</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/MySQL/">MySQL</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E6%95%B0%E6%8D%AE%E5%BA%93/">数据库</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%88%86%E5%BA%93%E5%88%86%E8%A1%A8/">分库分表</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/ShardingSphere/">ShardingSphere</a></span></div><div class="content">前言业务初期，单库单表简单高效。但随着业务增长，当订单表数据量突破千万、单表体积超过 20G 时，问题会集中爆发：查询越来越慢、索引体积膨胀、数据库连接数打满、单机存储逼近上限。加索引、优化 SQL 的收益越来越小，这时候分库分表就成了必然选择。 分库分表不是简单地把一张表拆成多张表，它涉及拆分策略选型、分片键设计、平滑扩容、分布式事务等一系列问题。选对了方案，系统容量和吞吐会明显提升；选错了分片键，后续会陷入跨库查询、数据倾斜的无尽泥潭。 本文就以最经典的订单表拆分为例，从拆分策略、分片键选型、ShardingSphere 落地到平滑扩容，完整讲透水平分库分表的实战全流程。  一、为什么需要分库分表？单库单表的四道天花板：    瓶颈 说明    性能瓶颈 热点数据与大范围扫描增加，Buffer Pool 命中、IO 与写入竞争逐渐恶化   存储瓶颈 磁盘空间逼近单机上限，大表 DDL 无法在线执行   连接瓶颈 单机连接数有限，业务量大时连接打满   并发瓶颈 单机 CPU、IO 有上限，无法横向扩展   什么时候该考虑分库分表？   观察信号 判断方式    容量增长 单机...</div></div></div><div class="recent-post-item"><div class="post_cover left"><a href="/2025/11/22/mysql-mvcc-guide/" title="MySQL 事务与锁：MVCC 是怎么实现的"><img class="post-bg" src="/img/backend-02-mysql-mvcc.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="MySQL 事务与锁：MVCC 是怎么实现的"></a></div><div class="recent-post-info"><a class="article-title" href="/2025/11/22/mysql-mvcc-guide/" title="MySQL 事务与锁：MVCC 是怎么实现的">MySQL 事务与锁：MVCC 是怎么实现的</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2025-11-22T07:00:00.000Z" title="发表于 2025-11-22 15:00:00">2025-11-22</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/%E5%90%8E%E7%AB%AF%E5%B7%A5%E7%A8%8B/">后端工程</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%90%8E%E7%AB%AF/">后端</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/MySQL/">MySQL</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E6%95%B0%E6%8D%AE%E5%BA%93/">数据库</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E4%BA%8B%E5%8A%A1/">事务</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/MVCC/">MVCC</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%94%81/">锁</a></span></div><div class="content">前言在并发场景下操作数据库，我们总会遇到各种反直觉的数据问题：刚插入的数据查不到、同一个事务两次查询同一条数据结果不一样、范围更新时莫名多出不存在的行。这些问题的本质，都和事务隔离性与锁机制息息相关。 而 MVCC（多版本并发控制） 就是 InnoDB 解决读写冲突、提升并发性能的核心武器。它让读操作不用加锁、写操作不阻塞读，在保证隔离性的同时，大幅提升了数据库的并发能力。 很多人听过 MVCC 的名字，却搞不清它到底怎么实现的：undo log 起什么作用？Read View 是怎么判断可见性的？行锁、间隙锁、临键锁又和 MVCC 是什么关系？ 今天我们就从 ACID 四大特性讲起，逐层深入，把隔离级别、undo 版本链、Read View 可见性、三类行锁一次性讲透。  一、事务的基石：ACID 四大特性事务是一组原子性的 SQL 操作，要么全部执行成功，要么全部失败回滚。    特性 含义 底层实现    原子性（Atomicity） 要么全成功，要么全回滚 undo log   一致性（Consistency） 事务前后满足业务规则与数据库约束 数据库约束、应用规则以及 ...</div></div></div><div class="recent-post-item"><div class="post_cover right"><a href="/2025/11/19/sql-optimization-guide/" title="SQL 优化实战：一条 SQL 从 5 秒到 50 毫秒"><img class="post-bg" src="/img/java-series-15-sql-optimization.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="SQL 优化实战：一条 SQL 从 5 秒到 50 毫秒"></a></div><div class="recent-post-info"><a class="article-title" href="/2025/11/19/sql-optimization-guide/" title="SQL 优化实战：一条 SQL 从 5 秒到 50 毫秒">SQL 优化实战：一条 SQL 从 5 秒到 50 毫秒</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2025-11-19T08:00:00.000Z" title="发表于 2025-11-19 16:00:00">2025-11-19</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/Java-%E6%B7%B1%E5%BA%A6/">Java 深度</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Java/">Java</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/MySQL/">MySQL</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E7%B4%A2%E5%BC%95/">索引</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/SQL%E4%BC%98%E5%8C%96/">SQL优化</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%88%86%E9%A1%B5/">分页</a></span></div><div class="content">前言后台管理系统的订单列表页，一直是慢查询的重灾区。初期数据量小的时候一切正常，随着订单量积累到百万级，翻到后面几十页时，页面加载要转圈好几秒，接口直接超时。查日志发现核心查询 SQL 单条耗时达到 5 秒，已经严重影响运营使用。 SQL 优化不是靠瞎蒙索引，而是一套标准化的排查流程：先定位慢 SQL，再用 EXPLAIN 拆解执行计划，判断索引是否生效、扫描了多少行、有没有额外排序。找到瓶颈后针对性优化，往往能带来数量级的性能提升。 本文就以这条订单列表查询 SQL 为例，从 5 秒优化到 50 毫秒，完整覆盖 EXPLAIN 执行计划分析、索引失效场景、深分页优化 三大核心内容。  一、问题现场：慢 SQL 长什么样1.1 业务场景运营后台的订单列表，支持按创建时间、订单状态、用户 ID 筛选，按创建时间倒序排列，支持分页翻页。数据量约 120 万条。 原始 SQL： 123456SELECT id, order_no, user_id, status, amount, create_timeFROM t_orderWHERE status = 2   AND create_...</div></div></div><div class="recent-post-item"><div class="post_cover left"><a href="/2025/11/12/mysql-index-guide/" title="MySQL 索引原理：B+ 树为什么这么快"><img class="post-bg" src="/img/backend-01-mysql-index.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="MySQL 索引原理：B+ 树为什么这么快"></a></div><div class="recent-post-info"><a class="article-title" href="/2025/11/12/mysql-index-guide/" title="MySQL 索引原理：B+ 树为什么这么快">MySQL 索引原理：B+ 树为什么这么快</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2025-11-12T06:00:00.000Z" title="发表于 2025-11-12 14:00:00">2025-11-12</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/%E5%90%8E%E7%AB%AF%E5%B7%A5%E7%A8%8B/">后端工程</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%90%8E%E7%AB%AF/">后端</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/MySQL/">MySQL</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E7%B4%A2%E5%BC%95/">索引</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/B-%E6%A0%91/">B+树</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E6%95%B0%E6%8D%AE%E5%BA%93/">数据库</a></span></div><div class="content">前言做后端开发，几乎每天都在和索引打交道：慢查询加个索引，性能立刻提升好几倍。可很多人只知道「索引能提速」，却说不清背后的原理：  为什么数据库选 B+ 树做索引，而不用二叉树、哈希表？ 聚簇索引和非聚簇索引到底差在哪？什么是回表？ 联合索引为什么要遵循最左前缀原则？ 索引下推到底「推」了什么，为什么能提速？  索引从来不是什么玄学，它的所有特性、所有优化规则，都根植于底层的数据结构设计。看懂了 B+ 树，你就能理解所有索引规则的来龙去脉，写 SQL、建索引时就能预判性能，而不是靠瞎试。 今天我们从数据结构的底层逻辑出发，把 B+ 树结构、聚簇&#x2F;非聚簇索引、联合索引最左前缀、索引下推一次性讲透。  一、索引的本质：用排序换查找效率1.1 没有索引的代价没有可用索引时，查询通常只能走全表扫描：读取并检查候选记录，代价随数据页数量增长。是否慢到不可接受还取决于表大小、缓存命中率、返回比例和存储性能。 百万级表上的频繁全表扫描往往会带来明显 IO 和 CPU 压力，但小表或需要返回大部分数据时，全表扫描也可能是优化器的合理选择。 1.2 索引的核心思想对本文讨论的 InnoD...</div></div></div><div class="recent-post-item"><div class="post_cover right"><a href="/2025/11/02/spring-cloud-microservice-guide/" title="Spring Cloud 微服务实战：从零搭建一套微服务架构"><img class="post-bg" src="/img/java-series-09-spring-cloud.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Spring Cloud 微服务实战：从零搭建一套微服务架构"></a></div><div class="recent-post-info"><a class="article-title" href="/2025/11/02/spring-cloud-microservice-guide/" title="Spring Cloud 微服务实战：从零搭建一套微服务架构">Spring Cloud 微服务实战：从零搭建一套微服务架构</a><div class="article-meta-wrap"><span class="post-meta-date"><i class="far fa-calendar-alt"></i><span class="article-meta-label">发表于</span><time datetime="2025-11-02T08:00:00.000Z" title="发表于 2025-11-02 16:00:00">2025-11-02</time></span><span class="article-meta"><span class="article-meta-separator">|</span><i class="fas fa-inbox"></i><a class="article-meta__categories" href="/categories/Java-%E6%B7%B1%E5%BA%A6/">Java 深度</a></span><span class="article-meta tags"><span class="article-meta-separator">|</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Java/">Java</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/">微服务</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Spring-Cloud/">Spring Cloud</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Nacos/">Nacos</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Gateway/">Gateway</a><span class="article-meta-link">•</span><i class="fas fa-tag"></i><a class="article-meta__tags" href="/tags/Sentinel/">Sentinel</a></span></div><div class="content">前言单体应用在业务初期开发高效、部署简单；随着业务与团队规模扩大，可能逐渐出现发布耦合、整体扩容成本和故障隔离困难等问题。微服务是一种可选的应对方式，但并非必然答案：边界清晰的模块化单体同样可能长期适用。 Spring Cloud Alibaba 为 Spring Cloud 应用提供 Nacos、Sentinel、Seata 等生态集成；Gateway 和 OpenFeign 则来自 Spring Cloud 自身。把这些组件组合起来，可以覆盖注册配置、网关路由、服务调用和流量治理，但身份认证、可观测性、部署、数据一致性等仍需单独设计。 本文就从零开始，一步步搭建一套可运行的微服务骨架，完整覆盖四大核心组件：Nacos 注册配置中心、Spring Cloud Gateway 网关、OpenFeign 声明式调用、Sentinel 流量治理，并附上实战配置与常见踩坑指南。  一、整体架构设计1.1 组件选型与分工   组件 角色 替代的传统方案 核心价值    Nacos 注册中心 + 配置中心 Eureka + Config 统一服务发现和配置管理   Spring Cloud...</div></div></div></div><nav id="pagination"><div class="pagination"><a class="extend prev" rel="prev" href="/page/2/#content-inner"><i class="fas fa-chevron-left fa-fw"></i></a><a class="page-number" href="/">1</a><a class="page-number" href="/page/2/#content-inner">2</a><span class="page-number current">3</span><a class="page-number" href="/page/4/#content-inner">4</a><a class="page-number" href="/page/5/#content-inner">5</a><a class="extend next" rel="next" href="/page/4/#content-inner"><i class="fas fa-chevron-right fa-fw"></i></a></div></nav></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">qjngbac</div><div class="author-info-description">一个正在学习的开发者</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">42</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">139</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/qjngbac"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/qjngbac" target="_blank" title="Github"><i class="fab fa-github"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到我的博客</div></div><div class="sticky_layout"><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"><img src="/../img/ai-10-ollama.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"/></a><div class="content"><a class="title" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成">Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成</a><time datetime="2026-07-22T02:00:00.000Z" title="发表于 2026-07-22 10:00:00">2026-07-22</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"><img src="/../img/ai-09-spring-ai.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"/></a><div class="content"><a class="title" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling">Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling</a><time datetime="2026-07-17T02:00:00.000Z" title="发表于 2026-07-17 10:00:00">2026-07-17</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"><img src="/../img/ai-08-vector-database.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"/></a><div class="content"><a class="title" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比">向量数据库选型实战：Chroma、Milvus 与 pgvector 对比</a><time datetime="2026-07-13T02:00:00.000Z" title="发表于 2026-07-13 10:00:00">2026-07-13</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度"><img src="/../img/ai-07-rag-evaluation.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 评估实战：Recall@K、MRR 与回答忠实度"/></a><div class="content"><a class="title" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度">RAG 评估实战：Recall@K、MRR 与回答忠实度</a><time datetime="2026-07-12T02:00:00.000Z" title="发表于 2026-07-12 10:00:00">2026-07-12</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"><img src="/../img/ai-06-rag-retrieval.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"/></a><div class="content"><a class="title" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker">RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker</a><time datetime="2026-07-09T02:00:00.000Z" title="发表于 2026-07-09 10:00:00">2026-07-09</time></div></div></div></div><div class="card-widget card-categories"><div class="item-headline">
+            <i class="fas fa-folder-open"></i>
+            <span>分类</span>
+            
+          </div>
+          <ul class="card-category-list" id="aside-cat-list">
+            <li class="card-category-list-item "><a class="card-category-list-link" href="/categories/AI%E5%B7%A5%E7%A8%8B/"><span class="card-category-list-name">AI工程</span><span class="card-category-list-count">10</span></a></li><li class="card-category-list-item "><a class="card-category-list-link" href="/categories/Java-%E6%B7%B1%E5%BA%A6/"><span class="card-category-list-name">Java 深度</span><span class="card-category-list-count">15</span></a></li><li class="card-category-list-item "><a class="card-category-list-link" href="/categories/%E5%90%8E%E7%AB%AF%E5%9F%BA%E7%A1%80/"><span class="card-category-list-name">后端基础</span><span class="card-category-list-count">1</span></a></li><li class="card-category-list-item "><a class="card-category-list-link" href="/categories/%E5%90%8E%E7%AB%AF%E5%B7%A5%E7%A8%8B/"><span class="card-category-list-name">后端工程</span><span class="card-category-list-count">14</span></a></li><li class="card-category-list-item "><a class="card-category-list-link" href="/categories/%E6%8A%80%E6%9C%AF%E7%A7%91%E6%99%AE/"><span class="card-category-list-name">技术科普</span><span class="card-category-list-count">2</span></a></li>
+          </ul></div><div class="card-widget card-tags"><div class="item-headline"><i class="fas fa-tags"></i><span>标签</span></div><div class="card-tag-cloud"><a href="/tags/%E5%A4%A7%E6%A8%A1%E5%9E%8B/" style="font-size: 1.24em; color: rgb(106, 50, 50);">大模型</a><a href="/tags/OpenAI-API/" style="font-size: 1.15em; color: rgb(50, 200, 83);">OpenAI API</a><a href="/tags/SSE/" style="font-size: 1.15em; color: rgb(83, 50, 112);">SSE</a><a href="/tags/%E6%B5%81%E5%BC%8F%E8%BE%93%E5%87%BA/" style="font-size: 1.15em; color: rgb(111, 56, 180);">流式输出</a><a href="/tags/%E5%90%8E%E7%AB%AF/" style="font-size: 1.41em; color: rgb(50, 72, 185);">后端</a><a href="/tags/AI%E5%B7%A5%E7%A8%8B/" style="font-size: 1.32em; color: rgb(193, 52, 50);">AI工程</a><a href="/tags/%E9%9D%A2%E8%AF%95/" style="font-size: 1.45em; color: rgb(120, 50, 169);">面试</a><a href="/tags/Function-Calling/" style="font-size: 1.15em; color: rgb(174, 83, 180);">Function Calling</a><a href="/tags/Tool-Calling/" style="font-size: 1.19em; color: rgb(50, 50, 70);">Tool Calling</a><a href="/tags/Java/" style="font-size: 1.36em; color: rgb(50, 144, 50);">Java</a><a href="/tags/Spring-Boot/" style="font-size: 1.28em; color: rgb(135, 50, 79);">Spring Boot</a><a href="/tags/AI-Agent/" style="font-size: 1.15em; color: rgb(103, 50, 74);">AI Agent</a><a href="/tags/LangChain/" style="font-size: 1.19em; color: rgb(67, 97, 88);">LangChain</a><a href="/tags/LangGraph/" style="font-size: 1.15em; color: rgb(50, 183, 88);">LangGraph</a><a href="/tags/ReAct/" style="font-size: 1.15em; color: rgb(95, 50, 187);">ReAct</a><a href="/tags/%E7%8A%B6%E6%80%81%E6%9C%BA/" style="font-size: 1.15em; color: rgb(88, 50, 92);">状态机</a><a href="/tags/%E5%B7%A5%E5%85%B7%E8%B0%83%E7%94%A8/" style="font-size: 1.15em; color: rgb(66, 147, 130);">工具调用</a><a href="/tags/Prompt%E5%B7%A5%E7%A8%8B/" style="font-size: 1.15em; color: rgb(50, 135, 50);">Prompt工程</a><a href="/tags/%E4%B8%8A%E4%B8%8B%E6%96%87%E5%B7%A5%E7%A8%8B/" style="font-size: 1.15em; color: rgb(78, 156, 50);">上下文工程</a><a href="/tags/Structured-Outputs/" style="font-size: 1.15em; color: rgb(59, 191, 170);">Structured Outputs</a><a href="/tags/Prompt-Injection/" style="font-size: 1.15em; color: rgb(116, 93, 92);">Prompt Injection</a><a href="/tags/RAG/" style="font-size: 1.28em; color: rgb(133, 145, 106);">RAG</a><a href="/tags/Chroma/" style="font-size: 1.19em; color: rgb(182, 82, 95);">Chroma</a><a href="/tags/Embedding/" style="font-size: 1.15em; color: rgb(56, 100, 62);">Embedding</a><a href="/tags/%E6%96%87%E6%A1%A3%E5%88%87%E5%88%86/" style="font-size: 1.15em; color: rgb(50, 50, 50);">文档切分</a><a href="/tags/%E7%9F%A5%E8%AF%86%E5%BA%93/" style="font-size: 1.15em; color: rgb(50, 54, 70);">知识库</a><a href="/tags/%E6%B7%B7%E5%90%88%E6%A3%80%E7%B4%A2/" style="font-size: 1.15em; color: rgb(50, 64, 61);">混合检索</a><a href="/tags/BM25/" style="font-size: 1.15em; color: rgb(54, 160, 50);">BM25</a><a href="/tags/RRF/" style="font-size: 1.15em; color: rgb(105, 67, 50);">RRF</a><a href="/tags/Reranker/" style="font-size: 1.15em; color: rgb(101, 125, 50);">Reranker</a><a href="/tags/Query-Rewrite/" style="font-size: 1.15em; color: rgb(82, 199, 50);">Query Rewrite</a><a href="/tags/%E5%90%91%E9%87%8F%E6%95%B0%E6%8D%AE%E5%BA%93/" style="font-size: 1.15em; color: rgb(177, 116, 50);">向量数据库</a><a href="/tags/Milvus/" style="font-size: 1.15em; color: rgb(181, 92, 50);">Milvus</a><a href="/tags/pgvector/" style="font-size: 1.15em; color: rgb(193, 156, 167);">pgvector</a><a href="/tags/HNSW/" style="font-size: 1.15em; color: rgb(125, 50, 153);">HNSW</a><a href="/tags/Spring-AI/" style="font-size: 1.15em; color: rgb(51, 137, 53);">Spring AI</a><a href="/tags/ChatClient/" style="font-size: 1.15em; color: rgb(196, 112, 135);">ChatClient</a><a href="/tags/Ollama/" style="font-size: 1.15em; color: rgb(165, 185, 167);">Ollama</a><a href="/tags/%E6%9C%AC%E5%9C%B0%E5%A4%A7%E6%A8%A1%E5%9E%8B/" style="font-size: 1.15em; color: rgb(50, 50, 166);">本地大模型</a><a href="/tags/LLM/" style="font-size: 1.15em; color: rgb(50, 50, 165);">LLM</a></div></div><div class="card-widget card-archives">
+    <div class="item-headline">
+      <i class="fas fa-archive"></i>
+      <span>归档</span>
+      <a class="card-more-btn" href="/archives/"
+            title="查看更多">
+            <i class="fas fa-angle-right"></i>
+          </a>
+    </div>
+  
+    <ul class="card-archive-list">
+      
+        <li class="card-archive-list-item">
+          <a class="card-archive-list-link" href="/archives/2026/07/">
+            <span class="card-archive-list-date">
+              七月 2026
+            </span>
+            <span class="card-archive-list-count">9</span>
+          </a>
+        </li>
+      
+        <li class="card-archive-list-item">
+          <a class="card-archive-list-link" href="/archives/2026/06/">
+            <span class="card-archive-list-date">
+              六月 2026
+            </span>
+            <span class="card-archive-list-count">6</span>
+          </a>
+        </li>
+      
+        <li class="card-archive-list-item">
+          <a class="card-archive-list-link" href="/archives/2026/05/">
+            <span class="card-archive-list-date">
+              五月 2026
+            </span>
+            <span class="card-archive-list-count">1</span>
+          </a>
+        </li>
+      
+        <li class="card-archive-list-item">
+          <a class="card-archive-list-link" href="/archives/2026/04/">
+            <span class="card-archive-list-date">
+              四月 2026
+            </span>
+            <span class="card-archive-list-count">3</span>
+          </a>
+        </li>
+      
+        <li class="card-archive-list-item">
+          <a class="card-archive-list-link" href="/archives/2026/03/">
+            <span class="card-archive-list-date">
+              三月 2026
+            </span>
+            <span class="card-archive-list-count">2</span>
+          </a>
+        </li>
+      
+        <li class="card-archive-list-item">
+          <a class="card-archive-list-link" href="/archives/2026/01/">
+            <span class="card-archive-list-date">
+              一月 2026
+            </span>
+            <span class="card-archive-list-count">2</span>
+          </a>
+        </li>
+      
+        <li class="card-archive-list-item">
+          <a class="card-archive-list-link" href="/archives/2025/12/">
+            <span class="card-archive-list-date">
+              十二月 2025
+            </span>
+            <span class="card-archive-list-count">3</span>
+          </a>
+        </li>
+      
+        <li class="card-archive-list-item">
+          <a class="card-archive-list-link" href="/archives/2025/11/">
+            <span class="card-archive-list-date">
+              十一月 2025
+            </span>
+            <span class="card-archive-list-count">4</span>
+          </a>
+        </li>
+      
+    </ul>
+  </div><div class="card-widget card-webinfo"><div class="item-headline"><i class="fas fa-chart-line"></i><span>网站信息</span></div><div class="webinfo"><div class="webinfo-item"><div class="item-name">文章数目 :</div><div class="item-count">42</div></div><div class="webinfo-item"><div class="item-name">本站访客数 :</div><div class="item-count" id="busuanzi_value_site_uv"><i class="fa-solid fa-spinner fa-spin"></i></div></div><div class="webinfo-item"><div class="item-name">本站总浏览量 :</div><div class="item-count" id="busuanzi_value_site_pv"><i class="fa-solid fa-spinner fa-spin"></i></div></div><div class="webinfo-item"><div class="item-name">最后更新时间 :</div><div class="item-count" id="last-push-date" data-lastPushDate="2026-07-22T13:17:58.557Z"><i class="fa-solid fa-spinner fa-spin"></i></div></div></div></div></div></div></main><footer id="footer"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2024 - 2026 By qjngbac</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 7.3.0</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.5.5</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.5.5"></script><script src="/js/main.js?v=5.5.5"></script><div class="js-pjax"></div><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

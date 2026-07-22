@@ -1,0 +1,570 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>接口响应慢排查：从 3 秒优化到 200 毫秒 | Wait</title><meta name="author" content="qjngbac"><meta name="copyright" content="qjngbac"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="前言上线前一切正常，上线后接口超时告警响个不停；压测时平均响应 3 秒，前端页面加载转圈，用户体验直线下降。接口慢是后端开发者最常遇到的性能问题，但很多人排查时全靠猜：一会儿加索引，一会儿加缓存，改了半天，耗时纹丝不动。 性能优化的核心原则永远是：先定位瓶颈，再动手优化。没有数据支撑的优化都是瞎忙活。 本文就以一次真实的订单列表接口优化为例，带你走完从 3000ms 到 200ms 的完整排查过程">
+<meta property="og:type" content="article">
+<meta property="og:title" content="接口响应慢排查：从 3 秒优化到 200 毫秒">
+<meta property="og:url" content="https://qjngbac.github.io/2026/06/02/slow-api-optimization-guide/index.html">
+<meta property="og:site_name" content="Wait">
+<meta property="og:description" content="前言上线前一切正常，上线后接口超时告警响个不停；压测时平均响应 3 秒，前端页面加载转圈，用户体验直线下降。接口慢是后端开发者最常遇到的性能问题，但很多人排查时全靠猜：一会儿加索引，一会儿加缓存，改了半天，耗时纹丝不动。 性能优化的核心原则永远是：先定位瓶颈，再动手优化。没有数据支撑的优化都是瞎忙活。 本文就以一次真实的订单列表接口优化为例，带你走完从 3000ms 到 200ms 的完整排查过程">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://qjngbac.github.io/img/java-series-13-slow-api.jpg">
+<meta property="article:published_time" content="2026-06-02T06:00:00.000Z">
+<meta property="article:modified_time" content="2026-07-19T09:10:32.281Z">
+<meta property="article:author" content="qjngbac">
+<meta property="article:tag" content="面试">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="性能优化">
+<meta property="article:tag" content="慢查询">
+<meta property="article:tag" content="Arthas">
+<meta property="article:tag" content="链路追踪">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://qjngbac.github.io/img/java-series-13-slow-api.jpg"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "接口响应慢排查：从 3 秒优化到 200 毫秒",
+  "url": "https://qjngbac.github.io/2026/06/02/slow-api-optimization-guide/",
+  "image": "https://qjngbac.github.io/img/java-series-13-slow-api.jpg",
+  "datePublished": "2026-06-02T06:00:00.000Z",
+  "dateModified": "2026-07-19T09:10:32.281Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "qjngbac",
+      "url": "https://qjngbac.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://qjngbac.github.io/2026/06/02/slow-api-optimization-guide/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.5.5"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        if (!ttl) return
+        const expiry = Date.now() + ttl * 86400000
+        localStorage.setItem(key, JSON.stringify({ value, expiry }))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return undefined
+        const { value, expiry } = JSON.parse(itemStr)
+        if (Date.now() > expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return value
+      }
+    }
+
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+        script.onload = script.onreadystatechange = () => {
+          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      }),
+      getCSS: (url, id) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onload = link.onreadystatechange = () => {
+          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+        }
+        link.onerror = reject
+        document.head.appendChild(link)
+      }),
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: true
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: '接口响应慢排查：从 3 秒优化到 200 毫秒',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="generator" content="Hexo 7.3.0"></head><body><div id="loading-box"><div class="loading-left-bg"></div><div class="loading-right-bg"></div><div class="spinner-box"><div class="configure-border-1"><div class="configure-core"></div></div><div class="configure-border-2"><div class="configure-core"></div></div><div class="loading-word">加载中...</div></div></div><script>(()=>{
+  const $loadingBox = document.getElementById('loading-box')
+  const $body = document.body
+  const preloader = {
+    endLoading: () => {
+      if ($loadingBox.classList.contains('loaded')) return
+      $body.style.overflow = ''
+      $loadingBox.classList.add('loaded')
+    },
+    initLoading: () => {
+      $body.style.overflow = 'hidden'
+      $loadingBox.classList.remove('loaded')
+    }
+  }
+
+  preloader.initLoading()
+
+  if (document.readyState === 'complete') {
+    preloader.endLoading()
+  } else {
+    window.addEventListener('load', preloader.endLoading)
+    document.addEventListener('DOMContentLoaded', preloader.endLoading)
+    // Add timeout protection: force end after 7 seconds
+    setTimeout(preloader.endLoading, 7000)
+  }
+
+  if (false) {
+    btf.addGlobalFn('pjaxSend', preloader.initLoading, 'preloader_init')
+    btf.addGlobalFn('pjaxComplete', preloader.endLoading, 'preloader_end')
+  }
+})()</script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">42</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">139</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(/img/java-series-13-slow-api.jpg);"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">Wait</span></a><a class="nav-page-title" href="/"><span class="site-name">接口响应慢排查：从 3 秒优化到 200 毫秒</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">接口响应慢排查：从 3 秒优化到 200 毫秒</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-06-02T06:00:00.000Z" title="发表于 2026-06-02 14:00:00">2026-06-02</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-07-19T09:10:32.281Z" title="更新于 2026-07-19 17:10:32">2026-07-19</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/Java-%E6%B7%B1%E5%BA%A6/">Java 深度</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>上线前一切正常，上线后接口超时告警响个不停；压测时平均响应 3 秒，前端页面加载转圈，用户体验直线下降。接口慢是后端开发者最常遇到的性能问题，但很多人排查时全靠猜：一会儿加索引，一会儿加缓存，改了半天，耗时纹丝不动。</p>
+<p>性能优化的核心原则永远是：<strong>先定位瓶颈，再动手优化</strong>。没有数据支撑的优化都是瞎忙活。</p>
+<p>本文就以一次真实的订单列表接口优化为例，带你走完从 3000ms 到 200ms 的完整排查过程，覆盖三大核心工具：<strong>慢查询日志、全链路追踪、Arthas 火焰图</strong>，教你一套可复用的慢接口排查方法论。</p>
+<hr>
+<h2 id="一、故障初现：接口耗时远超预期"><a href="#一、故障初现：接口耗时远超预期" class="headerlink" title="一、故障初现：接口耗时远超预期"></a>一、故障初现：接口耗时远超预期</h2><h3 id="1-1-现场现象"><a href="#1-1-现场现象" class="headerlink" title="1.1 现场现象"></a>1.1 现场现象</h3><p>本次优化的对象是用户侧的「订单列表查询接口」，上线后压测数据非常糟糕：</p>
+<ul>
+<li>平均响应时间：<strong>3000ms</strong></li>
+<li>P95 响应时间：<strong>5200ms</strong></li>
+<li>单并发下就已经超过 1s，10 并发直接超时</li>
+<li>数据库 CPU 使用率居高不下</li>
+</ul>
+<p>业务要求接口平均耗时必须控制在 300ms 以内，优化空间非常大。</p>
+<h3 id="1-2-排查整体思路"><a href="#1-2-排查整体思路" class="headerlink" title="1.2 排查整体思路"></a>1.2 排查整体思路</h3><p>很多人一上来就翻代码、加缓存，这是效率很低的做法。更稳妥的方式是先确认慢请求范围、并发量、P95&#x2F;P99、错误率以及上下游耗时，再按证据由粗到细推进。本案例的数据库指标最异常，因此从慢查询开始：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">1. 指标定方向 → 延迟分位、错误率、CPU、线程池、连接池</span><br><span class="line">2. 数据库有异常 → 慢查询日志、EXPLAIN</span><br><span class="line">3. 全链路定区间 → SkyWalking / OpenTelemetry</span><br><span class="line">4. 代码热点定位 → Arthas profiler、线程栈</span><br><span class="line">5. 针对性优化 → 每一步都复测验证</span><br></pre></td></tr></table></figure>
+
+<!-- 配图 1：排查流程图 -->
+<!-- 插入位置：此处 -->
+
+<p><img src="/../img/slow-api-debug-flow.png" alt="排查流程"></p>
+<hr>
+<h2 id="二、第一步：先查数据库——慢查询日志定位-SQL-瓶颈"><a href="#二、第一步：先查数据库——慢查询日志定位-SQL-瓶颈" class="headerlink" title="二、第一步：先查数据库——慢查询日志定位 SQL 瓶颈"></a>二、第一步：先查数据库——慢查询日志定位 SQL 瓶颈</h2><p>数据库是慢接口的重灾区，也是排查的第一站。</p>
+<h3 id="2-1-开启慢查询日志"><a href="#2-1-开启慢查询日志" class="headerlink" title="2.1 开启慢查询日志"></a>2.1 开启慢查询日志</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 临时开启（重启失效）</span></span><br><span class="line"><span class="keyword">SET</span> <span class="keyword">GLOBAL</span> slow_query_log <span class="operator">=</span> <span class="string">&#x27;ON&#x27;</span>;</span><br><span class="line"><span class="keyword">SET</span> <span class="keyword">GLOBAL</span> long_query_time <span class="operator">=</span> <span class="number">0.1</span>;  <span class="comment">-- 超过 100ms 就记录</span></span><br><span class="line"><span class="keyword">SET</span> <span class="keyword">GLOBAL</span> log_queries_not_using_indexes <span class="operator">=</span> <span class="string">&#x27;ON&#x27;</span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">-- 查看配置</span></span><br><span class="line"><span class="keyword">SHOW</span> VARIABLES <span class="keyword">LIKE</span> <span class="string">&#x27;slow_query%&#x27;</span>;</span><br><span class="line"><span class="keyword">SHOW</span> VARIABLES <span class="keyword">LIKE</span> <span class="string">&#x27;long_query_time&#x27;</span>;</span><br></pre></td></tr></table></figure>
+
+<p>持久化配置（<code>my.cnf</code>）：</p>
+<figure class="highlight ini"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="section">[mysqld]</span></span><br><span class="line"><span class="attr">slow_query_log</span> = <span class="number">1</span></span><br><span class="line"><span class="attr">slow_query_log_file</span> = /var/lib/mysql/mysql-slow.log</span><br><span class="line"><span class="attr">long_query_time</span> = <span class="number">0.1</span></span><br><span class="line"><span class="attr">log_queries_not_using_indexes</span> = <span class="number">1</span></span><br></pre></td></tr></table></figure>
+
+<p>分析慢查询日志：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 按查询次数排序，取前 10 条</span></span><br><span class="line">mysqldumpslow -s c -t 10 /var/lib/mysql/mysql-slow.log</span><br><span class="line"></span><br><span class="line"><span class="comment"># 按平均耗时排序</span></span><br><span class="line">mysqldumpslow -s at -t 10 /var/lib/mysql/mysql-slow.log</span><br><span class="line"></span><br><span class="line"><span class="comment"># 按锁定时间排序（t 是查询时间，l 才是锁定时间）</span></span><br><span class="line">mysqldumpslow -s l -t 10 /var/lib/mysql/mysql-slow.log</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-2-定位到的两个-SQL-问题"><a href="#2-2-定位到的两个-SQL-问题" class="headerlink" title="2.2 定位到的两个 SQL 问题"></a>2.2 定位到的两个 SQL 问题</h3><p><strong>问题一：经典 N+1 查询</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// ❌ 错误写法：循环查询</span></span><br><span class="line">List&lt;Order&gt; orders = orderMapper.selectByUserId(userId);  <span class="comment">// 1 次查询</span></span><br><span class="line"><span class="keyword">for</span> (Order order : orders) &#123;</span><br><span class="line">    <span class="comment">// 每次循环都查一次数据库</span></span><br><span class="line">    <span class="type">OrderDetail</span> <span class="variable">detail</span> <span class="operator">=</span> detailMapper.selectByOrderId(order.getId());  <span class="comment">// N 次查询</span></span><br><span class="line">    <span class="type">User</span> <span class="variable">user</span> <span class="operator">=</span> userMapper.selectById(order.getUserId());              <span class="comment">// N 次查询</span></span><br><span class="line">    order.setDetail(detail);</span><br><span class="line">    order.setUser(user);</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">// 总查询次数：1 + N + N = 1 + 2N</span></span><br></pre></td></tr></table></figure>
+
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// ✅ 正确写法：批量查询</span></span><br><span class="line">List&lt;Order&gt; orders = orderMapper.selectByUserId(userId);  <span class="comment">// 1 次查询</span></span><br><span class="line"></span><br><span class="line"><span class="comment">// 批量查询所有订单详情</span></span><br><span class="line">List&lt;Long&gt; orderIds = orders.stream().map(Order::getId).collect(Collectors.toList());</span><br><span class="line">Map&lt;Long, OrderDetail&gt; detailMap = orderDetailMapper.selectByOrderIds(orderIds)</span><br><span class="line">        .stream().collect(Collectors.toMap(OrderDetail::getOrderId, d -&gt; d));</span><br><span class="line"></span><br><span class="line"><span class="comment">// 批量查询所有用户</span></span><br><span class="line">List&lt;Long&gt; userIds = orders.stream().map(Order::getUserId).distinct().collect(Collectors.toList());</span><br><span class="line">Map&lt;Long, User&gt; userMap = userMapper.selectByIds(userIds)</span><br><span class="line">        .stream().collect(Collectors.toMap(User::getId, u -&gt; u));</span><br><span class="line"></span><br><span class="line"><span class="comment">// 内存组装</span></span><br><span class="line"><span class="keyword">for</span> (Order order : orders) &#123;</span><br><span class="line">    order.setDetail(detailMap.get(order.getId()));</span><br><span class="line">    order.setUser(userMap.get(order.getUserId()));</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">// 总查询次数：3 次（固定）</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>问题二：统计查询全表扫描</strong></p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 问题 SQL：没有索引，全表扫描</span></span><br><span class="line"><span class="keyword">SELECT</span> status, <span class="built_in">COUNT</span>(<span class="operator">*</span>) <span class="keyword">FROM</span> orders <span class="keyword">WHERE</span> user_id <span class="operator">=</span> <span class="number">123</span> <span class="keyword">GROUP</span> <span class="keyword">BY</span> status;</span><br><span class="line"><span class="comment">-- 耗时：800ms</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 优化：添加联合索引</span></span><br><span class="line"><span class="keyword">ALTER TABLE</span> orders <span class="keyword">ADD</span> INDEX idx_user_status (user_id, status);</span><br><span class="line"><span class="comment">-- 优化后耗时：5ms</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="2-3-Explain-执行计划详解"><a href="#2-3-Explain-执行计划详解" class="headerlink" title="2.3 Explain 执行计划详解"></a>2.3 Explain 执行计划详解</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">EXPLAIN <span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> orders <span class="keyword">WHERE</span> user_id <span class="operator">=</span> <span class="number">123</span> <span class="keyword">AND</span> status <span class="operator">=</span> <span class="number">1</span>;</span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>含义</th>
+<th>关注点</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>type</code></td>
+<td>访问类型</td>
+<td>ALL(全表扫描) &lt; index &lt; range &lt; ref &lt; const</td>
+</tr>
+<tr>
+<td><code>key</code></td>
+<td>实际使用的索引</td>
+<td>NULL 表示没走索引</td>
+</tr>
+<tr>
+<td><code>rows</code></td>
+<td>预计扫描行数</td>
+<td>越小越好</td>
+</tr>
+<tr>
+<td><code>Extra</code></td>
+<td>额外信息</td>
+<td>Using filesort、Using temporary 需要关注</td>
+</tr>
+</tbody></table>
+<p><strong>type 访问类型（性能从差到好）：</strong></p>
+<table>
+<thead>
+<tr>
+<th>type</th>
+<th>说明</th>
+<th>性能</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>ALL</td>
+<td>全表扫描</td>
+<td>最差</td>
+</tr>
+<tr>
+<td>index</td>
+<td>全索引扫描</td>
+<td>差</td>
+</tr>
+<tr>
+<td>range</td>
+<td>范围扫描</td>
+<td>中</td>
+</tr>
+<tr>
+<td>ref</td>
+<td>索引查找</td>
+<td>好</td>
+</tr>
+<tr>
+<td>eq_ref</td>
+<td>唯一索引查找</td>
+<td>很好</td>
+</tr>
+<tr>
+<td>const</td>
+<td>主键&#x2F;唯一索引等值</td>
+<td>最好</td>
+</tr>
+</tbody></table>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 查看完整执行计划</span></span><br><span class="line">EXPLAIN <span class="keyword">SELECT</span> o.<span class="operator">*</span>, d.content </span><br><span class="line"><span class="keyword">FROM</span> orders o </span><br><span class="line"><span class="keyword">LEFT</span> <span class="keyword">JOIN</span> order_detail d <span class="keyword">ON</span> o.id <span class="operator">=</span> d.order_id </span><br><span class="line"><span class="keyword">WHERE</span> o.user_id <span class="operator">=</span> <span class="number">123</span> </span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span> o.created_at <span class="keyword">DESC</span> </span><br><span class="line">LIMIT <span class="number">20</span>;</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-4-第一阶段优化效果"><a href="#2-4-第一阶段优化效果" class="headerlink" title="2.4 第一阶段优化效果"></a>2.4 第一阶段优化效果</h3><p>优化完数据库后，接口耗时从 3000ms 降到了 <strong>1800ms</strong>，提升明显，但离目标的 300ms 还差很远。</p>
+<p>此时数据库总耗时只占 300ms 左右，说明剩余的 1.5s 都耗在了 Java 业务代码里。</p>
+<hr>
+<h2 id="三、第二步：全链路定位——链路追踪锁定耗时区间"><a href="#三、第二步：全链路定位——链路追踪锁定耗时区间" class="headerlink" title="三、第二步：全链路定位——链路追踪锁定耗时区间"></a>三、第二步：全链路定位——链路追踪锁定耗时区间</h2><p>数据库瓶颈排除后，接下来要搞清楚：时间到底花在了哪？</p>
+<h3 id="3-1-链路追踪的核心价值"><a href="#3-1-链路追踪的核心价值" class="headerlink" title="3.1 链路追踪的核心价值"></a>3.1 链路追踪的核心价值</h3><p>以 SkyWalking 为例，它可以把一次请求的完整调用链可视化展示：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">请求 → Gateway(5ms) → OrderService(1800ms)</span><br><span class="line">                          ├── MySQL(300ms)</span><br><span class="line">                          ├── Redis(15ms)</span><br><span class="line">                          ├── DictionaryService(200ms)  ← 远程调用</span><br><span class="line">                          └── VO转换(1100ms)            ← 瓶颈在这里！</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-2-常用链路追踪工具"><a href="#3-2-常用链路追踪工具" class="headerlink" title="3.2 常用链路追踪工具"></a>3.2 常用链路追踪工具</h3><table>
+<thead>
+<tr>
+<th>工具</th>
+<th>特点</th>
+<th>接入方式</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>SkyWalking</td>
+<td>服务拓扑、Trace 与指标一体化</td>
+<td>Java Agent 或 OpenTelemetry</td>
+</tr>
+<tr>
+<td>Pinpoint</td>
+<td>Java 调用链分析细致</td>
+<td>Java Agent</td>
+</tr>
+<tr>
+<td>OpenTelemetry + Jaeger&#x2F;Tempo</td>
+<td>标准化采集，后端选择灵活</td>
+<td>Agent 或 SDK</td>
+</tr>
+<tr>
+<td>Micrometer Tracing + OTLP&#x2F;Zipkin</td>
+<td>Spring Boot 3 常用方案</td>
+<td>依赖与配置接入</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p>Spring Cloud Sleuth 已不再是 Spring Boot 3 时代的主线方案；新项目通常使用 Micrometer Tracing，并通过 OTLP、Zipkin 等协议导出链路数据。</p>
+</blockquote>
+<h3 id="3-3-排查结果：耗时集中在对象转换"><a href="#3-3-排查结果：耗时集中在对象转换" class="headerlink" title="3.3 排查结果：耗时集中在对象转换"></a>3.3 排查结果：耗时集中在对象转换</h3><p>通过链路追踪得到明确结论：</p>
+<ul>
+<li>接口总耗时 1800ms</li>
+<li>数据库 + 远程调用合计仅 320ms</li>
+<li><strong>订单 VO 转换方法耗时达到 1100ms</strong>，占总耗时的 60%</li>
+</ul>
+<p>到这一步，瓶颈从「整个接口」缩小到了「一个转换方法」。但链路追踪只能定位到方法级别，方法内部到底哪行代码慢，需要 Arthas。</p>
+<hr>
+<h2 id="四、第三步：精准击穿——Arthas-火焰图定位代码热点"><a href="#四、第三步：精准击穿——Arthas-火焰图定位代码热点" class="headerlink" title="四、第三步：精准击穿——Arthas 火焰图定位代码热点"></a>四、第三步：精准击穿——Arthas 火焰图定位代码热点</h2><p>Arthas 是阿里开源的 Java 诊断工具，无需重启服务、无需修改代码，线上直接挂载。</p>
+<h3 id="4-1-什么是火焰图"><a href="#4-1-什么是火焰图" class="headerlink" title="4.1 什么是火焰图"></a>4.1 什么是火焰图</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">火焰图示意：</span><br><span class="line"></span><br><span class="line">CPU 火焰图中宽度越宽 = CPU 采样占比越高 = CPU 热点优化目标</span><br><span class="line"></span><br><span class="line">┌─────────────────────────────────────────────────┐</span><br><span class="line">│                   Controller.list()             │</span><br><span class="line">├─────────────────────────────────────────────────┤</span><br><span class="line">│          Service.convertToVO()                  │  ← 最宽，瓶颈！</span><br><span class="line">├──────────┬──────────┬───────────┬───────────────┤</span><br><span class="line">│copyProps │newSimple │dictService│  其他方法      │</span><br><span class="line">│  600ms   │  150ms   │  200ms    │   150ms       │</span><br><span class="line">└──────────┴──────────┴───────────┴───────────────┘</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li><strong>纵向 Y 轴</strong>：调用栈深度，从上到下是方法调用关系</li>
+<li><strong>横向 X 轴</strong>：CPU 采样占比，宽度越宽说明 CPU 消耗越高</li>
+<li><strong>平顶的方法</strong>：通常是真正消耗 CPU 的热点方法</li>
+</ul>
+<blockquote>
+<p>注意：CPU 火焰图适合定位计算、反射、序列化等 CPU 热点；如果接口慢在数据库、RPC、锁等待或线程池排队，应优先看链路追踪、线程栈或 wall-clock 采样。</p>
+</blockquote>
+<h3 id="4-2-实战操作步骤"><a href="#4-2-实战操作步骤" class="headerlink" title="4.2 实战操作步骤"></a>4.2 实战操作步骤</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 1. 下载 Arthas</span></span><br><span class="line">curl -O https://arthas.aliyun.com/arthas-boot.jar</span><br><span class="line"></span><br><span class="line"><span class="comment"># 2. 启动 Arthas，选择目标 Java 进程</span></span><br><span class="line">java -jar arthas-boot.jar</span><br><span class="line"></span><br><span class="line"><span class="comment"># 3. 启动 CPU 采样</span></span><br><span class="line">profiler start --event cpu</span><br><span class="line"></span><br><span class="line"><span class="comment"># 4. 同时用压测工具持续调用目标接口</span></span><br><span class="line"><span class="comment"># （让热点充分暴露）</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 5. 采样结束，生成火焰图</span></span><br><span class="line">profiler stop --format svg --file /tmp/flamegraph.svg</span><br><span class="line"></span><br><span class="line"><span class="comment"># 6. 下载 svg 文件，用浏览器打开</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="4-3-Arthas-常用命令"><a href="#4-3-Arthas-常用命令" class="headerlink" title="4.3 Arthas 常用命令"></a>4.3 Arthas 常用命令</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 查看方法耗时（实时监控）</span></span><br><span class="line">watch com.docflow.service.OrderService convertToVO <span class="string">&#x27;&#123;params, returnObj, #cost&#125;&#x27;</span> -x 2</span><br><span class="line"></span><br><span class="line"><span class="comment"># 查看方法调用栈</span></span><br><span class="line">stack com.docflow.service.OrderService convertToVO</span><br><span class="line"></span><br><span class="line"><span class="comment"># 查看方法参数和返回值</span></span><br><span class="line">watch com.docflow.service.OrderService convertToVO <span class="string">&#x27;&#123;params[0], returnObj&#125;&#x27;</span> -x 3</span><br><span class="line"></span><br><span class="line"><span class="comment"># 反编译类</span></span><br><span class="line">jad com.docflow.service.OrderService</span><br><span class="line"></span><br><span class="line"><span class="comment"># 查看类加载信息</span></span><br><span class="line">sc -d com.docflow.service.OrderService</span><br><span class="line"></span><br><span class="line"><span class="comment"># 线程堆栈（查看线程阻塞情况）</span></span><br><span class="line">thread -n 3  <span class="comment"># 查看最忙的3个线程</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 内存使用情况</span></span><br><span class="line">memory</span><br><span class="line"></span><br><span class="line"><span class="comment"># 查看 JVM 信息</span></span><br><span class="line">jvm</span><br></pre></td></tr></table></figure>
+
+<h3 id="4-4-找到的三个代码热点"><a href="#4-4-找到的三个代码热点" class="headerlink" title="4.4 找到的三个代码热点"></a>4.4 找到的三个代码热点</h3><p><strong>热点一：循环内的 BeanUtils.copyProperties</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// ❌ 问题代码：循环内反射拷贝</span></span><br><span class="line"><span class="keyword">for</span> (Order order : orders) &#123;</span><br><span class="line">    <span class="type">OrderVO</span> <span class="variable">vo</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">OrderVO</span>();</span><br><span class="line">    BeanUtils.copyProperties(order, vo);  <span class="comment">// 每次都走反射，600ms</span></span><br><span class="line">    voList.add(vo);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// ✅ 优化：使用 MapStruct（编译期生成代码，无反射）</span></span><br><span class="line"><span class="meta">@Mapper</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">OrderConverter</span> &#123;</span><br><span class="line">    <span class="type">OrderConverter</span> <span class="variable">INSTANCE</span> <span class="operator">=</span> Mappers.getMapper(OrderConverter.class);</span><br><span class="line">    OrderVO <span class="title function_">toVO</span><span class="params">(Order order)</span>;</span><br><span class="line">    List&lt;OrderVO&gt; <span class="title function_">toVOList</span><span class="params">(List&lt;Order&gt; orders)</span>;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// 使用</span></span><br><span class="line">List&lt;OrderVO&gt; voList = OrderConverter.INSTANCE.toVOList(orders);  <span class="comment">// 30ms</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>热点二：每次循环都新建 SimpleDateFormat</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// ❌ 问题代码：循环内创建对象</span></span><br><span class="line"><span class="keyword">for</span> (Order order : orders) &#123;</span><br><span class="line">    <span class="type">SimpleDateFormat</span> <span class="variable">sdf</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">SimpleDateFormat</span>(<span class="string">&quot;yyyy-MM-dd HH:mm:ss&quot;</span>);  <span class="comment">// 每次都 new</span></span><br><span class="line">    vo.setCreateTimeStr(sdf.format(order.getCreatedAt()));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// ✅ 优化：使用 DateTimeFormatter（线程安全，可复用）</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> <span class="type">DateTimeFormatter</span> <span class="variable">FORMATTER</span> <span class="operator">=</span> </span><br><span class="line">    DateTimeFormatter.ofPattern(<span class="string">&quot;yyyy-MM-dd HH:mm:ss&quot;</span>);</span><br><span class="line"></span><br><span class="line"><span class="keyword">for</span> (Order order : orders) &#123;</span><br><span class="line">    vo.setCreateTimeStr(order.getCreatedAt().format(FORMATTER));  <span class="comment">// 直接复用</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>热点三：重复调用字典翻译接口</strong></p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// ❌ 问题代码：循环内远程调用</span></span><br><span class="line"><span class="keyword">for</span> (Order order : orders) &#123;</span><br><span class="line">    <span class="comment">// 每次都调远程接口</span></span><br><span class="line">    <span class="type">String</span> <span class="variable">statusName</span> <span class="operator">=</span> dictService.getDictName(<span class="string">&quot;order_status&quot;</span>, order.getStatus());  <span class="comment">// 200ms</span></span><br><span class="line">    vo.setStatusName(statusName);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// ✅ 优化：批量查询 + Map 缓存</span></span><br><span class="line"><span class="comment">// 循环外一次性查询</span></span><br><span class="line">Map&lt;String, String&gt; dictMap = dictService.getDictMap(<span class="string">&quot;order_status&quot;</span>);</span><br><span class="line"></span><br><span class="line"><span class="comment">// 循环内直接取</span></span><br><span class="line"><span class="keyword">for</span> (Order order : orders) &#123;</span><br><span class="line">    vo.setStatusName(dictMap.getOrDefault(order.getStatus(), <span class="string">&quot;未知&quot;</span>));</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<!-- 配图 2：优化前后对比图 -->
+<!-- 插入位置：此处 -->
+
+<p><img src="/../img/slow-api-before-after.png" alt="优化前后对比"></p>
+<hr>
+<h2 id="五、优化效果：从-3-秒到-200-毫秒"><a href="#五、优化效果：从-3-秒到-200-毫秒" class="headerlink" title="五、优化效果：从 3 秒到 200 毫秒"></a>五、优化效果：从 3 秒到 200 毫秒</h2><table>
+<thead>
+<tr>
+<th>指标</th>
+<th>优化前</th>
+<th>优化后</th>
+<th>提升幅度</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>平均响应时间</td>
+<td>3000ms</td>
+<td>200ms</td>
+<td><strong>15 倍</strong></td>
+</tr>
+<tr>
+<td>P95 响应时间</td>
+<td>5200ms</td>
+<td>350ms</td>
+<td><strong>14.8 倍</strong></td>
+</tr>
+<tr>
+<td>数据库查询次数</td>
+<td>22 次&#x2F;请求</td>
+<td>2 次&#x2F;请求</td>
+<td>减少 90%</td>
+</tr>
+<tr>
+<td>服务 CPU 使用率</td>
+<td>72%</td>
+<td>34%</td>
+<td>下降 53%</td>
+</tr>
+<tr>
+<td>数据库 CPU 使用率</td>
+<td>85%</td>
+<td>28%</td>
+<td>下降 67%</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="六、高频性能瓶颈清单"><a href="#六、高频性能瓶颈清单" class="headerlink" title="六、高频性能瓶颈清单"></a>六、高频性能瓶颈清单</h2><p>遇到慢接口可以按这个清单自查：</p>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>常见问题</th>
+<th>排查工具</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>SQL 类</strong></td>
+<td>全表扫描、缺失索引、深分页、N+1 查询</td>
+<td>Explain、慢查询日志</td>
+</tr>
+<tr>
+<td><strong>代码类</strong></td>
+<td>循环内反射&#x2F;远程调用、重复创建对象</td>
+<td>Arthas 火焰图</td>
+</tr>
+<tr>
+<td><strong>架构类</strong></td>
+<td>缓存未命中、服务调用超时、线程池阻塞</td>
+<td>链路追踪</td>
+</tr>
+<tr>
+<td><strong>资源类</strong></td>
+<td>连接池耗尽、线程池满、磁盘 IO</td>
+<td>监控告警</td>
+</tr>
+</tbody></table>
+<h3 id="常见优化手段"><a href="#常见优化手段" class="headerlink" title="常见优化手段"></a>常见优化手段</h3><table>
+<thead>
+<tr>
+<th>问题</th>
+<th>优化方案</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>N+1 查询</td>
+<td>改为批量查询 + Map 组装</td>
+</tr>
+<tr>
+<td>缺失索引</td>
+<td>分析 SQL，添加合适的索引</td>
+</tr>
+<tr>
+<td>深分页</td>
+<td>游标分页或延迟关联</td>
+</tr>
+<tr>
+<td>循环内反射</td>
+<td>用 MapStruct 或手动 get&#x2F;set</td>
+</tr>
+<tr>
+<td>循环内远程调用</td>
+<td>批量接口 + 本地缓存</td>
+</tr>
+<tr>
+<td>重复创建对象</td>
+<td>提到循环外复用</td>
+</tr>
+<tr>
+<td>大对象序列化</td>
+<td>压缩、精简字段、异步处理</td>
+</tr>
+<tr>
+<td>线程池阻塞</td>
+<td>调整参数或异步化</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="七、监控告警建议"><a href="#七、监控告警建议" class="headerlink" title="七、监控告警建议"></a>七、监控告警建议</h2><h3 id="7-1-应用层监控"><a href="#7-1-应用层监控" class="headerlink" title="7.1 应用层监控"></a>7.1 应用层监控</h3><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># Spring Boot Actuator 配置</span></span><br><span class="line"><span class="attr">management:</span></span><br><span class="line">  <span class="attr">endpoints:</span></span><br><span class="line">    <span class="attr">web:</span></span><br><span class="line">      <span class="attr">exposure:</span></span><br><span class="line">        <span class="attr">include:</span> <span class="string">health,</span> <span class="string">metrics,</span> <span class="string">prometheus</span></span><br><span class="line">  <span class="attr">metrics:</span></span><br><span class="line">    <span class="attr">tags:</span></span><br><span class="line">      <span class="attr">application:</span> <span class="string">$&#123;spring.application.name&#125;</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="7-2-慢接口告警规则"><a href="#7-2-慢接口告警规则" class="headerlink" title="7.2 慢接口告警规则"></a>7.2 慢接口告警规则</h3><table>
+<thead>
+<tr>
+<th>指标</th>
+<th>阈值</th>
+<th>告警级别</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>接口平均响应时间</td>
+<td>&gt; 500ms</td>
+<td>警告</td>
+</tr>
+<tr>
+<td>接口 P99 响应时间</td>
+<td>&gt; 2000ms</td>
+<td>严重</td>
+</tr>
+<tr>
+<td>接口错误率</td>
+<td>&gt; 1%</td>
+<td>严重</td>
+</tr>
+<tr>
+<td>数据库连接池使用率</td>
+<td>&gt; 80%</td>
+<td>警告</td>
+</tr>
+<tr>
+<td>线程池活跃线程数</td>
+<td>&gt; 80%</td>
+<td>警告</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="八、通用排查方法论"><a href="#八、通用排查方法论" class="headerlink" title="八、通用排查方法论"></a>八、通用排查方法论</h2><h3 id="排查四步走"><a href="#排查四步走" class="headerlink" title="排查四步走"></a>排查四步走</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">1. 数据库优先</span><br><span class="line">   慢查询日志 + Explain</span><br><span class="line">   → 解决索引问题、N+1 问题</span><br><span class="line"></span><br><span class="line">2. 链路定区间</span><br><span class="line">   SkyWalking / Pinpoint</span><br><span class="line">   → 确定瓶颈在哪个服务、哪个方法</span><br><span class="line"></span><br><span class="line">3. 火焰图定热点</span><br><span class="line">   Arthas profiler</span><br><span class="line">   → 找到占用 CPU 的调用栈和方法热点</span><br><span class="line"></span><br><span class="line">4. 针对性优化</span><br><span class="line">   每改一个点都验证收益</span><br><span class="line">   → 不要一次改一堆</span><br></pre></td></tr></table></figure>
+
+<h3 id="核心原则"><a href="#核心原则" class="headerlink" title="核心原则"></a>核心原则</h3><ul>
+<li><strong>不要过早优化</strong>：先跑起来，再做优化</li>
+<li><strong>不要凭感觉优化</strong>：所有优化都要有数据支撑</li>
+<li><strong>抓主要矛盾</strong>：把占比 80% 的瓶颈解决掉，性价比最高</li>
+</ul>
+<hr>
+<h2 id="九、面试高频问题"><a href="#九、面试高频问题" class="headerlink" title="九、面试高频问题"></a>九、面试高频问题</h2><p><strong>Q1：接口响应慢怎么排查？</strong></p>
+<p>按三步走：1) 查数据库慢查询日志和 Explain；2) 用链路追踪定位耗时区间；3) 用 Arthas 火焰图找到代码热点。先定位瓶颈再优化。</p>
+<p><strong>Q2：什么是 N+1 问题？怎么解决？</strong></p>
+<p>循环查询数据库，N 条数据产生 N+1 次 SQL。解决：改为批量查询 + Map 组装，或使用 JOIN 查询。</p>
+<p><strong>Q3：Explain 的 type 字段有哪些？</strong></p>
+<p>ALL(全表扫描) → index → range → ref → eq_ref → const，通常从左到右访问范围更小。但不能只看 <code>type</code> 下结论，还要结合 <code>rows</code>、<code>filtered</code>、<code>Extra</code>、数据分布和实际耗时；小表全表扫描也可能是正确计划。</p>
+<p><strong>Q4：Arthas 能做什么？</strong></p>
+<p>无需重启、无需改代码，线上直接诊断。常用功能：watch（监控方法）、stack（调用栈）、profiler（火焰图）、thread（线程分析）、jad（反编译）。</p>
+<p><strong>Q5：火焰图怎么看？</strong></p>
+<p>CPU 火焰图里宽度越宽的方法，CPU 采样占比越高，通常就是 CPU 热点。找平顶的方法，可以快速定位最值得优化的计算逻辑；如果慢在 IO 或等待，需要结合链路追踪和线程栈判断。</p>
+<p><strong>Q6：常见的性能优化手段？</strong></p>
+<p>SQL 层面：加索引、避免 N+1、分页优化。代码层面：避免循环内反射&#x2F;远程调用、复用对象、用 MapStruct。架构层面：加缓存、异步化、批量接口。</p>
+<hr>
+<h2 id="写在最后"><a href="#写在最后" class="headerlink" title="写在最后"></a>写在最后</h2><p>接口性能优化从来不是什么高深的黑科技，更多的是「定位问题的方法」和「工程化的细节」。慢查询日志、链路追踪、Arthas 火焰图，这三件工具构成了从宏观到微观的完整排查链路，足以解决 90% 以上的慢接口问题。</p>
+<p>很多人觉得性能优化难，本质是难在定位，而不是优化本身。当你能精准说出「这行代码占了 60% 的耗时」，优化方案往往也就呼之欲出了。</p>
+<hr>
+<blockquote>
+<p><strong>系列文章预告</strong>：</p>
+<ul>
+<li>上一篇：ConcurrentHashMap 源码：它为什么是线程安全的</li>
+<li>下一篇：OOM 问题定位：线上内存溢出的完整排查流程</li>
+</ul>
+</blockquote>
+<p><em>如果觉得有帮助，欢迎点赞收藏，有问题欢迎评论区交流。</em></p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://qjngbac.github.io">qjngbac</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://qjngbac.github.io/2026/06/02/slow-api-optimization-guide/">https://qjngbac.github.io/2026/06/02/slow-api-optimization-guide/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://qjngbac.github.io" target="_blank">Wait</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><a class="post-meta__tags" href="/tags/Java/">Java</a><a class="post-meta__tags" href="/tags/%E6%80%A7%E8%83%BD%E4%BC%98%E5%8C%96/">性能优化</a><a class="post-meta__tags" href="/tags/%E6%85%A2%E6%9F%A5%E8%AF%A2/">慢查询</a><a class="post-meta__tags" href="/tags/Arthas/">Arthas</a><a class="post-meta__tags" href="/tags/%E9%93%BE%E8%B7%AF%E8%BF%BD%E8%B8%AA/">链路追踪</a></div><div class="post-share"><div class="social-share" data-image="/img/java-series-13-slow-api.jpg" data-sites="facebook,x,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/2026/06/18/01-llm-api-engineering/" title="大模型 API 工程化实战：从 curl 到流式调用、重试与成本治理"><img class="cover" src="/../img/ai-01-llm-api.jpg" onerror="onerror=null;src='/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">大模型 API 工程化实战：从 curl 到流式调用、重试与成本治理</div></div><div class="info-2"><div class="info-item-1">前言很多人第一次接入大模型，只需要几行代码：传入一段文字，等待模型返回答案。但一旦把它放进真实后端系统，问题会立刻变多：请求超时怎么办？限流后是否重试？流式响应中途断开怎么处理？如何统计 Token 和费用？怎样在多个模型之间切换？日志里又该记录什么，哪些内容不能记录？ 因此，大模型 API 接入不能只停留在“能调用”。真正的工程目标是把不稳定、成本可变、响应时间较长的外部模型服务，封装成一个可超时、可重试、可观测、可降级、可替换的基础能力。 本文以 OpenAI Responses API 的通用调用方式为例，从 curl 开始，逐步搭建同步调用、流式输出、异常处理、统一网关与成本治理方案。示例中的模型名统一从环境变量读取，实际使用时应替换为账号当前可用的模型。  一、一次大模型请求到底包含什么大模型 API 本质上仍然是 HTTP API。一次请求通常包含四部分：    部分 作用 常见内容    URL 指定服务和接口 /v1/responses   Header 身份认证与请求格式 Authorization、Content-Type   Body 模型、输入和生成参数 ...</div></div></div></a><a class="pagination-related" href="/2026/06/01/k8s-guide/" title="K8s 核心概念：Pod/Service/Deployment"><img class="cover" src="/../img/backend-14-k8s.jpg" onerror="onerror=null;src='/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">K8s 核心概念：Pod/Service/Deployment</div></div><div class="info-2"><div class="info-item-1">前言Docker 解决了容器的构建与运行问题，但当业务从几个容器扩展到几十上百个容器时，单机管理就不够用了：实例异常了怎么自动恢复？流量上来了怎么横向扩容？多机集群怎么统一调度？怎样在满足条件时实现尽量不中断服务的滚动发布？ 这些问题，正是 Kubernetes（简称 K8s）要解决的。作为容器编排领域的事实标准，K8s 提供了一整套容器调度、服务发现、滚动发布、自动扩缩容的能力，而支撑这一切的，是三个最核心的基础资源：Pod、Service、Deployment。 本文就从「为什么需要」出发，逐层拆解三大核心资源的设计思想、工作原理与典型用法，同时覆盖 Pod 生命周期、服务发现、滚动更新、配置管理等关键知识点，帮你建立起 K8s 的核心认知框架。   一、Pod：K8s 最小的调度单元很多刚接触 K8s 的人会问：已经有容器了，为什么还要抽象出一个 Pod？ 1.1 Pod 是什么Pod 是 K8s 中最小的可部署计算单元，也是调度器直接调度的对象。它不是替代容器，而是封装一个或多个需要共同运行的容器。  一个 Pod 可以包含 1 个主容器 + 多个辅助容器（Sidecar...</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/2025/10/02/completablefuture-guide/" title="CompletableFuture 实战：异步编程不再痛苦"><img class="cover" src="/img/java-series-06-completable-future.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2025-10-02</div><div class="info-item-2">CompletableFuture 实战：异步编程不再痛苦</div></div><div class="info-2"><div class="info-item-1">前言在日常后端开发中，我们总在追求更快的接口响应、更高的系统吞吐量。一个常见的场景：一个接口要先后调用 3 个远程服务，每个耗时 200ms，串行下来光调用就需要 600ms，再加上业务逻辑，接口很容易超时。 很多人第一反应是「用多线程异步化」，但传统的 Future 用起来十分鸡肋：只能通过阻塞的 get() 拿结果，无法链式编排多个异步任务，异常处理也极其麻烦，写出来的代码又丑又难维护。 直到 Java 8 推出了 CompletableFuture，Java 才算真正拥有了优雅的异步编程能力。它支持链式调用、任务组合、异常处理、超时控制，能轻松应对各种复杂的异步编排场景。 今天我们就从 API 到实战，一次性讲透 CompletableFuture，让异步编程不再是代码里的痛点。  一、为什么我们需要 CompletableFuture？1.1 传统 Future 的三大痛点1. 结果获取只能阻塞 调用 get() 方法会一直阻塞，直到任务返回结果。本质上还是同步等待，没有发挥异步的价值。 12Future&lt;String&gt; future = executor.s...</div></div></div></a><a class="pagination-related" href="/2025/09/08/thread-pool-guide/" title="线程池原理：面试必问的 ThreadPoolExecutor 你真的懂吗？"><img class="cover" src="/img/java-series-04-thread-pool.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2025-09-08</div><div class="info-item-2">线程池原理：面试必问的 ThreadPoolExecutor 你真的懂吗？</div></div><div class="info-2"><div class="info-item-1">前言做 Java 开发的人，几乎天天都在跟线程池打交道：业务异步解耦用线程池，接口并行聚合用线程池，定时任务也离不开线程池。很多人随手一个 Executors.newFixedThreadPool() 就用起来了，可一旦被面试官追问：  核心线程和非核心线程有什么区别？ 任务提交后线程池的完整执行流程是什么？ execute 和 submit 有什么本质区别？ 四种拒绝策略分别适用什么场景？  能完整答上来的人并不多。线程池不是简单的”一堆线程凑个池子”，它是一套完整的资源管控与任务调度机制，ThreadPoolExecutor 就是这套机制的核心实现。 它既是面试高频考点，也是线上最容易出问题的地方：无界队列导致 OOM、线程数失控打满 CPU、任务异常静默丢失…… 这些问题的根因，往往都是对线程池原理理解不到位。 今天我们就从底层源码视角出发，把 ThreadPoolExecutor 的核心参数、执行流程、拒绝策略、方法对比一次性讲透。  一、为什么我们需要线程池？在讲原理之前，先想清楚一个最基础的问题：为什么不直接 new Thread() 跑任务，非要用线程池？ 1234...</div></div></div></a><a class="pagination-related" href="/2025/08/11/oom-troubleshooting-guide/" title="OOM 问题定位：线上内存溢出的完整排查流程"><img class="cover" src="/img/java-series-14-oom.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2025-08-11</div><div class="info-item-2">OOM 问题定位：线上内存溢出的完整排查流程</div></div><div class="info-2"><div class="info-item-1">前言凌晨运维告警群突然炸锅：核心服务 Pod 频繁重启，错误日志里反复出现 java.lang.OutOfMemoryError。很多开发遇到线上 OOM 的第一反应是重启服务先恢复业务，重启完就没了下文，结果过几天问题复现，周而复始。 OOM 不是玄学，但也不只等于“Java 堆里对象太多”。根因可能是对象泄漏或容量不足，也可能来自元空间、直接内存、线程创建、超大数组，甚至是容器的 cgroup 内存上限。先确认内存区域和退出原因，再选择堆快照、线程栈或原生内存工具，才能避免查错方向。 本文就以一次真实的线上堆溢出为例，带你走完从现场保留、dump 抓取、MAT 深度分析到根因定位的完整流程，最后总结五大高频 OOM 场景的识别与排查方法。  一、故障第一现场：先止血，再排查1.1 第一步：确认异常类型不同报错对应完全不同的根因：    OOM 类型 报错信息 根因方向    堆溢出 Java heap space 内存泄漏 &#x2F; 堆太小   GC 过度 GC overhead limit exceeded 堆接近耗尽   元空间 Metaspace 类加载泄漏   直...</div></div></div></a><a class="pagination-related" href="/2025/10/04/spring-bean-lifecycle-guide/" title="Spring Bean 生命周期：从创建到销毁的全过程"><img class="cover" src="/img/java-series-08-spring-bean.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2025-10-04</div><div class="info-item-2">Spring Bean 生命周期：从创建到销毁的全过程</div></div><div class="info-2"><div class="info-item-1">前言做 Spring 开发的人，每天都在和 Bean 打交道：加个 @Service 就把类交给容器管理，写个 @Autowired 就能注入依赖。可一旦被问到「Bean 从创建到销毁经历了哪些步骤」「三级缓存是怎么解决循环依赖的」，很多人就只能说出个大概，说不清楚完整流程。 Bean 的生命周期是 Spring 最核心的基础机制，也是面试的高频考点。它不只是用来背的八股，更是我们排查 Bean 创建失败、依赖注入异常、循环依赖报错的底层依据。从一个普通的 Java 对象，到一个能被容器管理的 Spring Bean，中间经历了非常多的步骤和扩展点。 今天我们就把整个生命周期拆解开，从实例化、属性注入、初始化到销毁，完整走一遍全流程，再把三级缓存与循环依赖的底层逻辑讲透。  一、总览：Bean 生命周期的四大阶段Spring Bean 的完整生命周期，可以概括为四个核心大阶段：  实例化（Instantiation）：选择构造器或工厂方法并创建对象；构造器本身可能已经写入字段和构造器依赖，并非一定是“空对象” 属性注入（Populate）：为对象的属性赋值，完成依赖注入 初始化（...</div></div></div></a><a class="pagination-related" href="/2025/11/19/sql-optimization-guide/" title="SQL 优化实战：一条 SQL 从 5 秒到 50 毫秒"><img class="cover" src="/img/java-series-15-sql-optimization.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2025-11-19</div><div class="info-item-2">SQL 优化实战：一条 SQL 从 5 秒到 50 毫秒</div></div><div class="info-2"><div class="info-item-1">前言后台管理系统的订单列表页，一直是慢查询的重灾区。初期数据量小的时候一切正常，随着订单量积累到百万级，翻到后面几十页时，页面加载要转圈好几秒，接口直接超时。查日志发现核心查询 SQL 单条耗时达到 5 秒，已经严重影响运营使用。 SQL 优化不是靠瞎蒙索引，而是一套标准化的排查流程：先定位慢 SQL，再用 EXPLAIN 拆解执行计划，判断索引是否生效、扫描了多少行、有没有额外排序。找到瓶颈后针对性优化，往往能带来数量级的性能提升。 本文就以这条订单列表查询 SQL 为例，从 5 秒优化到 50 毫秒，完整覆盖 EXPLAIN 执行计划分析、索引失效场景、深分页优化 三大核心内容。  一、问题现场：慢 SQL 长什么样1.1 业务场景运营后台的订单列表，支持按创建时间、订单状态、用户 ID 筛选，按创建时间倒序排列，支持分页翻页。数据量约 120 万条。 原始 SQL： 123456SELECT id, order_no, user_id, status, amount, create_timeFROM t_orderWHERE status = 2   AND create_...</div></div></div></a><a class="pagination-related" href="/2026/06/23/03-function-calling-java/" title="Function Calling 实战：让大模型安全调用 Java 业务能力"><img class="cover" src="/../img/ai-03-function-calling.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-06-23</div><div class="info-item-2">Function Calling 实战：让大模型安全调用 Java 业务能力</div></div><div class="info-2"><div class="info-item-1">前言普通聊天模型只能根据输入生成文字。如果用户问“文档 42 的最新版本是谁创建的”，模型并不知道你的数据库内容；如果用户说“帮我把文档设为只读”，模型也没有权限直接修改业务数据。 Function Calling（也叫 Tool Calling）提供了一座桥梁：应用把可用工具的名称、描述和参数 Schema 告诉模型；模型在需要时返回“调用哪个工具、传什么参数”；真正执行函数的仍然是你的 Java 服务；执行结果再交给模型生成最终回答。 它不是让模型直接访问数据库，更不是绕过后端权限。正确的理解是：模型负责选择与生成参数，应用负责校验、授权、执行、审计和返回结果。  一、Function Calling 的完整流程12345678910111213用户问题   ↓应用把问题 + 工具定义发给模型   ↓模型返回 tool call（工具名 + JSON 参数）   ↓应用校验参数、权限和风险   ↓Java 方法执行真实业务   ↓应用把工具结果返回模型   ↓模型生成最终自然语言回答  关键点：模型返回的是请求，不是执行结果。无论模型声称“已删除成功”还是“已退款”，只有后端...</div></div></div></a></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">qjngbac</div><div class="author-info-description">一个正在学习的开发者</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">42</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">139</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/qjngbac"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/qjngbac" target="_blank" title="Github"><i class="fab fa-github"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到我的博客</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%89%8D%E8%A8%80"><span class="toc-number">1.</span> <span class="toc-text">前言</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%80%E3%80%81%E6%95%85%E9%9A%9C%E5%88%9D%E7%8E%B0%EF%BC%9A%E6%8E%A5%E5%8F%A3%E8%80%97%E6%97%B6%E8%BF%9C%E8%B6%85%E9%A2%84%E6%9C%9F"><span class="toc-number">2.</span> <span class="toc-text">一、故障初现：接口耗时远超预期</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-1-%E7%8E%B0%E5%9C%BA%E7%8E%B0%E8%B1%A1"><span class="toc-number">2.1.</span> <span class="toc-text">1.1 现场现象</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#1-2-%E6%8E%92%E6%9F%A5%E6%95%B4%E4%BD%93%E6%80%9D%E8%B7%AF"><span class="toc-number">2.2.</span> <span class="toc-text">1.2 排查整体思路</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%8C%E3%80%81%E7%AC%AC%E4%B8%80%E6%AD%A5%EF%BC%9A%E5%85%88%E6%9F%A5%E6%95%B0%E6%8D%AE%E5%BA%93%E2%80%94%E2%80%94%E6%85%A2%E6%9F%A5%E8%AF%A2%E6%97%A5%E5%BF%97%E5%AE%9A%E4%BD%8D-SQL-%E7%93%B6%E9%A2%88"><span class="toc-number">3.</span> <span class="toc-text">二、第一步：先查数据库——慢查询日志定位 SQL 瓶颈</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#2-1-%E5%BC%80%E5%90%AF%E6%85%A2%E6%9F%A5%E8%AF%A2%E6%97%A5%E5%BF%97"><span class="toc-number">3.1.</span> <span class="toc-text">2.1 开启慢查询日志</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-2-%E5%AE%9A%E4%BD%8D%E5%88%B0%E7%9A%84%E4%B8%A4%E4%B8%AA-SQL-%E9%97%AE%E9%A2%98"><span class="toc-number">3.2.</span> <span class="toc-text">2.2 定位到的两个 SQL 问题</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-3-Explain-%E6%89%A7%E8%A1%8C%E8%AE%A1%E5%88%92%E8%AF%A6%E8%A7%A3"><span class="toc-number">3.3.</span> <span class="toc-text">2.3 Explain 执行计划详解</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-4-%E7%AC%AC%E4%B8%80%E9%98%B6%E6%AE%B5%E4%BC%98%E5%8C%96%E6%95%88%E6%9E%9C"><span class="toc-number">3.4.</span> <span class="toc-text">2.4 第一阶段优化效果</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%89%E3%80%81%E7%AC%AC%E4%BA%8C%E6%AD%A5%EF%BC%9A%E5%85%A8%E9%93%BE%E8%B7%AF%E5%AE%9A%E4%BD%8D%E2%80%94%E2%80%94%E9%93%BE%E8%B7%AF%E8%BF%BD%E8%B8%AA%E9%94%81%E5%AE%9A%E8%80%97%E6%97%B6%E5%8C%BA%E9%97%B4"><span class="toc-number">4.</span> <span class="toc-text">三、第二步：全链路定位——链路追踪锁定耗时区间</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#3-1-%E9%93%BE%E8%B7%AF%E8%BF%BD%E8%B8%AA%E7%9A%84%E6%A0%B8%E5%BF%83%E4%BB%B7%E5%80%BC"><span class="toc-number">4.1.</span> <span class="toc-text">3.1 链路追踪的核心价值</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-2-%E5%B8%B8%E7%94%A8%E9%93%BE%E8%B7%AF%E8%BF%BD%E8%B8%AA%E5%B7%A5%E5%85%B7"><span class="toc-number">4.2.</span> <span class="toc-text">3.2 常用链路追踪工具</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-3-%E6%8E%92%E6%9F%A5%E7%BB%93%E6%9E%9C%EF%BC%9A%E8%80%97%E6%97%B6%E9%9B%86%E4%B8%AD%E5%9C%A8%E5%AF%B9%E8%B1%A1%E8%BD%AC%E6%8D%A2"><span class="toc-number">4.3.</span> <span class="toc-text">3.3 排查结果：耗时集中在对象转换</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9B%9B%E3%80%81%E7%AC%AC%E4%B8%89%E6%AD%A5%EF%BC%9A%E7%B2%BE%E5%87%86%E5%87%BB%E7%A9%BF%E2%80%94%E2%80%94Arthas-%E7%81%AB%E7%84%B0%E5%9B%BE%E5%AE%9A%E4%BD%8D%E4%BB%A3%E7%A0%81%E7%83%AD%E7%82%B9"><span class="toc-number">5.</span> <span class="toc-text">四、第三步：精准击穿——Arthas 火焰图定位代码热点</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#4-1-%E4%BB%80%E4%B9%88%E6%98%AF%E7%81%AB%E7%84%B0%E5%9B%BE"><span class="toc-number">5.1.</span> <span class="toc-text">4.1 什么是火焰图</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-2-%E5%AE%9E%E6%88%98%E6%93%8D%E4%BD%9C%E6%AD%A5%E9%AA%A4"><span class="toc-number">5.2.</span> <span class="toc-text">4.2 实战操作步骤</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-3-Arthas-%E5%B8%B8%E7%94%A8%E5%91%BD%E4%BB%A4"><span class="toc-number">5.3.</span> <span class="toc-text">4.3 Arthas 常用命令</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-4-%E6%89%BE%E5%88%B0%E7%9A%84%E4%B8%89%E4%B8%AA%E4%BB%A3%E7%A0%81%E7%83%AD%E7%82%B9"><span class="toc-number">5.4.</span> <span class="toc-text">4.4 找到的三个代码热点</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%94%E3%80%81%E4%BC%98%E5%8C%96%E6%95%88%E6%9E%9C%EF%BC%9A%E4%BB%8E-3-%E7%A7%92%E5%88%B0-200-%E6%AF%AB%E7%A7%92"><span class="toc-number">6.</span> <span class="toc-text">五、优化效果：从 3 秒到 200 毫秒</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%AD%E3%80%81%E9%AB%98%E9%A2%91%E6%80%A7%E8%83%BD%E7%93%B6%E9%A2%88%E6%B8%85%E5%8D%95"><span class="toc-number">7.</span> <span class="toc-text">六、高频性能瓶颈清单</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E4%BC%98%E5%8C%96%E6%89%8B%E6%AE%B5"><span class="toc-number">7.1.</span> <span class="toc-text">常见优化手段</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%83%E3%80%81%E7%9B%91%E6%8E%A7%E5%91%8A%E8%AD%A6%E5%BB%BA%E8%AE%AE"><span class="toc-number">8.</span> <span class="toc-text">七、监控告警建议</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#7-1-%E5%BA%94%E7%94%A8%E5%B1%82%E7%9B%91%E6%8E%A7"><span class="toc-number">8.1.</span> <span class="toc-text">7.1 应用层监控</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#7-2-%E6%85%A2%E6%8E%A5%E5%8F%A3%E5%91%8A%E8%AD%A6%E8%A7%84%E5%88%99"><span class="toc-number">8.2.</span> <span class="toc-text">7.2 慢接口告警规则</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%AB%E3%80%81%E9%80%9A%E7%94%A8%E6%8E%92%E6%9F%A5%E6%96%B9%E6%B3%95%E8%AE%BA"><span class="toc-number">9.</span> <span class="toc-text">八、通用排查方法论</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%8E%92%E6%9F%A5%E5%9B%9B%E6%AD%A5%E8%B5%B0"><span class="toc-number">9.1.</span> <span class="toc-text">排查四步走</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E6%A0%B8%E5%BF%83%E5%8E%9F%E5%88%99"><span class="toc-number">9.2.</span> <span class="toc-text">核心原则</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B9%9D%E3%80%81%E9%9D%A2%E8%AF%95%E9%AB%98%E9%A2%91%E9%97%AE%E9%A2%98"><span class="toc-number">10.</span> <span class="toc-text">九、面试高频问题</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%86%99%E5%9C%A8%E6%9C%80%E5%90%8E"><span class="toc-number">11.</span> <span class="toc-text">写在最后</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"><img src="/../img/ai-10-ollama.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"/></a><div class="content"><a class="title" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成">Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成</a><time datetime="2026-07-22T02:00:00.000Z" title="发表于 2026-07-22 10:00:00">2026-07-22</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"><img src="/../img/ai-09-spring-ai.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"/></a><div class="content"><a class="title" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling">Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling</a><time datetime="2026-07-17T02:00:00.000Z" title="发表于 2026-07-17 10:00:00">2026-07-17</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"><img src="/../img/ai-08-vector-database.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"/></a><div class="content"><a class="title" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比">向量数据库选型实战：Chroma、Milvus 与 pgvector 对比</a><time datetime="2026-07-13T02:00:00.000Z" title="发表于 2026-07-13 10:00:00">2026-07-13</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度"><img src="/../img/ai-07-rag-evaluation.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 评估实战：Recall@K、MRR 与回答忠实度"/></a><div class="content"><a class="title" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度">RAG 评估实战：Recall@K、MRR 与回答忠实度</a><time datetime="2026-07-12T02:00:00.000Z" title="发表于 2026-07-12 10:00:00">2026-07-12</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"><img src="/../img/ai-06-rag-retrieval.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"/></a><div class="content"><a class="title" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker">RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker</a><time datetime="2026-07-09T02:00:00.000Z" title="发表于 2026-07-09 10:00:00">2026-07-09</time></div></div></div></div></div></div></main><footer id="footer"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2024 - 2026 By qjngbac</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 7.3.0</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.5.5</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.5.5"></script><script src="/js/main.js?v=5.5.5"></script><div class="js-pjax"></div><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

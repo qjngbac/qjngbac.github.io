@@ -1,0 +1,476 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>CAP 与 BASE 理论：分布式系统的基石 | Wait</title><meta name="author" content="qjngbac"><meta name="copyright" content="qjngbac"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="前言做分布式系统开发，绕不开 CAP 和 BASE 这两大基础理论。很多人面试时能背出「三选二」，但真到做技术选型时，却搞不清什么时候该追求强一致、什么时候该接受最终一致，也说不清楚 BASE 理论到底指导了哪些工程实践。 实际上，CAP 不是刻板的选择题，而是告诉我们一个客观事实：分布式系统必须为网络分区做好准备，分区发生时需要在一致性和可用性之间权衡。而 BASE 则提供了一种常见的工程思路：">
+<meta property="og:type" content="article">
+<meta property="og:title" content="CAP 与 BASE 理论：分布式系统的基石">
+<meta property="og:url" content="https://qjngbac.github.io/2026/01/19/cap-base-guide/index.html">
+<meta property="og:site_name" content="Wait">
+<meta property="og:description" content="前言做分布式系统开发，绕不开 CAP 和 BASE 这两大基础理论。很多人面试时能背出「三选二」，但真到做技术选型时，却搞不清什么时候该追求强一致、什么时候该接受最终一致，也说不清楚 BASE 理论到底指导了哪些工程实践。 实际上，CAP 不是刻板的选择题，而是告诉我们一个客观事实：分布式系统必须为网络分区做好准备，分区发生时需要在一致性和可用性之间权衡。而 BASE 则提供了一种常见的工程思路：">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://qjngbac.github.io/img/backend-10-cap-base.jpg">
+<meta property="article:published_time" content="2026-01-19T06:00:00.000Z">
+<meta property="article:modified_time" content="2026-07-19T09:06:55.175Z">
+<meta property="article:author" content="qjngbac">
+<meta property="article:tag" content="后端">
+<meta property="article:tag" content="面试">
+<meta property="article:tag" content="分布式">
+<meta property="article:tag" content="CAP">
+<meta property="article:tag" content="BASE">
+<meta property="article:tag" content="一致性">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://qjngbac.github.io/img/backend-10-cap-base.jpg"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "CAP 与 BASE 理论：分布式系统的基石",
+  "url": "https://qjngbac.github.io/2026/01/19/cap-base-guide/",
+  "image": "https://qjngbac.github.io/img/backend-10-cap-base.jpg",
+  "datePublished": "2026-01-19T06:00:00.000Z",
+  "dateModified": "2026-07-19T09:06:55.175Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "qjngbac",
+      "url": "https://qjngbac.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://qjngbac.github.io/2026/01/19/cap-base-guide/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.5.5"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        if (!ttl) return
+        const expiry = Date.now() + ttl * 86400000
+        localStorage.setItem(key, JSON.stringify({ value, expiry }))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return undefined
+        const { value, expiry } = JSON.parse(itemStr)
+        if (Date.now() > expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return value
+      }
+    }
+
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+        script.onload = script.onreadystatechange = () => {
+          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      }),
+      getCSS: (url, id) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onload = link.onreadystatechange = () => {
+          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+        }
+        link.onerror = reject
+        document.head.appendChild(link)
+      }),
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: true
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'CAP 与 BASE 理论：分布式系统的基石',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="generator" content="Hexo 7.3.0"></head><body><div id="loading-box"><div class="loading-left-bg"></div><div class="loading-right-bg"></div><div class="spinner-box"><div class="configure-border-1"><div class="configure-core"></div></div><div class="configure-border-2"><div class="configure-core"></div></div><div class="loading-word">加载中...</div></div></div><script>(()=>{
+  const $loadingBox = document.getElementById('loading-box')
+  const $body = document.body
+  const preloader = {
+    endLoading: () => {
+      if ($loadingBox.classList.contains('loaded')) return
+      $body.style.overflow = ''
+      $loadingBox.classList.add('loaded')
+    },
+    initLoading: () => {
+      $body.style.overflow = 'hidden'
+      $loadingBox.classList.remove('loaded')
+    }
+  }
+
+  preloader.initLoading()
+
+  if (document.readyState === 'complete') {
+    preloader.endLoading()
+  } else {
+    window.addEventListener('load', preloader.endLoading)
+    document.addEventListener('DOMContentLoaded', preloader.endLoading)
+    // Add timeout protection: force end after 7 seconds
+    setTimeout(preloader.endLoading, 7000)
+  }
+
+  if (false) {
+    btf.addGlobalFn('pjaxSend', preloader.initLoading, 'preloader_init')
+    btf.addGlobalFn('pjaxComplete', preloader.endLoading, 'preloader_end')
+  }
+})()</script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">42</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">139</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(/../img/backend-10-cap-base.jpg);"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">Wait</span></a><a class="nav-page-title" href="/"><span class="site-name">CAP 与 BASE 理论：分布式系统的基石</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">CAP 与 BASE 理论：分布式系统的基石</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-01-19T06:00:00.000Z" title="发表于 2026-01-19 14:00:00">2026-01-19</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-07-19T09:06:55.175Z" title="更新于 2026-07-19 17:06:55">2026-07-19</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/%E5%90%8E%E7%AB%AF%E5%B7%A5%E7%A8%8B/">后端工程</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>做分布式系统开发，绕不开 CAP 和 BASE 这两大基础理论。很多人面试时能背出「三选二」，但真到做技术选型时，却搞不清什么时候该追求强一致、什么时候该接受最终一致，也说不清楚 BASE 理论到底指导了哪些工程实践。</p>
+<p>实际上，CAP 不是刻板的选择题，而是告诉我们一个客观事实：分布式系统必须为网络分区做好准备，分区发生时需要在一致性和可用性之间权衡。而 BASE 则提供了一种常见的工程思路：在业务允许的范围内接受暂时不一致，通过补偿和收敛换取更高的可用性与可扩展性。</p>
+<p>今天我们就从底层逻辑到工程实践，彻底讲透 CAP 三要素的取舍、BASE 三大核心，以及最终一致性的常见落地方案。</p>
+<hr>
+<h2 id="一、CAP-定理：分布式系统的「不可能三角」"><a href="#一、CAP-定理：分布式系统的「不可能三角」" class="headerlink" title="一、CAP 定理：分布式系统的「不可能三角」"></a>一、CAP 定理：分布式系统的「不可能三角」</h2><p>CAP 猜想由计算机科学家 Eric Brewer 于 2000 年提出，2002 年由 Seth Gilbert 和 Nancy Lynch 在异步网络模型下形式化证明。更准确的结论是：<strong>当网络分区发生时，分布式系统无法同时提供线性一致性和对所有非故障节点请求的可用响应</strong>。</p>
+<h3 id="1-1-三要素分别是什么"><a href="#1-1-三要素分别是什么" class="headerlink" title="1.1 三要素分别是什么"></a>1.1 三要素分别是什么</h3><p>我们先把每个概念的真实含义讲透，避免只背定义。</p>
+<h4 id="一致性（Consistency）"><a href="#一致性（Consistency）" class="headerlink" title="一致性（Consistency）"></a>一致性（Consistency）</h4><p><strong>定义</strong>：CAP 中的 C 通常指线性一致性，即每次操作看起来都在某个瞬间原子生效，并且所有客户端观察到的顺序与真实时间顺序一致。</p>
+<ul>
+<li>客户端写入成功后，后续读取不能返回该写入之前的旧值</li>
+<li>无法确认最新值的节点需要等待、转发或拒绝请求</li>
+<li>本质是「强一致」，所有节点对外像一个整体</li>
+</ul>
+<p>比如余额更新成功后，后续请求不能又读到更新前的旧余额。至于转账中“扣款和入账要么都成功、要么都失败”，还涉及事务原子性和业务不变量，不能只靠 CAP 中的 C 解释。</p>
+<h4 id="可用性（Availability）"><a href="#可用性（Availability）" class="headerlink" title="可用性（Availability）"></a>可用性（Availability）</h4><p><strong>定义</strong>：每个发送到非故障节点的请求最终都能得到响应，但响应不保证一定包含最新写入。</p>
+<ul>
+<li>只要节点仍可工作，就不能无限等待其他分区恢复后才响应</li>
+<li>CAP 的可用性是理论属性，不等同于日常所说的“几个 9”可用率</li>
+</ul>
+<p>比如社交平台的点赞数：短暂的计数不准用户完全感知不到，但页面刷不出来是无法接受的，这类场景可用性优先级更高。</p>
+<h4 id="分区容错性（Partition-Tolerance）"><a href="#分区容错性（Partition-Tolerance）" class="headerlink" title="分区容错性（Partition Tolerance）"></a>分区容错性（Partition Tolerance）</h4><p><strong>定义</strong>：即使节点之间的消息被任意延迟或丢失，系统仍能继续按既定规则运行，而不是依赖网络永不分区。</p>
+<ul>
+<li>网络故障、机房断连会造成分区；节点宕机属于另一类故障，但工程上也常与网络异常同时考虑</li>
+<li>分区容错是分布式系统的基本前提——连分区都容忍不了，就不是真正的分布式系统</li>
+</ul>
+<h3 id="1-2-为什么三者不可兼得？"><a href="#1-2-为什么三者不可兼得？" class="headerlink" title="1.2 为什么三者不可兼得？"></a>1.2 为什么三者不可兼得？</h3><p>很多人有疑问：为什么不能三个都要？我们用一个最简单的场景推演一下。</p>
+<p>假设系统有两个节点 A 和 B，分布在不同机房，现在两者之间的网络断了（出现了分区）：</p>
+<ul>
+<li>如果要保证<strong>一致性（C）</strong>：无法确认写入顺序的一侧必须等待或拒绝请求。系统可以让多数派一侧继续服务，但不能保证每个非故障节点都响应，因此牺牲了 CAP 意义上的 A。</li>
+<li>如果要保证<strong>可用性（A）</strong>：A 和 B 各自独立接收请求，正常响应用户。但两边数据各自更新，网络恢复后数据就不一致了——牺牲了 C。</li>
+</ul>
+<p>这就是 CAP 的核心矛盾：<strong>当分区发生时，你只能在 C 和 A 之间二选一，不可能两者同时满足</strong>。</p>
+<p><img src="/../img/cap-theorem-tradeoff.png" alt="CAP 三要素取舍关系"></p>
+<blockquote>
+<p><strong>一个非常重要的误区</strong>：CAP 不是「三个里面随便挑两个」。在分布式系统中，分区（P）是客观存在的必然事件，是必须接受的前提。我们真正做选择的，是「分区发生时，优先保一致性还是优先保可用性」。网络正常的时候，C 和 A 是可以同时满足的。</p>
+</blockquote>
+<h3 id="1-3-两种典型取舍：CP-vs-AP"><a href="#1-3-两种典型取舍：CP-vs-AP" class="headerlink" title="1.3 两种典型取舍：CP vs AP"></a>1.3 两种典型取舍：CP vs AP</h3><p>现实工程中，跨节点系统不能把“网络永不分区”当作前提，因此常用 CP&#x2F;AP 描述分区时的偏好。但这不是产品永久不变的标签，同一系统可能因读写级别、仲裁数量和故障场景不同而表现不同。</p>
+<h4 id="CP-系统：优先保证一致性，牺牲可用性"><a href="#CP-系统：优先保证一致性，牺牲可用性" class="headerlink" title="CP 系统：优先保证一致性，牺牲可用性"></a>CP 系统：优先保证一致性，牺牲可用性</h4><ul>
+<li><strong>代表组件</strong>：ZooKeeper、etcd，以及采用多数派提交的共识系统</li>
+<li><strong>特点</strong>：网络分区时，只允许具备合法仲裁的一侧继续处理一致性操作，少数派会拒绝或无法完成请求</li>
+<li><strong>适用场景</strong>：配置中心、分布式锁、元数据管理、金融交易等，数据错误的代价远高于短暂不可用</li>
+</ul>
+<h4 id="AP-系统：优先保证可用性，牺牲一致性"><a href="#AP-系统：优先保证可用性，牺牲一致性" class="headerlink" title="AP 系统：优先保证可用性，牺牲一致性"></a>AP 系统：优先保证可用性，牺牲一致性</h4><ul>
+<li><strong>代表组件</strong>：Eureka，以及采用 Dynamo 风格复制并允许低仲读写的系统</li>
+<li><strong>特点</strong>：网络分区时尽量继续响应，数据可能暂时分叉，恢复后再通过冲突解决和副本同步收敛</li>
+<li><strong>适用场景</strong>：互联网业务、用户侧服务、日志采集等，可用性优先，短暂数据不一致可接受</li>
+</ul>
+<blockquote>
+<p><strong>注意</strong>：Cassandra 等系统支持<strong>可调一致性</strong>（Tunable Consistency），可通过读写确认级别（如 <code>QUORUM</code>、<code>ALL</code>）调整一致性与可用性。满足 <code>R + W &gt; N</code> 能提高读到最新值的概率和副本交叠，但普通读写并不因此自动具备线性一致性；需要线性化条件更新时还要使用 LWT 等机制。</p>
+</blockquote>
+<h3 id="1-4-PACELC：CAP-的更完整版本"><a href="#1-4-PACELC：CAP-的更完整版本" class="headerlink" title="1.4 PACELC：CAP 的更完整版本"></a>1.4 PACELC：CAP 的更完整版本</h3><p>CAP 只讨论了网络分区发生时的取舍，但没有回答：<strong>网络正常时，一致性和延迟之间怎么权衡？</strong></p>
+<p>PACELC 理论弥补了这个空白：</p>
+<blockquote>
+<p>如果有分区（P），选择可用性（A）还是一致性（C）；否则（E），选择延迟（L）还是一致性（C）。</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>系统</th>
+<th>分区时</th>
+<th>正常时</th>
+<th>分类</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>ZooKeeper</td>
+<td>选 C</td>
+<td>选 C</td>
+<td>PC&#x2F;EC</td>
+</tr>
+<tr>
+<td>Cassandra</td>
+<td>选 A</td>
+<td>选 L</td>
+<td>PA&#x2F;EL</td>
+</tr>
+<tr>
+<td>MongoDB（多数派读写）</td>
+<td>选 C</td>
+<td>选 C</td>
+<td>PC&#x2F;EC</td>
+</tr>
+<tr>
+<td>Dynamo 风格系统（低仲裁配置）</td>
+<td>选 A</td>
+<td>选 L</td>
+<td>PA&#x2F;EL</td>
+</tr>
+</tbody></table>
+<p>这个框架比 CAP 更全面，也更贴近实际的系统选型思考。</p>
+<blockquote>
+<p>PACELC 分类是对系统默认取舍的简化描述，不应替代具体 API 语义。例如读写仲裁、只读副本和客户端一致性配置都可能改变实际表现。</p>
+</blockquote>
+<h3 id="1-5-选型的本质：看业务容错能力"><a href="#1-5-选型的本质：看业务容错能力" class="headerlink" title="1.5 选型的本质：看业务容错能力"></a>1.5 选型的本质：看业务容错能力</h3><p>没有绝对的好坏，只有是否适合业务：</p>
+<ul>
+<li>错了后果很严重 → 优先采用一致性更强的协议和业务约束，比如资金记账、库存扣减、核心配置</li>
+<li>晚一点一致没关系 → 选 AP，比如用户信息、内容推荐、统计数据</li>
+</ul>
+<hr>
+<h2 id="二、BASE-理论：CAP-的工程化落地"><a href="#二、BASE-理论：CAP-的工程化落地" class="headerlink" title="二、BASE 理论：CAP 的工程化落地"></a>二、BASE 理论：CAP 的工程化落地</h2><p>跨节点强一致通常需要共识、仲裁或同步复制，会增加延迟，并在部分故障时拒绝请求。很多互联网业务并非所有数据都需要同一等级的一致性，因此会按业务重要性分层设计。</p>
+<p>基于这个背景，业界提出了 <strong>BASE 理论</strong>，它是对 CAP 的延伸和实践，核心思想是：<strong>我们不需要追求时刻的强一致性，可以接受短暂的不一致，通过最终一致来达到数据正确，换取系统的高可用性</strong>。</p>
+<p>BASE 是三个短语的缩写：<strong>基本可用（Basically Available）、软状态（Soft State）、最终一致性（Eventually Consistent）</strong>。</p>
+<h3 id="2-1-基本可用（Basically-Available）"><a href="#2-1-基本可用（Basically-Available）" class="headerlink" title="2.1 基本可用（Basically Available）"></a>2.1 基本可用（Basically Available）</h3><p>分布式系统出现故障时，允许损失部分可用性，保证核心功能可用，而不是整体不可用。</p>
+<ul>
+<li><strong>响应时间降级</strong>：正常 100ms 返回，故障时允许 500ms 返回</li>
+<li><strong>功能降级</strong>：大促高峰时关闭非核心功能（比如评论、推荐），保证下单、支付等核心链路正常</li>
+<li><strong>流量削峰</strong>：请求进入队列排队，用户感知到轻微延迟，但系统不会被打垮</li>
+</ul>
+<p>简单说：「可以慢一点，可以少一点功能，但不能完全用不了」。</p>
+<h3 id="2-2-软状态（Soft-State）"><a href="#2-2-软状态（Soft-State）" class="headerlink" title="2.2 软状态（Soft State）"></a>2.2 软状态（Soft State）</h3><p>允许系统存在中间状态，数据同步过程中允许出现短暂的不一致，这个中间状态不会影响系统整体可用。</p>
+<ul>
+<li>比如下单后，订单状态显示「处理中」，积分、库存还在异步更新</li>
+<li>比如修改昵称后，部分节点还是旧昵称，几秒后才全部同步完成</li>
+</ul>
+<p>软状态是实现最终一致性的必经之路——数据同步需要时间，我们接受这个时间窗口内的「不一致」，换来系统的高吞吐。</p>
+<h3 id="2-3-最终一致性（Eventually-Consistent）"><a href="#2-3-最终一致性（Eventually-Consistent）" class="headerlink" title="2.3 最终一致性（Eventually Consistent）"></a>2.3 最终一致性（Eventually Consistent）</h3><p>如果不再有新的更新，经过一段时间的复制、重试与冲突解决后，各副本最终收敛到一致状态。</p>
+<ul>
+<li>不需要实时一致，但最终必须一致</li>
+<li>「一段时间」的长度取决于业务容忍度：可以是毫秒级、秒级，也可以是分钟级</li>
+<li>这是 BASE 理论的核心目标，也是绝大多数互联网分布式系统的一致性标准</li>
+</ul>
+<h3 id="2-4-ACID-与-BASE：关注点不同的两类设计思想"><a href="#2-4-ACID-与-BASE：关注点不同的两类设计思想" class="headerlink" title="2.4 ACID 与 BASE：关注点不同的两类设计思想"></a>2.4 ACID 与 BASE：关注点不同的两类设计思想</h3><p>ACID 描述的是事务应具备的原子性、一致性、隔离性和持久性；BASE 描述的是分布式系统在可用性与一致性收敛上的工程取舍。二者不在同一抽象层，也不互斥：一个采用 BASE 思路的系统，其每个本地事务仍然可以遵守 ACID。</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>ACID</th>
+<th>BASE</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>核心目标</td>
+<td>保证事务正确完成</td>
+<td>故障下维持基本服务并最终收敛</td>
+</tr>
+<tr>
+<td>一致性含义</td>
+<td>维护业务不变量，不等同于 CAP 的线性一致性</td>
+<td>允许中间状态，按约定达到最终一致</td>
+</tr>
+<tr>
+<td>设计哲学</td>
+<td>严谨、可靠，优先保证数据正确</td>
+<td>灵活、弹性，优先保证系统可用</td>
+</tr>
+<tr>
+<td>实现代价</td>
+<td>需要事务日志、并发控制等机制</td>
+<td>需要异步、重试、幂等、补偿和对账</td>
+</tr>
+<tr>
+<td>典型场景</td>
+<td>传统关系型数据库、金融交易</td>
+<td>互联网分布式系统、高并发业务</td>
+</tr>
+</tbody></table>
+<p>没有谁优谁劣，也不是简单二选一。常见做法是用 ACID 本地事务守住单库不变量，再用消息、补偿和对账让跨服务数据最终收敛；对关键跨节点状态则采用共识或更强的事务协议。</p>
+<hr>
+<h2 id="三、最终一致性：怎么落地实现？"><a href="#三、最终一致性：怎么落地实现？" class="headerlink" title="三、最终一致性：怎么落地实现？"></a>三、最终一致性：怎么落地实现？</h2><p>理论很美好，但最终一致性不是「等一等就一致了」，它需要具体的技术方案来保证。下面是工程中最常用的五种实现方案，覆盖绝大多数业务场景。</p>
+<h3 id="3-1-消息队列异步补偿（最通用）"><a href="#3-1-消息队列异步补偿（最通用）" class="headerlink" title="3.1 消息队列异步补偿（最通用）"></a>3.1 消息队列异步补偿（最通用）</h3><p>这是业务系统最常用的最终一致性方案，也是 MQ 的核心价值之一。</p>
+<p><strong>原理</strong>：核心操作同步完成后可靠地记录待发送事件，再投递到 MQ，由下游消费者异步执行后续操作；失败通过有限重试、补偿和人工处理推动状态收敛。</p>
+<ul>
+<li>比如下单流程：创建订单、扣库存同步执行，发短信、加积分、发物流全部异步处理</li>
+<li>本地事务与事件记录要避免“业务成功但消息没发出”，消费端还要幂等，并对死信和长期积压进行补偿</li>
+</ul>
+<p><strong>优点</strong>：解耦、削峰、实现简单，适合绝大多数业务异步场景。</p>
+<p><strong>注意点</strong>：必须保证消息不丢、消费端幂等，同时做好死信队列兜底。</p>
+<h3 id="3-2-读时修复（Read-Repair）"><a href="#3-2-读时修复（Read-Repair）" class="headerlink" title="3.2 读时修复（Read Repair）"></a>3.2 读时修复（Read Repair）</h3><p>读数据的时候顺便做一致性检查，发现旧数据就当场修复。</p>
+<p><strong>原理</strong>：读取数据时，从多个副本获取结果，对比版本号，如果发现某些副本数据过时，就用最新值更新它们。</p>
+<ul>
+<li>比如 Cassandra、Dynamo 风格存储会使用这类机制；Redis Cluster 本身不提供通用的多副本读时修复</li>
+<li>读的频率越高，数据修复得越快，一致性收敛越快</li>
+</ul>
+<p><strong>优点</strong>：不需要后台定时任务，读操作顺便完成修复，实现简单。</p>
+<p><strong>适用场景</strong>：读多写少、数据更新不频繁的场景。</p>
+<h3 id="3-3-反熵同步（Anti-Entropy）"><a href="#3-3-反熵同步（Anti-Entropy）" class="headerlink" title="3.3 反熵同步（Anti-Entropy）"></a>3.3 反熵同步（Anti-Entropy）</h3><p>后台定期在节点之间做数据校对，把不一致的数据修复一致。</p>
+<p><strong>原理</strong>：节点之间定期两两对比数据，用 Merkle Tree（哈希树）快速定位差异部分，只同步不一致的数据。</p>
+<ul>
+<li>类似于「对账」，只不过是节点之间自动完成</li>
+<li>不依赖读操作，后台静默修复，即使数据很久没人读，最终也会一致</li>
+</ul>
+<p><strong>优点</strong>：对业务完全无感知，后台静默修复。</p>
+<p><strong>缺点</strong>：修复有延迟，数据不一致的时间窗口相对较长。</p>
+<h3 id="3-4-版本号-向量时钟"><a href="#3-4-版本号-向量时钟" class="headerlink" title="3.4 版本号 &#x2F; 向量时钟"></a>3.4 版本号 &#x2F; 向量时钟</h3><p>解决并发写入带来的数据冲突，保证数据能按正确的顺序合并。</p>
+<ul>
+<li><strong>版本号</strong>：每条数据带一个版本号，更新时版本号必须匹配，更新成功版本号 +1，类似乐观锁。适合单主键的简单场景。</li>
+<li><strong>向量时钟（Vector Clock）</strong>：每个节点维护自己的版本向量，可以判断数据是因果关系还是并发冲突，适合多节点并发写入的复杂场景。经典 Dynamo 论文和 Riak 曾使用这类思路；不要把它直接等同于当前 AWS DynamoDB 对外提供的接口。</li>
+</ul>
+<p>核心作用是：<strong>先判断新旧，再决定是覆盖还是合并</strong>，避免旧数据覆盖新数据。</p>
+<h3 id="3-5-定时对账兜底"><a href="#3-5-定时对账兜底" class="headerlink" title="3.5 定时对账兜底"></a>3.5 定时对账兜底</h3><p>这是最后一道防线，也是金融、支付系统的标配。</p>
+<p><strong>原理</strong>：每天低峰期跑批任务，核对上下游系统的数据，找出不一致的记录，自动修正或人工介入处理。</p>
+<ul>
+<li>比如订单和支付对账、账户流水对账、库存实物盘点对账</li>
+<li>无论前面的方案多么完善，对账都是必须的最后保障</li>
+</ul>
+<p><strong>优点</strong>：能覆盖实时链路未发现的异常，是重要的兜底手段；检测能力取决于对账口径、数据完整性和任务监控，不能宣称绝对发现所有问题。</p>
+<p><strong>缺点</strong>：时效性差，通常是 T+1 修正。</p>
+<h3 id="3-6-最终一致性的常见级别"><a href="#3-6-最终一致性的常见级别" class="headerlink" title="3.6 最终一致性的常见级别"></a>3.6 最终一致性的常见级别</h3><p>最终一致不是只有一种，根据业务要求，还可以细分出不同强度的级别：</p>
+<table>
+<thead>
+<tr>
+<th>级别</th>
+<th>含义</th>
+<th>示例</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>因果一致性</strong></td>
+<td>有因果关系的操作必须按顺序可见</td>
+<td>你回复了别人的评论，别人必须先看到自己的评论</td>
+</tr>
+<tr>
+<td><strong>读己之所写</strong></td>
+<td>自己更新的数据，自己立刻能读到最新</td>
+<td>你改了昵称，刷新页面立刻看到新昵称</td>
+</tr>
+<tr>
+<td><strong>会话一致性</strong></td>
+<td>同一会话内保证读己之所写</td>
+<td>登录后操作结果在当前会话内一致</td>
+</tr>
+<tr>
+<td><strong>单调读</strong></td>
+<td>读到某个版本后，不会读到更旧的版本</td>
+<td>不会出现刷新页面数据反而倒退的情况</td>
+</tr>
+</tbody></table>
+<p>级别越高，实现成本越高，根据业务需求选择即可，不用盲目追求最强。</p>
+<hr>
+<h2 id="四、分布式事务：跨服务一致性的工程方案"><a href="#四、分布式事务：跨服务一致性的工程方案" class="headerlink" title="四、分布式事务：跨服务一致性的工程方案"></a>四、分布式事务：跨服务一致性的工程方案</h2><p>当业务需要协调多个本地事务时（比如转账：A 扣钱和 B 加钱必须形成完整闭环），可以采用分布式事务或可靠消息方案。不同模式提供的一致性与隔离性不同，TCC、Saga 通常依靠资源预留或补偿实现最终一致，而不是天然获得数据库式强隔离。</p>
+<h3 id="4-1-TCC（Try-Confirm-Cancel）"><a href="#4-1-TCC（Try-Confirm-Cancel）" class="headerlink" title="4.1 TCC（Try-Confirm-Cancel）"></a>4.1 TCC（Try-Confirm-Cancel）</h3><p>把一个分布式事务拆成三个阶段：</p>
+<ol>
+<li><strong>Try</strong>：预留资源（比如冻结账户金额）</li>
+<li><strong>Confirm</strong>：确认执行（真正扣款、加款）</li>
+<li><strong>Cancel</strong>：回滚释放（解冻金额）</li>
+</ol>
+<p><strong>优点</strong>：性能好，不长期持有锁。</p>
+<p><strong>缺点</strong>：代码侵入性强，每个业务都要实现 Try&#x2F;Confirm&#x2F;Cancel 三个接口。</p>
+<p>Confirm 和 Cancel 还必须保证幂等，并处理空回滚、悬挂等异常时序，否则重试本身也可能破坏业务状态。</p>
+<h3 id="4-2-Saga-模式"><a href="#4-2-Saga-模式" class="headerlink" title="4.2 Saga 模式"></a>4.2 Saga 模式</h3><p>把长事务拆成多个本地事务，每个本地事务都有对应的补偿操作：</p>
+<ol>
+<li>T1 执行 → T2 执行 → T3 执行（正常流程）</li>
+<li>T1 执行 → T2 执行 → T3 失败 → C2 补偿 → C1 补偿（回滚流程）</li>
+</ol>
+<p><strong>优点</strong>：适合长流程、跨多服务的业务，没有全局锁。</p>
+<p><strong>缺点</strong>：只能保证最终一致，中间状态对外可见；补偿逻辑复杂。</p>
+<blockquote>
+<p>分布式事务的详细实现（Seata 等）会在后续博客中专门讲解，这里只做概念介绍。</p>
+</blockquote>
+<hr>
+<h2 id="五、面试高频问题"><a href="#五、面试高频问题" class="headerlink" title="五、面试高频问题"></a>五、面试高频问题</h2><p><strong>Q1：CAP 定理是什么？为什么不能三者兼得？</strong></p>
+<p>当网络分区发生时，分布式系统无法同时保证线性一致性和所有非故障节点的可用响应。要保一致性，无法形成合法仲裁的一侧必须等待或拒绝；要让两侧都继续响应，就可能读写到不同版本。</p>
+<p><strong>Q2：CP 和 AP 的典型代表？</strong></p>
+<p>常见示例中，ZooKeeper、etcd 偏向分区时保一致性，Eureka 和低仲裁的 Dynamo 风格系统偏向保可用。Cassandra 支持可调一致性，但普通 <code>QUORUM</code> 读写不等于线性一致，条件更新需要 LWT 等机制。</p>
+<p><strong>Q3：BASE 理论是什么？</strong></p>
+<p>基本可用（允许降级）、软状态（允许中间不一致状态）、最终一致性（最终达到一致）。是互联网场景下对 CAP 的工程化实践，用最终一致换高可用。</p>
+<p><strong>Q4：ACID 和 BASE 的区别？</strong></p>
+<p>ACID 描述单个事务的原子性、一致性、隔离性、持久性；BASE 描述分布式系统允许中间状态并最终收敛的思路。二者不互斥，工程中常用 ACID 本地事务配合 BASE 式异步补偿。</p>
+<p><strong>Q5：最终一致性怎么实现？</strong></p>
+<p>五种方案：消息队列异步补偿（最通用）、读时修复（读时顺便修数据）、反熵同步（后台定期对齐）、版本号&#x2F;向量时钟（解决并发冲突）、定时对账（最后兜底）。</p>
+<p><strong>Q6：PACELC 比 CAP 多了什么？</strong></p>
+<p>PACELC 补充了网络正常时的权衡：分区时选 A 还是 C，正常时选低延迟（L）还是强一致（C）。比 CAP 更完整地描述了系统的实际行为。</p>
+<hr>
+<h2 id="写在最后"><a href="#写在最后" class="headerlink" title="写在最后"></a>写在最后</h2><p>回头看 CAP 和 BASE，你会发现分布式系统的核心从来不是「追求完美」，而是「学会权衡」。</p>
+<p>CAP 告诉我们，分布式系统没有十全十美的方案，分区面前必须有所取舍。BASE 告诉我们，不用执着于瞬时强一致，接受短暂的软状态，用最终一致换高可用，是性价比更高的选择。</p>
+<p>做技术选型时，永远不要问「哪个方案更好」，而是要问：</p>
+<ul>
+<li>这个业务场景，数据不一致的代价有多大？</li>
+<li>系统不可用的代价有多大？</li>
+<li>我们能接受多长时间的不一致窗口？</li>
+</ul>
+<p>想清楚这三个问题，再去选择 CP 还是 AP、强一致还是最终一致，答案自然就清晰了。</p>
+<hr>
+<blockquote>
+<p><strong>系列文章预告</strong>：</p>
+<ul>
+<li>上一篇：Kafka 核心原理：分区、副本、消费者组</li>
+<li>下一篇：分布式事务实战：Seata 的 AT 模式原理</li>
+</ul>
+</blockquote>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://qjngbac.github.io">qjngbac</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://qjngbac.github.io/2026/01/19/cap-base-guide/">https://qjngbac.github.io/2026/01/19/cap-base-guide/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://qjngbac.github.io" target="_blank">Wait</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/%E5%90%8E%E7%AB%AF/">后端</a><a class="post-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><a class="post-meta__tags" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F/">分布式</a><a class="post-meta__tags" href="/tags/CAP/">CAP</a><a class="post-meta__tags" href="/tags/BASE/">BASE</a><a class="post-meta__tags" href="/tags/%E4%B8%80%E8%87%B4%E6%80%A7/">一致性</a></div><div class="post-share"><div class="social-share" data-image="/../img/backend-10-cap-base.jpg" data-sites="facebook,x,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/2026/01/25/distributed-id-guide/" title="分布式 ID 生成：Snowflake 方案的取舍"><img class="cover" src="/../img/backend-12-distributed-id.jpg" onerror="onerror=null;src='/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">分布式 ID 生成：Snowflake 方案的取舍</div></div><div class="info-2"><div class="info-item-1">前言微服务与分库分表架构下，单库的自增主键已经无法满足需求：跨服务、跨库的业务需要全局唯一的 ID 来标识订单、流水、用户等数据。一个看似简单的「生成唯一编号」需求，背后却藏着不少工程化的权衡：全局唯一、趋势递增、高性能、高可用、信息安全，每个要求都在考验方案设计。 业界实现分布式 ID 的方案有很多：UUID、数据库自增、Redis 自增、雪花算法等等。其中 Snowflake 雪花算法凭借「本地生成、高性能、趋势递增」的特点，成为互联网公司的主流选择，但它也不是完美的——时钟回拨问题始终是绕不开的痛点。 本文就从主流方案对比出发，深入拆解 Snowflake 的原理与痛点，再延伸到美团 Leaf 这类工业级方案的优化思路，讲清楚每一种方案的取舍边界。  一、主流方案横向对比：四种实现的优劣在讲雪花算法之前，我们先把四类最常见的分布式 ID 方案放在一起对比，看看各自的适用场景和短板。 1.1 UUID：最简单，但要谨慎用作数据库主键UUID 是很多人第一个想到的方案，Java 自带 UUID.randomUUID() 就能生成，完全本地计算，无任何外部依赖。  优点：实现成本...</div></div></div></a><a class="pagination-related" href="/2025/12/27/cache-penetration-guide/" title="缓存穿透/击穿/雪崩：一次缓存故障的排查与解决"><img class="cover" src="/../img/backend-05-cache-avalanche.jpg" onerror="onerror=null;src='/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">缓存穿透/击穿/雪崩：一次缓存故障的排查与解决</div></div><div class="info-2"><div class="info-item-1">前言大促预热活动上线当晚，运维告警群突然炸锅：商品详情接口大面积超时，数据库 CPU 飙升至 98%，连接池被打满，大量请求直接报错。第一反应是流量突增，但拉监控一看，Redis 的 QPS 并不高，缓存命中率跌到了 30% 以下——很明显，缓存层出问题了。 很多人做缓存设计时，只想着「把数据放进 Redis 就能提速」，却忽略了缓存失效带来的反向冲击。缓存穿透、击穿、雪崩是三种最经典的缓存故障，很多人经常把三者混为一谈，但它们的触发原因、影响范围、解决方案完全不同。 本文就以这次真实的线上故障为例，先理清三者的本质区别，再从紧急止血到根治优化，完整讲解布隆过滤器、互斥锁、热点 key 治理等核心方案，最后给出一套可复用的缓存稳定性设计原则。  一、先分清：三者根本不是一回事很多人面试时背得滚瓜烂熟，真遇到故障却分不清是哪一种。我们先用一张表把核心差异说清楚：    问题类型 核心原因 典型特征 影响范围    缓存穿透 请求的 key 在缓存和数据库中都不存在 缓存命中率极低，大量请求直接打数据库 全量无效请求都打库   缓存击穿 单个热点 key 突然过期失效，大量并发同时打...</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/2026/04/20/kafka-guide/" title="Kafka 核心原理：分区、副本、消费者组"><img class="cover" src="/../img/backend-09-kafka.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-04-20</div><div class="info-item-2">Kafka 核心原理：分区、副本、消费者组</div></div><div class="info-2"><div class="info-item-1">前言在高吞吐事件流场景下，Kafka 是主流选择之一：顺序追加、分区并行、可回放日志和成熟流处理生态，让它广泛用于日志采集、数据集成与事件驱动架构。具体吞吐取决于消息大小、批量、确认级别、磁盘和集群拓扑，不能只背“单机十万级”这个数字。  本文以 Kafka 4.3 的现状补充说明：Kafka 4.x 仅支持 KRaft 模式，不再依赖 ZooKeeper；经典消费者组仍然可用，同时还有新的 Consumer Rebalance Protocol 和 Share Groups。核心分区、副本与日志原理保持不变。  但很多开发者对 Kafka 的认知停留在「发消息、收消息」的表层，说不清楚分区为什么能提升吞吐、ISR 副本是怎么同步的、消费者组 Rebalance 为什么会导致消费停滞，更说不清 Exactly-Once 语义到底怎么实现。 Kafka 的高性能与高可靠，不是凭空而来的，它建立在「分区、副本、消费者组」三大核心设计之上。今天我们就从底层原理出发，逐层拆解分区存储机制、ISR 副本同步、消费者组重平衡、Exactly-Once 语义实现，彻底搞懂 Kafka 的核心骨...</div></div></div></a><a class="pagination-related" href="/2026/01/25/distributed-id-guide/" title="分布式 ID 生成：Snowflake 方案的取舍"><img class="cover" src="/../img/backend-12-distributed-id.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-01-25</div><div class="info-item-2">分布式 ID 生成：Snowflake 方案的取舍</div></div><div class="info-2"><div class="info-item-1">前言微服务与分库分表架构下，单库的自增主键已经无法满足需求：跨服务、跨库的业务需要全局唯一的 ID 来标识订单、流水、用户等数据。一个看似简单的「生成唯一编号」需求，背后却藏着不少工程化的权衡：全局唯一、趋势递增、高性能、高可用、信息安全，每个要求都在考验方案设计。 业界实现分布式 ID 的方案有很多：UUID、数据库自增、Redis 自增、雪花算法等等。其中 Snowflake 雪花算法凭借「本地生成、高性能、趋势递增」的特点，成为互联网公司的主流选择，但它也不是完美的——时钟回拨问题始终是绕不开的痛点。 本文就从主流方案对比出发，深入拆解 Snowflake 的原理与痛点，再延伸到美团 Leaf 这类工业级方案的优化思路，讲清楚每一种方案的取舍边界。  一、主流方案横向对比：四种实现的优劣在讲雪花算法之前，我们先把四类最常见的分布式 ID 方案放在一起对比，看看各自的适用场景和短板。 1.1 UUID：最简单，但要谨慎用作数据库主键UUID 是很多人第一个想到的方案，Java 自带 UUID.randomUUID() 就能生成，完全本地计算，无任何外部依赖。  优点：实现成本...</div></div></div></a><a class="pagination-related" href="/2025/11/22/mysql-mvcc-guide/" title="MySQL 事务与锁：MVCC 是怎么实现的"><img class="cover" src="/img/backend-02-mysql-mvcc.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2025-11-22</div><div class="info-item-2">MySQL 事务与锁：MVCC 是怎么实现的</div></div><div class="info-2"><div class="info-item-1">前言在并发场景下操作数据库，我们总会遇到各种反直觉的数据问题：刚插入的数据查不到、同一个事务两次查询同一条数据结果不一样、范围更新时莫名多出不存在的行。这些问题的本质，都和事务隔离性与锁机制息息相关。 而 MVCC（多版本并发控制） 就是 InnoDB 解决读写冲突、提升并发性能的核心武器。它让读操作不用加锁、写操作不阻塞读，在保证隔离性的同时，大幅提升了数据库的并发能力。 很多人听过 MVCC 的名字，却搞不清它到底怎么实现的：undo log 起什么作用？Read View 是怎么判断可见性的？行锁、间隙锁、临键锁又和 MVCC 是什么关系？ 今天我们就从 ACID 四大特性讲起，逐层深入，把隔离级别、undo 版本链、Read View 可见性、三类行锁一次性讲透。  一、事务的基石：ACID 四大特性事务是一组原子性的 SQL 操作，要么全部执行成功，要么全部失败回滚。    特性 含义 底层实现    原子性（Atomicity） 要么全成功，要么全回滚 undo log   一致性（Consistency） 事务前后满足业务规则与数据库约束 数据库约束、应用规则以及 ...</div></div></div></a><a class="pagination-related" href="/2026/06/01/k8s-guide/" title="K8s 核心概念：Pod&#x2F;Service&#x2F;Deployment"><img class="cover" src="/../img/backend-14-k8s.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-06-01</div><div class="info-item-2">K8s 核心概念：Pod&#x2F;Service&#x2F;Deployment</div></div><div class="info-2"><div class="info-item-1">前言Docker 解决了容器的构建与运行问题，但当业务从几个容器扩展到几十上百个容器时，单机管理就不够用了：实例异常了怎么自动恢复？流量上来了怎么横向扩容？多机集群怎么统一调度？怎样在满足条件时实现尽量不中断服务的滚动发布？ 这些问题，正是 Kubernetes（简称 K8s）要解决的。作为容器编排领域的事实标准，K8s 提供了一整套容器调度、服务发现、滚动发布、自动扩缩容的能力，而支撑这一切的，是三个最核心的基础资源：Pod、Service、Deployment。 本文就从「为什么需要」出发，逐层拆解三大核心资源的设计思想、工作原理与典型用法，同时覆盖 Pod 生命周期、服务发现、滚动更新、配置管理等关键知识点，帮你建立起 K8s 的核心认知框架。   一、Pod：K8s 最小的调度单元很多刚接触 K8s 的人会问：已经有容器了，为什么还要抽象出一个 Pod？ 1.1 Pod 是什么Pod 是 K8s 中最小的可部署计算单元，也是调度器直接调度的对象。它不是替代容器，而是封装一个或多个需要共同运行的容器。  一个 Pod 可以包含 1 个主容器 + 多个辅助容器（Sidecar...</div></div></div></a><a class="pagination-related" href="/2026/04/15/mq-reliability-guide/" title="消息可靠性保证：消息丢失&#x2F;重复&#x2F;顺序问题"><img class="cover" src="/../img/backend-08-mq-reliability.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-04-15</div><div class="info-item-2">消息可靠性保证：消息丢失&#x2F;重复&#x2F;顺序问题</div></div><div class="info-2"><div class="info-item-1">前言引入消息队列之后，很多团队都会踩同一类坑：下单成功了用户却没收到通知、统计数据总是对不上、库存重复扣减导致超卖、订单状态更新乱序出现业务异常。 很多人以为「把消息发出去、消费端拿到执行」就完事了，实际上不同 MQ 和客户端的默认语义并不相同，默认值也不能替代端到端设计。消息丢失、重复消费、顺序错乱，是必须明确处理的三类风险。 消息可靠性从来不是单点优化，而是一套覆盖生产端、Broker、消费端的全链路组合拳。本文就从三个经典问题切入，完整讲解生产确认、持久化刷盘、消费端 ACK、幂等设计、顺序消费的实现方案，帮你把消息可靠性从「随缘」变成「可控」。   一、先统一认知：消息投递的三个语义等级在讲方案之前，先明确消息投递的三个语义等级，不同等级对应的实现成本天差地别。    投递语义 含义 特点 适用场景    最多一次（At most once） 消息最多投递一次，丢了就丢了，绝不重复 性能最高，可靠性最差 日志、埋点、可丢失的非核心数据   至少一次（At least once） 消息保证至少投递到消费端一次，可能重复 不丢失，但可能重复，业界主流实现 绝大多数业务场景  ...</div></div></div></a><a class="pagination-related" href="/2026/04/15/mq-intro-guide/" title="消息队列入门：为什么需要 MQ"><img class="cover" src="/../img/backend-07-mq-intro.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-04-15</div><div class="info-item-2">消息队列入门：为什么需要 MQ</div></div><div class="info-2"><div class="info-item-1">前言很多刚接触后端开发的同学都会有一个疑问：好好的同步调用不用，为什么非要引入消息队列？平白多了一个中间件，系统复杂度上去了，还要处理消息丢失、重复消费、积压等一堆问题，这不是给自己找麻烦吗？ 有这个疑问太正常了。在业务量小、逻辑简单的阶段，同步调用确实简单直接、调试方便。但随着业务增长、系统拆分、流量上升，你会发现同步调用的天花板越来越明显：接口响应越来越慢、上下游改一处全链路都要改、活动峰值一来系统直接被打垮。 消息队列（Message Queue，简称 MQ）不是什么炫技的黑科技，它本质是解决「异步、解耦、削峰」三大问题的标准方案，是分布式系统的核心组件之一。 今天我们就从真实业务场景出发，讲清楚为什么需要 MQ，它的三大核心价值是什么，再对比三款最主流的 MQ 产品，帮你搞定选型难题。  一、没有 MQ 的日子：同步调用的三大痛点我们用最经典的「下单流程」举例，看看随着业务迭代，同步调用会遇到哪些无法回避的问题。 1. 初期：简单高效业务早期，下单逻辑很简单：创建订单 + 扣减库存。两个步骤同步串行执行，总耗时约 100ms，用户体验良好，代码也简单直观。 2. 迭代一：...</div></div></div></a></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">qjngbac</div><div class="author-info-description">一个正在学习的开发者</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">42</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">139</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/qjngbac"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/qjngbac" target="_blank" title="Github"><i class="fab fa-github"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到我的博客</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%89%8D%E8%A8%80"><span class="toc-number">1.</span> <span class="toc-text">前言</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%80%E3%80%81CAP-%E5%AE%9A%E7%90%86%EF%BC%9A%E5%88%86%E5%B8%83%E5%BC%8F%E7%B3%BB%E7%BB%9F%E7%9A%84%E3%80%8C%E4%B8%8D%E5%8F%AF%E8%83%BD%E4%B8%89%E8%A7%92%E3%80%8D"><span class="toc-number">2.</span> <span class="toc-text">一、CAP 定理：分布式系统的「不可能三角」</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-1-%E4%B8%89%E8%A6%81%E7%B4%A0%E5%88%86%E5%88%AB%E6%98%AF%E4%BB%80%E4%B9%88"><span class="toc-number">2.1.</span> <span class="toc-text">1.1 三要素分别是什么</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%B8%80%E8%87%B4%E6%80%A7%EF%BC%88Consistency%EF%BC%89"><span class="toc-number">2.1.1.</span> <span class="toc-text">一致性（Consistency）</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%8F%AF%E7%94%A8%E6%80%A7%EF%BC%88Availability%EF%BC%89"><span class="toc-number">2.1.2.</span> <span class="toc-text">可用性（Availability）</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%88%86%E5%8C%BA%E5%AE%B9%E9%94%99%E6%80%A7%EF%BC%88Partition-Tolerance%EF%BC%89"><span class="toc-number">2.1.3.</span> <span class="toc-text">分区容错性（Partition Tolerance）</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#1-2-%E4%B8%BA%E4%BB%80%E4%B9%88%E4%B8%89%E8%80%85%E4%B8%8D%E5%8F%AF%E5%85%BC%E5%BE%97%EF%BC%9F"><span class="toc-number">2.2.</span> <span class="toc-text">1.2 为什么三者不可兼得？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#1-3-%E4%B8%A4%E7%A7%8D%E5%85%B8%E5%9E%8B%E5%8F%96%E8%88%8D%EF%BC%9ACP-vs-AP"><span class="toc-number">2.3.</span> <span class="toc-text">1.3 两种典型取舍：CP vs AP</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#CP-%E7%B3%BB%E7%BB%9F%EF%BC%9A%E4%BC%98%E5%85%88%E4%BF%9D%E8%AF%81%E4%B8%80%E8%87%B4%E6%80%A7%EF%BC%8C%E7%89%BA%E7%89%B2%E5%8F%AF%E7%94%A8%E6%80%A7"><span class="toc-number">2.3.1.</span> <span class="toc-text">CP 系统：优先保证一致性，牺牲可用性</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#AP-%E7%B3%BB%E7%BB%9F%EF%BC%9A%E4%BC%98%E5%85%88%E4%BF%9D%E8%AF%81%E5%8F%AF%E7%94%A8%E6%80%A7%EF%BC%8C%E7%89%BA%E7%89%B2%E4%B8%80%E8%87%B4%E6%80%A7"><span class="toc-number">2.3.2.</span> <span class="toc-text">AP 系统：优先保证可用性，牺牲一致性</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#1-4-PACELC%EF%BC%9ACAP-%E7%9A%84%E6%9B%B4%E5%AE%8C%E6%95%B4%E7%89%88%E6%9C%AC"><span class="toc-number">2.4.</span> <span class="toc-text">1.4 PACELC：CAP 的更完整版本</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#1-5-%E9%80%89%E5%9E%8B%E7%9A%84%E6%9C%AC%E8%B4%A8%EF%BC%9A%E7%9C%8B%E4%B8%9A%E5%8A%A1%E5%AE%B9%E9%94%99%E8%83%BD%E5%8A%9B"><span class="toc-number">2.5.</span> <span class="toc-text">1.5 选型的本质：看业务容错能力</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%8C%E3%80%81BASE-%E7%90%86%E8%AE%BA%EF%BC%9ACAP-%E7%9A%84%E5%B7%A5%E7%A8%8B%E5%8C%96%E8%90%BD%E5%9C%B0"><span class="toc-number">3.</span> <span class="toc-text">二、BASE 理论：CAP 的工程化落地</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#2-1-%E5%9F%BA%E6%9C%AC%E5%8F%AF%E7%94%A8%EF%BC%88Basically-Available%EF%BC%89"><span class="toc-number">3.1.</span> <span class="toc-text">2.1 基本可用（Basically Available）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-2-%E8%BD%AF%E7%8A%B6%E6%80%81%EF%BC%88Soft-State%EF%BC%89"><span class="toc-number">3.2.</span> <span class="toc-text">2.2 软状态（Soft State）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-3-%E6%9C%80%E7%BB%88%E4%B8%80%E8%87%B4%E6%80%A7%EF%BC%88Eventually-Consistent%EF%BC%89"><span class="toc-number">3.3.</span> <span class="toc-text">2.3 最终一致性（Eventually Consistent）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-4-ACID-%E4%B8%8E-BASE%EF%BC%9A%E5%85%B3%E6%B3%A8%E7%82%B9%E4%B8%8D%E5%90%8C%E7%9A%84%E4%B8%A4%E7%B1%BB%E8%AE%BE%E8%AE%A1%E6%80%9D%E6%83%B3"><span class="toc-number">3.4.</span> <span class="toc-text">2.4 ACID 与 BASE：关注点不同的两类设计思想</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%89%E3%80%81%E6%9C%80%E7%BB%88%E4%B8%80%E8%87%B4%E6%80%A7%EF%BC%9A%E6%80%8E%E4%B9%88%E8%90%BD%E5%9C%B0%E5%AE%9E%E7%8E%B0%EF%BC%9F"><span class="toc-number">4.</span> <span class="toc-text">三、最终一致性：怎么落地实现？</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#3-1-%E6%B6%88%E6%81%AF%E9%98%9F%E5%88%97%E5%BC%82%E6%AD%A5%E8%A1%A5%E5%81%BF%EF%BC%88%E6%9C%80%E9%80%9A%E7%94%A8%EF%BC%89"><span class="toc-number">4.1.</span> <span class="toc-text">3.1 消息队列异步补偿（最通用）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-2-%E8%AF%BB%E6%97%B6%E4%BF%AE%E5%A4%8D%EF%BC%88Read-Repair%EF%BC%89"><span class="toc-number">4.2.</span> <span class="toc-text">3.2 读时修复（Read Repair）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-3-%E5%8F%8D%E7%86%B5%E5%90%8C%E6%AD%A5%EF%BC%88Anti-Entropy%EF%BC%89"><span class="toc-number">4.3.</span> <span class="toc-text">3.3 反熵同步（Anti-Entropy）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-4-%E7%89%88%E6%9C%AC%E5%8F%B7-%E5%90%91%E9%87%8F%E6%97%B6%E9%92%9F"><span class="toc-number">4.4.</span> <span class="toc-text">3.4 版本号 &#x2F; 向量时钟</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-5-%E5%AE%9A%E6%97%B6%E5%AF%B9%E8%B4%A6%E5%85%9C%E5%BA%95"><span class="toc-number">4.5.</span> <span class="toc-text">3.5 定时对账兜底</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-6-%E6%9C%80%E7%BB%88%E4%B8%80%E8%87%B4%E6%80%A7%E7%9A%84%E5%B8%B8%E8%A7%81%E7%BA%A7%E5%88%AB"><span class="toc-number">4.6.</span> <span class="toc-text">3.6 最终一致性的常见级别</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9B%9B%E3%80%81%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1%EF%BC%9A%E8%B7%A8%E6%9C%8D%E5%8A%A1%E4%B8%80%E8%87%B4%E6%80%A7%E7%9A%84%E5%B7%A5%E7%A8%8B%E6%96%B9%E6%A1%88"><span class="toc-number">5.</span> <span class="toc-text">四、分布式事务：跨服务一致性的工程方案</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#4-1-TCC%EF%BC%88Try-Confirm-Cancel%EF%BC%89"><span class="toc-number">5.1.</span> <span class="toc-text">4.1 TCC（Try-Confirm-Cancel）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-2-Saga-%E6%A8%A1%E5%BC%8F"><span class="toc-number">5.2.</span> <span class="toc-text">4.2 Saga 模式</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%94%E3%80%81%E9%9D%A2%E8%AF%95%E9%AB%98%E9%A2%91%E9%97%AE%E9%A2%98"><span class="toc-number">6.</span> <span class="toc-text">五、面试高频问题</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%86%99%E5%9C%A8%E6%9C%80%E5%90%8E"><span class="toc-number">7.</span> <span class="toc-text">写在最后</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"><img src="/../img/ai-10-ollama.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"/></a><div class="content"><a class="title" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成">Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成</a><time datetime="2026-07-22T02:00:00.000Z" title="发表于 2026-07-22 10:00:00">2026-07-22</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"><img src="/../img/ai-09-spring-ai.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"/></a><div class="content"><a class="title" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling">Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling</a><time datetime="2026-07-17T02:00:00.000Z" title="发表于 2026-07-17 10:00:00">2026-07-17</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"><img src="/../img/ai-08-vector-database.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"/></a><div class="content"><a class="title" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比">向量数据库选型实战：Chroma、Milvus 与 pgvector 对比</a><time datetime="2026-07-13T02:00:00.000Z" title="发表于 2026-07-13 10:00:00">2026-07-13</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度"><img src="/../img/ai-07-rag-evaluation.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 评估实战：Recall@K、MRR 与回答忠实度"/></a><div class="content"><a class="title" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度">RAG 评估实战：Recall@K、MRR 与回答忠实度</a><time datetime="2026-07-12T02:00:00.000Z" title="发表于 2026-07-12 10:00:00">2026-07-12</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"><img src="/../img/ai-06-rag-retrieval.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"/></a><div class="content"><a class="title" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker">RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker</a><time datetime="2026-07-09T02:00:00.000Z" title="发表于 2026-07-09 10:00:00">2026-07-09</time></div></div></div></div></div></div></main><footer id="footer"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2024 - 2026 By qjngbac</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 7.3.0</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.5.5</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.5.5"></script><script src="/js/main.js?v=5.5.5"></script><div class="js-pjax"></div><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

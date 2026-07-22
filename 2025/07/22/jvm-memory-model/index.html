@@ -1,0 +1,420 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>JVM 运行时内存区域：你真的理解堆和栈吗？ | Wait</title><meta name="author" content="qjngbac"><meta name="copyright" content="qjngbac"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="前言写了多年 Java 代码，new 了无数个对象，调用了数不清的方法，但被问到”JVM 内存里堆和栈有什么区别”时，很多人依然只能说出”堆存对象，栈存变量”。面试被追问方法区、程序计数器、对象创建流程时，更是容易卡壳。 JVM 运行时内存区域是 Java 工程师的基本功，它不仅是面试高频考点，更是我们排查内存溢出、理解 GC 机制、进行性能调优的底层基石。今天我们就系统梳理一遍 JVM 运行时数">
+<meta property="og:type" content="article">
+<meta property="og:title" content="JVM 运行时内存区域：你真的理解堆和栈吗？">
+<meta property="og:url" content="https://qjngbac.github.io/2025/07/22/jvm-memory-model/index.html">
+<meta property="og:site_name" content="Wait">
+<meta property="og:description" content="前言写了多年 Java 代码，new 了无数个对象，调用了数不清的方法，但被问到”JVM 内存里堆和栈有什么区别”时，很多人依然只能说出”堆存对象，栈存变量”。面试被追问方法区、程序计数器、对象创建流程时，更是容易卡壳。 JVM 运行时内存区域是 Java 工程师的基本功，它不仅是面试高频考点，更是我们排查内存溢出、理解 GC 机制、进行性能调优的底层基石。今天我们就系统梳理一遍 JVM 运行时数">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://qjngbac.github.io/img/java-series-01-jvm-memory.jpg">
+<meta property="article:published_time" content="2025-07-22T08:00:00.000Z">
+<meta property="article:modified_time" content="2026-07-19T08:59:07.225Z">
+<meta property="article:author" content="qjngbac">
+<meta property="article:tag" content="后端">
+<meta property="article:tag" content="面试">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="JVM">
+<meta property="article:tag" content="内存模型">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://qjngbac.github.io/img/java-series-01-jvm-memory.jpg"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "JVM 运行时内存区域：你真的理解堆和栈吗？",
+  "url": "https://qjngbac.github.io/2025/07/22/jvm-memory-model/",
+  "image": "https://qjngbac.github.io/img/java-series-01-jvm-memory.jpg",
+  "datePublished": "2025-07-22T08:00:00.000Z",
+  "dateModified": "2026-07-19T08:59:07.225Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "qjngbac",
+      "url": "https://qjngbac.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://qjngbac.github.io/2025/07/22/jvm-memory-model/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.5.5"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        if (!ttl) return
+        const expiry = Date.now() + ttl * 86400000
+        localStorage.setItem(key, JSON.stringify({ value, expiry }))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return undefined
+        const { value, expiry } = JSON.parse(itemStr)
+        if (Date.now() > expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return value
+      }
+    }
+
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+        script.onload = script.onreadystatechange = () => {
+          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      }),
+      getCSS: (url, id) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onload = link.onreadystatechange = () => {
+          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+        }
+        link.onerror = reject
+        document.head.appendChild(link)
+      }),
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: true
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'JVM 运行时内存区域：你真的理解堆和栈吗？',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="generator" content="Hexo 7.3.0"></head><body><div id="loading-box"><div class="loading-left-bg"></div><div class="loading-right-bg"></div><div class="spinner-box"><div class="configure-border-1"><div class="configure-core"></div></div><div class="configure-border-2"><div class="configure-core"></div></div><div class="loading-word">加载中...</div></div></div><script>(()=>{
+  const $loadingBox = document.getElementById('loading-box')
+  const $body = document.body
+  const preloader = {
+    endLoading: () => {
+      if ($loadingBox.classList.contains('loaded')) return
+      $body.style.overflow = ''
+      $loadingBox.classList.add('loaded')
+    },
+    initLoading: () => {
+      $body.style.overflow = 'hidden'
+      $loadingBox.classList.remove('loaded')
+    }
+  }
+
+  preloader.initLoading()
+
+  if (document.readyState === 'complete') {
+    preloader.endLoading()
+  } else {
+    window.addEventListener('load', preloader.endLoading)
+    document.addEventListener('DOMContentLoaded', preloader.endLoading)
+    // Add timeout protection: force end after 7 seconds
+    setTimeout(preloader.endLoading, 7000)
+  }
+
+  if (false) {
+    btf.addGlobalFn('pjaxSend', preloader.initLoading, 'preloader_init')
+    btf.addGlobalFn('pjaxComplete', preloader.endLoading, 'preloader_end')
+  }
+})()</script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">42</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">139</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(/img/java-series-01-jvm-memory.jpg);"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">Wait</span></a><a class="nav-page-title" href="/"><span class="site-name">JVM 运行时内存区域：你真的理解堆和栈吗？</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">JVM 运行时内存区域：你真的理解堆和栈吗？</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2025-07-22T08:00:00.000Z" title="发表于 2025-07-22 16:00:00">2025-07-22</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-07-19T08:59:07.225Z" title="更新于 2026-07-19 16:59:07">2026-07-19</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/Java-%E6%B7%B1%E5%BA%A6/">Java 深度</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>写了多年 Java 代码，new 了无数个对象，调用了数不清的方法，但被问到”JVM 内存里堆和栈有什么区别”时，很多人依然只能说出”堆存对象，栈存变量”。面试被追问方法区、程序计数器、对象创建流程时，更是容易卡壳。</p>
+<p>JVM 运行时内存区域是 Java 工程师的基本功，它不仅是面试高频考点，更是我们排查内存溢出、理解 GC 机制、进行性能调优的底层基石。今天我们就系统梳理一遍 JVM 运行时数据区，把堆、栈、方法区、程序计数器讲透，再完整走一遍对象从加载到创建的全过程。</p>
+<hr>
+<h2 id="一、JVM-运行时数据区总览"><a href="#一、JVM-运行时数据区总览" class="headerlink" title="一、JVM 运行时数据区总览"></a>一、JVM 运行时数据区总览</h2><p>Java 虚拟机在执行 Java 程序的过程中，会把它管理的内存划分为若干个不同的数据区域。这些区域各有用途、创建销毁时间各不相同：有的随着虚拟机进程启动而存在，有的则依赖用户线程的启动和结束而建立和销毁。</p>
+<p>按照<strong>线程共享</strong>和<strong>线程私有</strong>两大维度，可以划分为以下区域：</p>
+<ul>
+<li><strong>线程私有</strong>：随线程生而生，随线程灭而灭<ul>
+<li>程序计数器</li>
+<li>Java 虚拟机栈</li>
+<li>本地方法栈</li>
+</ul>
+</li>
+<li><strong>线程共享</strong>：所有线程共享，随虚拟机启动而创建<ul>
+<li>Java 堆</li>
+<li>方法区（JDK 8 后演变为元空间）</li>
+<li>运行时常量池（方法区的一部分）</li>
+</ul>
+</li>
+</ul>
+<p><img src="/../img/jvm-memory-area.png" alt="JVM 运行时数据区总览"></p>
+<p>下面我们逐个拆解。</p>
+<hr>
+<h2 id="二、线程私有区域：每条线程都有一份"><a href="#二、线程私有区域：每条线程都有一份" class="headerlink" title="二、线程私有区域：每条线程都有一份"></a>二、线程私有区域：每条线程都有一份</h2><h3 id="2-1-程序计数器：字节码的”行号指示器”"><a href="#2-1-程序计数器：字节码的”行号指示器”" class="headerlink" title="2.1 程序计数器：字节码的”行号指示器”"></a>2.1 程序计数器：字节码的”行号指示器”</h3><p>程序计数器（Program Counter Register）是一块很小的内存空间，它可以看作是<strong>当前线程所执行的字节码的行号指示器</strong>。</p>
+<h4 id="核心作用"><a href="#核心作用" class="headerlink" title="核心作用"></a>核心作用</h4><p>字节码解释器工作时，就是通过改变这个计数器的值来选取下一条需要执行的字节码指令。分支、循环、跳转、异常处理、线程恢复等基础功能都依赖这个计数器完成。</p>
+<h4 id="为什么要线程私有？"><a href="#为什么要线程私有？" class="headerlink" title="为什么要线程私有？"></a>为什么要线程私有？</h4><p>因为 JVM 的多线程是通过线程轮流切换、分配处理器执行时间的方式实现的。在任何一个确定的时刻，一个处理器内核都只会执行一条线程中的指令。为了线程切换后能恢复到正确的执行位置，<strong>每条线程都需要有一个独立的程序计数器</strong>，互不影响，独立存储。</p>
+<h4 id="一个特殊之处"><a href="#一个特殊之处" class="headerlink" title="一个特殊之处"></a>一个特殊之处</h4><p>程序计数器是 JVM 规范中<strong>唯一一个没有规定任何 OutOfMemoryError 情况</strong>的内存区域。它只存一个很小的线程执行位置标记，通常不会成为内存溢出的来源。</p>
+<hr>
+<h3 id="2-2-Java-虚拟机栈：方法调用的”执行现场”"><a href="#2-2-Java-虚拟机栈：方法调用的”执行现场”" class="headerlink" title="2.2 Java 虚拟机栈：方法调用的”执行现场”"></a>2.2 Java 虚拟机栈：方法调用的”执行现场”</h3><p>Java 虚拟机栈（Java Virtual Machine Stack）就是我们常说的”栈”，它描述的是 Java 方法执行的内存模型：<strong>每个方法在执行的同时，都会创建一个栈帧（Stack Frame）</strong>。</p>
+<h4 id="栈帧里装了什么？"><a href="#栈帧里装了什么？" class="headerlink" title="栈帧里装了什么？"></a>栈帧里装了什么？</h4><p>栈帧是方法运行期的基础数据结构，里面包含：</p>
+<ul>
+<li><strong>局部变量表</strong>：存放方法参数和方法内部定义的局部变量，包括基本数据类型和对象引用</li>
+<li><strong>操作数栈</strong>：方法执行过程中各种字节码指令写入和提取数据的”工作台”</li>
+<li><strong>动态链接</strong>：保存当前方法所属类的运行时常量池引用，供运行期将符号引用解析为直接引用；虚方法的动态分派还要结合具体调用指令和接收者类型完成</li>
+<li><strong>方法返回地址</strong>：方法退出时，回到上层调用者的位置</li>
+</ul>
+<p>方法从调用到执行完成的过程，就对应着一个栈帧在虚拟机栈中从入栈到出栈的过程。</p>
+<!-- 配图 2：栈帧结构图 -->
+<!-- 插入位置：此处 -->
+<!-- 提示词：见上方"图 2" -->
+
+<p><img src="/../img/jvm-stack-frame.png" alt="栈帧结构图"></p>
+<h4 id="常见异常"><a href="#常见异常" class="headerlink" title="常见异常"></a>常见异常</h4><ul>
+<li><strong>StackOverflowError</strong>：线程请求的栈深度大于虚拟机所允许的深度（比如无限递归）</li>
+<li><strong>OutOfMemoryError</strong>：如果虚拟机栈可以动态扩展，扩展时无法申请到足够内存</li>
+</ul>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// StackOverflowError 经典示例</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">StackOverflowDemo</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="type">int</span> <span class="variable">count</span> <span class="operator">=</span> <span class="number">0</span>;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">recursion</span><span class="params">()</span> &#123;</span><br><span class="line">        count++;</span><br><span class="line">        recursion(); <span class="comment">// 无限递归，栈帧不断入栈</span></span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">        <span class="keyword">try</span> &#123;</span><br><span class="line">            recursion();</span><br><span class="line">        &#125; <span class="keyword">catch</span> (StackOverflowError e) &#123;</span><br><span class="line">            System.out.println(<span class="string">&quot;栈溢出！递归深度：&quot;</span> + count);</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h3 id="2-3-本地方法栈：Native-方法的后花园"><a href="#2-3-本地方法栈：Native-方法的后花园" class="headerlink" title="2.3 本地方法栈：Native 方法的后花园"></a>2.3 本地方法栈：Native 方法的后花园</h3><p>本地方法栈（Native Method Stack）与虚拟机栈作用非常相似，区别在于：</p>
+<ul>
+<li>虚拟机栈为执行 Java 方法（字节码）服务</li>
+<li>本地方法栈为执行 Native 方法服务</li>
+</ul>
+<p>在 HotSpot 虚拟机中，直接把本地方法栈和虚拟机栈合二为一了。它同样会抛出 StackOverflowError 和 OutOfMemoryError。</p>
+<hr>
+<h2 id="三、线程共享区域：所有线程共用的内存"><a href="#三、线程共享区域：所有线程共用的内存" class="headerlink" title="三、线程共享区域：所有线程共用的内存"></a>三、线程共享区域：所有线程共用的内存</h2><h3 id="3-1-Java-堆：对象内存的”大本营”"><a href="#3-1-Java-堆：对象内存的”大本营”" class="headerlink" title="3.1 Java 堆：对象内存的”大本营”"></a>3.1 Java 堆：对象内存的”大本营”</h3><p>Java 堆（Java Heap）是 JVM 所管理的内存中<strong>最大的一块</strong>，也是所有线程共享的内存区域，在虚拟机启动时创建。</p>
+<h4 id="核心作用-1"><a href="#核心作用-1" class="headerlink" title="核心作用"></a>核心作用</h4><p><strong>主要用途：存放对象实例和数组</strong>。从 Java 语言语义看，对象通常在堆上分配；但 JIT 编译器可能通过逃逸分析、标量替换等优化消除某些实际分配。堆也是垃圾收集器（GC）管理的主要区域，因此很多时候也被称作”GC 堆”。</p>
+<h4 id="堆的内部划分"><a href="#堆的内部划分" class="headerlink" title="堆的内部划分"></a>堆的内部划分</h4><p>从垃圾回收的角度，Serial、Parallel、G1 等收集器采用或体现分代思想，堆通常会划分为：</p>
+<ul>
+<li><strong>新生代</strong>：刚创建的对象在这里，又细分为 Eden 区、Survivor0 区、Survivor1 区</li>
+<li><strong>老年代</strong>：存活了很久、熬过多次 GC 的对象会进入老年代</li>
+</ul>
+<blockquote>
+<p>注意：这种划分不是 JVM 规范的强制要求，也不适用于所有收集器和版本。例如 ZGC 在较新 JDK 中才提供分代模式，具体布局应以所用收集器为准。</p>
+</blockquote>
+<!-- 配图 3：堆内存分代结构图 -->
+<!-- 插入位置：此处 -->
+<!-- 提示词：见上方"图 3" -->
+
+<p><img src="/../img/jvm-heap-generation.png" alt="堆内存分代结构图"></p>
+<h4 id="常见异常-1"><a href="#常见异常-1" class="headerlink" title="常见异常"></a>常见异常</h4><p>当堆中没有内存完成实例分配，并且堆也无法再扩展时，会抛出 <strong>OutOfMemoryError: Java heap space</strong>。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// OOM 示例：不断创建对象，堆内存耗尽</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">HeapOOMDemo</span> &#123;</span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">main</span><span class="params">(String[] args)</span> &#123;</span><br><span class="line">        List&lt;<span class="type">byte</span>[]&gt; list = <span class="keyword">new</span> <span class="title class_">ArrayList</span>&lt;&gt;();</span><br><span class="line">        <span class="keyword">while</span> (<span class="literal">true</span>) &#123;</span><br><span class="line">            list.add(<span class="keyword">new</span> <span class="title class_">byte</span>[<span class="number">1024</span> * <span class="number">1024</span>]); <span class="comment">// 每次添加 1MB</span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">// 运行参数：-Xms20m -Xmx20m</span></span><br><span class="line"><span class="comment">// 结果：java.lang.OutOfMemoryError: Java heap space</span></span><br></pre></td></tr></table></figure>
+
+<hr>
+<h3 id="3-2-方法区-元空间：类元数据的”档案室”"><a href="#3-2-方法区-元空间：类元数据的”档案室”" class="headerlink" title="3.2 方法区&#x2F;元空间：类元数据的”档案室”"></a>3.2 方法区&#x2F;元空间：类元数据的”档案室”</h3><p>方法区（Method Area）也是线程共享的逻辑区域，用于存储已被虚拟机加载的<strong>类结构、运行时常量池、字段和方法信息</strong>等数据。它是 JVM 规范中的概念；在 HotSpot 中，类元数据主要由元空间承载，而 JIT 生成的机器码位于独立的 Code Cache，不能简单把二者都等同于元空间内容。</p>
+<h4 id="JDK-7-与-JDK-8-的重要变化"><a href="#JDK-7-与-JDK-8-的重要变化" class="headerlink" title="JDK 7 与 JDK 8 的重要变化"></a>JDK 7 与 JDK 8 的重要变化</h4><p>很多人都听过”永久代”和”元空间”，它们本质上是方法区在不同版本的实现：</p>
+<ul>
+<li><strong>JDK 6 及之前</strong>：HotSpot 使用”永久代”实现方法区，字符串常量池也在永久代中，受 <code>-XX:MaxPermSize</code> 限制，容易 OOM</li>
+<li><strong>JDK 7</strong>：仍然使用永久代，但字符串常量池已经移到堆中，永久代中保留的内容逐步减少</li>
+<li><strong>JDK 8 及之后</strong>：移除了永久代，HotSpot 改用”元空间（Metaspace）”保存类元数据，使用<strong>本地内存</strong>；未显式设置 <code>MaxMetaspaceSize</code> 时仍会受进程地址空间、容器限制和系统可用内存约束</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>对比项</th>
+<th>永久代（JDK 6&#x2F;7）</th>
+<th>元空间（JDK 8+）</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>内存位置</td>
+<td>JVM 管理的永久代</td>
+<td>本地内存（OS）</td>
+</tr>
+<tr>
+<td>大小限制</td>
+<td><code>-XX:MaxPermSize</code></td>
+<td>可由 <code>-XX:MaxMetaspaceSize</code> 限制；未设置时受进程与系统资源约束</td>
+</tr>
+<tr>
+<td>OOM 风险</td>
+<td>较高</td>
+<td>较低</td>
+</tr>
+<tr>
+<td>字符串常量池</td>
+<td>JDK 6 在永久代，JDK 7 移到堆中</td>
+<td>堆中</td>
+</tr>
+</tbody></table>
+<h4 id="运行时常量池"><a href="#运行时常量池" class="headerlink" title="运行时常量池"></a>运行时常量池</h4><p>运行时常量池是方法区的一部分。Class 文件中的常量池表（存放编译期生成的各种字面量和符号引用），会在类加载后存放到运行时常量池中。</p>
+<p>我们常说的字符串常量池，从 JDK 7 开始已经从方法区移到了堆中，这点需要特别注意。</p>
+<hr>
+<h2 id="四、堆-vs-栈：最经典的面试题"><a href="#四、堆-vs-栈：最经典的面试题" class="headerlink" title="四、堆 vs 栈：最经典的面试题"></a>四、堆 vs 栈：最经典的面试题</h2><p>讲完了各个区域，我们用一张表把最核心的”堆和栈的区别”梳理清楚：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>Java 堆</th>
+<th>Java 虚拟机栈</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>所属范围</td>
+<td>线程共享，全局唯一一份</td>
+<td>线程私有，每个线程一份</td>
+</tr>
+<tr>
+<td>存储内容</td>
+<td>对象实例、数组</td>
+<td>基本数据类型、对象引用、栈帧</td>
+</tr>
+<tr>
+<td>空间大小</td>
+<td>通常较大，默认值由 JVM、JDK 版本和运行环境按比例计算</td>
+<td>每线程一份，默认值由平台和 JVM 实现决定</td>
+</tr>
+<tr>
+<td>分配方式</td>
+<td>运行期动态分配，大小不固定</td>
+<td>栈帧所需局部变量槽和操作数栈深度记录在类文件中，实际帧还包含实现数据</td>
+</tr>
+<tr>
+<td>异常类型</td>
+<td>OutOfMemoryError</td>
+<td>StackOverflowError、OutOfMemoryError</td>
+</tr>
+<tr>
+<td>GC 行为</td>
+<td>GC 主要回收区域，频繁回收</td>
+<td>方法结束自动出栈，不涉及 GC</td>
+</tr>
+<tr>
+<td>内存连续性</td>
+<td>JVM 规范不要求物理连续</td>
+<td>JVM 规范允许固定大小或动态扩展，不保证具体物理布局</td>
+</tr>
+</tbody></table>
+<p>一句话总结：<strong>栈管运行，堆管存储</strong>。栈负责程序的执行逻辑，堆负责对象的存储。</p>
+<hr>
+<h2 id="五、一个对象的诞生：对象创建的完整过程"><a href="#五、一个对象的诞生：对象创建的完整过程" class="headerlink" title="五、一个对象的诞生：对象创建的完整过程"></a>五、一个对象的诞生：对象创建的完整过程</h2><p>当我们写下 <code>Object obj = new Object();</code> 这行代码时，JVM 背后做了哪些事情？对象创建并不是简单地分配一块内存，而是一套完整的流程。</p>
+<!-- 配图 4：对象创建流程图 -->
+<!-- 插入位置：此处 -->
+<!-- 提示词：见上方"图 4" -->
+
+<p><img src="/../img/jvm-object-creation-flowchart.png" alt="对象创建流程图"></p>
+<h3 id="第一步：类加载检查"><a href="#第一步：类加载检查" class="headerlink" title="第一步：类加载检查"></a>第一步：类加载检查</h3><p>虚拟机遇到一条 <code>new</code> 指令时，会根据常量池中的类符号引用确保目标类已经完成创建实例所需的加载、链接与初始化步骤。解析可以由实现按 JVM 规范选择在较早阶段完成，也可以延迟到首次真正使用该符号引用时完成，并不要求所有引用都在 <code>new</code> 之前一次性解析。</p>
+<h3 id="第二步：分配内存"><a href="#第二步：分配内存" class="headerlink" title="第二步：分配内存"></a>第二步：分配内存</h3><p>类加载检查通过后，虚拟机将为新生对象分配内存。对象所需内存大小在类加载完成后便可完全确定。</p>
+<p>分配方式主要有两种：</p>
+<ol>
+<li><strong>指针碰撞</strong>：堆内存规整时，用过的和空闲的各放一边，中间放一个指针作为分界点，分配时把指针向空闲方向挪动一段与对象大小相等的距离</li>
+<li><strong>空闲列表</strong>：堆内存不规整时，虚拟机维护一个列表，记录哪些内存块可用，分配时找一块足够大的空间划分给对象</li>
+</ol>
+<p>分配方式由堆是否规整决定，而堆是否规整又由所采用的垃圾收集器是否带有空间压缩整理功能决定。</p>
+<blockquote>
+<p><strong>并发安全问题</strong>：对象创建在高并发下非线程安全。解决方案有两种：一是对分配内存空间的动作进行同步处理（CAS + 失败重试）；二是把内存分配按线程划分在不同空间中进行，即本地线程分配缓冲（TLAB）。</p>
+</blockquote>
+<h3 id="第三步：初始化零值"><a href="#第三步：初始化零值" class="headerlink" title="第三步：初始化零值"></a>第三步：初始化零值</h3><p>内存分配完成后，虚拟机需要将分配到的内存空间都初始化为零值（不包括对象头）。这一步保证了对象的实例字段在 Java 代码中可以不赋初始值就直接使用，程序能访问到这些字段的数据类型对应的零值。</p>
+<h3 id="第四步：设置对象头"><a href="#第四步：设置对象头" class="headerlink" title="第四步：设置对象头"></a>第四步：设置对象头</h3><p>初始化零值之后，虚拟机要对对象进行必要的设置，例如这个对象是哪个类的实例、如何才能找到类的元数据信息、对象的哈希码、对象的 GC 分代年龄等。这些信息存放在对象的对象头之中。</p>
+<h3 id="第五步：执行-方法"><a href="#第五步：执行-方法" class="headerlink" title="第五步：执行 &lt;init&gt; 方法"></a>第五步：执行 <code>&lt;init&gt;</code> 方法</h3><p>上面的工作都完成后，从虚拟机视角看，一个新对象已经产生了。但从 Java 程序视角看，对象创建才刚刚开始——<code>&lt;init&gt;</code> 方法还没执行，所有字段都还是零值。</p>
+<p>执行 new 指令之后会接着执行 <code>&lt;init&gt;</code> 方法，把对象按照程序员的意愿进行初始化，这样一个真正可用的对象才算完全构造出来。</p>
+<hr>
+<h2 id="六、对象的内存布局与访问定位"><a href="#六、对象的内存布局与访问定位" class="headerlink" title="六、对象的内存布局与访问定位"></a>六、对象的内存布局与访问定位</h2><h3 id="对象在内存里长什么样？"><a href="#对象在内存里长什么样？" class="headerlink" title="对象在内存里长什么样？"></a>对象在内存里长什么样？</h3><p>在 HotSpot 虚拟机中，对象在堆内存中的存储布局可以划分为三部分：</p>
+<!-- 配图 5：对象内存布局图 -->
+<!-- 插入位置：此处 -->
+<!-- 提示词：见上方"图 5" -->
+
+<p><img src="/../img/jvm-object-layout.png" alt="对象内存布局图"></p>
+<ol>
+<li><strong>对象头</strong>：以 HotSpot 为例，通常包括 Mark Word（哈希码、GC 年龄、锁相关状态等）和类型指针；具体字段会随 JVM 实现、JDK 版本和压缩指针设置变化</li>
+<li><strong>实例数据</strong>：对象真正存储的有效信息，也就是我们在类里定义的各种字段内容</li>
+<li><strong>对齐填充</strong>：非必需，起占位符作用。HotSpot 默认常按 8 字节对象对齐，但可通过实现参数调整；这不是 JVM 规范统一规定的对象布局</li>
+</ol>
+<h3 id="对象是怎么被访问的？"><a href="#对象是怎么被访问的？" class="headerlink" title="对象是怎么被访问的？"></a>对象是怎么被访问的？</h3><p>我们的栈上存的是对象引用，那通过这个引用怎么定位到堆中的具体对象？主流访问方式有两种：</p>
+<ul>
+<li><strong>句柄访问</strong>：堆中划分一块内存作为句柄池，引用存句柄地址，句柄里存对象实例数据和类型数据的地址。好处是引用稳定，对象移动时只改句柄</li>
+<li><strong>直接指针访问</strong>：引用直接存对象地址，速度更快。HotSpot 主要使用这种方式</li>
+</ul>
+<hr>
+<h2 id="七、常见误区澄清"><a href="#七、常见误区澄清" class="headerlink" title="七、常见误区澄清"></a>七、常见误区澄清</h2><p><strong>1. “对象一定都在堆上分配”</strong></p>
+<p>不能从源码层面绝对判断。HotSpot 的逃逸分析更常见的结果是<strong>标量替换和分配消除</strong>：如果对象不逃逸，JIT 可能把字段拆成若干标量，最终根本不创建这个对象。把它概括为“在栈上放一个完整对象”并不准确，而且优化是否发生取决于编译层级与运行时条件。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 逃逸分析示例</span></span><br><span class="line"><span class="keyword">public</span> <span class="type">int</span> <span class="title function_">calculate</span><span class="params">()</span> &#123;</span><br><span class="line">    <span class="type">Point</span> <span class="variable">p</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Point</span>(<span class="number">1</span>, <span class="number">2</span>); <span class="comment">// p 只在方法内使用，不会逃逸</span></span><br><span class="line">    <span class="keyword">return</span> p.x + p.y;</span><br><span class="line">    <span class="comment">// JIT 可能把 p 的字段标量化，并消除这次对象分配</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>2. “方法区就是元空间”</strong></p>
+<p>不准确。方法区是 JVM 规范中的概念，元空间是 HotSpot 在 JDK 8 对方法区的具体实现。就像”汽车”是概念，”特斯拉”是具体车型一样。</p>
+<p><strong>3. “字符串常量池在方法区”</strong></p>
+<p>只在 JDK 6 及之前是对的。JDK 7 开始，字符串常量池已经移到了堆中。</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 字符串常量池验证</span></span><br><span class="line"><span class="type">String</span> <span class="variable">s1</span> <span class="operator">=</span> <span class="string">&quot;hello&quot;</span>;  <span class="comment">// 存在字符串常量池（堆中）</span></span><br><span class="line"><span class="type">String</span> <span class="variable">s2</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">String</span>(<span class="string">&quot;hello&quot;</span>);  <span class="comment">// 堆中新建对象</span></span><br><span class="line">System.out.println(s1 == s2);  <span class="comment">// false，地址不同</span></span><br><span class="line">System.out.println(s1 == s2.intern());  <span class="comment">// true，intern() 返回常量池引用</span></span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="八、实战：用-JVM-参数观察内存区域"><a href="#八、实战：用-JVM-参数观察内存区域" class="headerlink" title="八、实战：用 JVM 参数观察内存区域"></a>八、实战：用 JVM 参数观察内存区域</h2><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 查看 JVM 默认内存分配</span></span><br><span class="line">java -XX:+PrintFlagsFinal -version | grep -E <span class="string">&quot;HeapSize|PermSize|StackSize&quot;</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 常用 JVM 内存参数</span></span><br><span class="line">-Xms512m        <span class="comment"># 堆初始大小</span></span><br><span class="line">-Xmx1024m       <span class="comment"># 堆最大大小</span></span><br><span class="line">-Xss256k        <span class="comment"># 每个线程栈大小</span></span><br><span class="line">-XX:MetaspaceSize=128m   <span class="comment"># 元空间触发元数据 GC 的初始高水位参考值</span></span><br><span class="line">-XX:MaxMetaspaceSize=256m <span class="comment"># 元空间最大大小</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 查看 GC 日志（JDK 9+）</span></span><br><span class="line">-Xlog:gc*:file=gc.log:<span class="keyword">time</span>,<span class="built_in">uptime</span>,level,tags</span><br><span class="line"></span><br><span class="line"><span class="comment"># JDK 8 可使用旧参数</span></span><br><span class="line">-XX:+PrintGCDetails -XX:+PrintGCDateStamps -Xloggc:gc.log</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="写在最后"><a href="#写在最后" class="headerlink" title="写在最后"></a>写在最后</h2><p>JVM 运行时内存区域看起来概念很多，但核心逻辑其实很清晰：线程私有区域服务于方法执行，线程共享区域负责存储对象和类信息。堆和栈是其中最核心的两块，也是我们日常开发和面试中最常接触的部分。</p>
+<p>理解这些不是为了死记硬背面试题，而是当你遇到内存溢出、GC 频繁、性能瓶颈时，能快速定位问题出在哪块内存区域，知道该从哪个方向去调优。这才是底层知识真正的价值。</p>
+<hr>
+<blockquote>
+<p><strong>系列文章预告</strong>：</p>
+<ul>
+<li>下一篇：GC 调优实战：一次线上 OOM 的排查经历</li>
+<li>第三篇：类加载机制：为什么你的代码会报 ClassNotFoundException</li>
+</ul>
+</blockquote>
+<p><em>如果觉得有帮助，欢迎点赞收藏，有问题欢迎评论区交流。</em></p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://qjngbac.github.io">qjngbac</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://qjngbac.github.io/2025/07/22/jvm-memory-model/">https://qjngbac.github.io/2025/07/22/jvm-memory-model/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://qjngbac.github.io" target="_blank">Wait</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/%E5%90%8E%E7%AB%AF/">后端</a><a class="post-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><a class="post-meta__tags" href="/tags/Java/">Java</a><a class="post-meta__tags" href="/tags/JVM/">JVM</a><a class="post-meta__tags" href="/tags/%E5%86%85%E5%AD%98%E6%A8%A1%E5%9E%8B/">内存模型</a></div><div class="post-share"><div class="social-share" data-image="/img/java-series-01-jvm-memory.jpg" data-sites="facebook,x,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/2025/07/30/gc-tuning-guide/" title="GC 调优实战：一次线上 OOM 的排查经历"><img class="cover" src="/img/java-series-02-gc-tuning.jpg" onerror="onerror=null;src='/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">GC 调优实战：一次线上 OOM 的排查经历</div></div><div class="info-2"><div class="info-item-1">前言凌晨两点，运维告警群突然弹出一连串红色预警：核心订单服务多个实例响应超时，K8s Pod 频繁自动重启，错误日志中反复出现 java.lang.OutOfMemoryError: Java heap space。 作为后端团队的核心开发，我紧急介入排查。整个过程从 GC 现象观察到堆内存定位，从收集器原理到参数调优落地，前后三小时彻底解决问题。 很多人觉得 GC 调优是”玄学”，靠背参数就能应付。但真实线上场景里，懂 GC 算法原理、会用原生工具定位问题，才是解决 OOM 的核心能力。本文就以这次实战为线索，系统梳理 GC 核心算法、主流收集器选型，以及 jstat、jmap 的实战用法。  一、故障初现：线上 OOM 的现场信息1.1 故障现象当时正值业务高峰期，监控平台显示：  接口平均响应时间从 50ms 飙升至 800ms，大量请求超时熔断 Pod 每 10 分钟左右触发一次自动重启，服务完全无法稳定承载流量 JVM 监控显示老年代内存占用持续走高，Full GC 频率远超正常水平  1.2 初步日志定位登录容器查看服务错误日志，核心报错非常明确： 1java.lan...</div></div></div></a><a class="pagination-related" href="/2025/07/20/class-loading-mechanism/" title="类加载机制：为什么你的代码会报 ClassNotFoundException"><img class="cover" src="/img/java-series-03-classloading.jpg" onerror="onerror=null;src='/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">类加载机制：为什么你的代码会报 ClassNotFoundException</div></div><div class="info-2"><div class="info-item-1">前言刚改完的代码本地跑得好好的，一上测试环境就抛出 java.lang.ClassNotFoundException；Maven 依赖明明已经引入，打包也没报错，翻遍 lib 目录也能找到对应 jar 包，可 JVM 就是说找不到类。 很多人遇到这类问题，第一反应都是”缺包了””依赖没打进去”。这当然是最常见原因，但并不是全部。真实线上场景里，类明明存在却依然加载失败，往往和类加载器隔离、双亲委派模型、线程上下文类加载器、容器自定义加载规则有关。 类加载是 Java 最核心的基础机制之一，也是面试高频考点，更是我们排查依赖冲突、容器隔离、插件化、热部署问题的底层依据。本文就从 ClassNotFoundException 切入，把类加载流程、双亲委派模型、自定义类加载器，以及打破双亲委派的典型场景一次讲透。  一、前置认知：一个类从源码到执行要走几步Java 源码会先被编译成 .class 字节码文件。JVM 运行时不会直接执行 .java 文件，而是通过类加载机制把描述类的数据从 Class 文件、jar 包、网络或其他来源加载到内存中，再完成校验、转换、解析和初始化，最终形成...</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/2025/07/20/class-loading-mechanism/" title="类加载机制：为什么你的代码会报 ClassNotFoundException"><img class="cover" src="/img/java-series-03-classloading.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2025-07-20</div><div class="info-item-2">类加载机制：为什么你的代码会报 ClassNotFoundException</div></div><div class="info-2"><div class="info-item-1">前言刚改完的代码本地跑得好好的，一上测试环境就抛出 java.lang.ClassNotFoundException；Maven 依赖明明已经引入，打包也没报错，翻遍 lib 目录也能找到对应 jar 包，可 JVM 就是说找不到类。 很多人遇到这类问题，第一反应都是”缺包了””依赖没打进去”。这当然是最常见原因，但并不是全部。真实线上场景里，类明明存在却依然加载失败，往往和类加载器隔离、双亲委派模型、线程上下文类加载器、容器自定义加载规则有关。 类加载是 Java 最核心的基础机制之一，也是面试高频考点，更是我们排查依赖冲突、容器隔离、插件化、热部署问题的底层依据。本文就从 ClassNotFoundException 切入，把类加载流程、双亲委派模型、自定义类加载器，以及打破双亲委派的典型场景一次讲透。  一、前置认知：一个类从源码到执行要走几步Java 源码会先被编译成 .class 字节码文件。JVM 运行时不会直接执行 .java 文件，而是通过类加载机制把描述类的数据从 Class 文件、jar 包、网络或其他来源加载到内存中，再完成校验、转换、解析和初始化，最终形成...</div></div></div></a><a class="pagination-related" href="/2025/07/30/gc-tuning-guide/" title="GC 调优实战：一次线上 OOM 的排查经历"><img class="cover" src="/img/java-series-02-gc-tuning.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2025-07-30</div><div class="info-item-2">GC 调优实战：一次线上 OOM 的排查经历</div></div><div class="info-2"><div class="info-item-1">前言凌晨两点，运维告警群突然弹出一连串红色预警：核心订单服务多个实例响应超时，K8s Pod 频繁自动重启，错误日志中反复出现 java.lang.OutOfMemoryError: Java heap space。 作为后端团队的核心开发，我紧急介入排查。整个过程从 GC 现象观察到堆内存定位，从收集器原理到参数调优落地，前后三小时彻底解决问题。 很多人觉得 GC 调优是”玄学”，靠背参数就能应付。但真实线上场景里，懂 GC 算法原理、会用原生工具定位问题，才是解决 OOM 的核心能力。本文就以这次实战为线索，系统梳理 GC 核心算法、主流收集器选型，以及 jstat、jmap 的实战用法。  一、故障初现：线上 OOM 的现场信息1.1 故障现象当时正值业务高峰期，监控平台显示：  接口平均响应时间从 50ms 飙升至 800ms，大量请求超时熔断 Pod 每 10 分钟左右触发一次自动重启，服务完全无法稳定承载流量 JVM 监控显示老年代内存占用持续走高，Full GC 频率远超正常水平  1.2 初步日志定位登录容器查看服务错误日志，核心报错非常明确： 1java.lan...</div></div></div></a><a class="pagination-related" href="/2025/08/11/oom-troubleshooting-guide/" title="OOM 问题定位：线上内存溢出的完整排查流程"><img class="cover" src="/img/java-series-14-oom.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2025-08-11</div><div class="info-item-2">OOM 问题定位：线上内存溢出的完整排查流程</div></div><div class="info-2"><div class="info-item-1">前言凌晨运维告警群突然炸锅：核心服务 Pod 频繁重启，错误日志里反复出现 java.lang.OutOfMemoryError。很多开发遇到线上 OOM 的第一反应是重启服务先恢复业务，重启完就没了下文，结果过几天问题复现，周而复始。 OOM 不是玄学，但也不只等于“Java 堆里对象太多”。根因可能是对象泄漏或容量不足，也可能来自元空间、直接内存、线程创建、超大数组，甚至是容器的 cgroup 内存上限。先确认内存区域和退出原因，再选择堆快照、线程栈或原生内存工具，才能避免查错方向。 本文就以一次真实的线上堆溢出为例，带你走完从现场保留、dump 抓取、MAT 深度分析到根因定位的完整流程，最后总结五大高频 OOM 场景的识别与排查方法。  一、故障第一现场：先止血，再排查1.1 第一步：确认异常类型不同报错对应完全不同的根因：    OOM 类型 报错信息 根因方向    堆溢出 Java heap space 内存泄漏 &#x2F; 堆太小   GC 过度 GC overhead limit exceeded 堆接近耗尽   元空间 Metaspace 类加载泄漏   直...</div></div></div></a><a class="pagination-related" href="/2025/08/26/aqs-reentrantlock-guide/" title="AQS 源码分析：ReentrantLock 背后的秘密"><img class="cover" src="/img/java-series-05-aqs.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2025-08-26</div><div class="info-item-2">AQS 源码分析：ReentrantLock 背后的秘密</div></div><div class="info-2"><div class="info-item-1">前言写 Java 并发代码，ReentrantLock 是常用的显式锁：它可配置公平策略，并支持可重入、可中断和超时获取，在需要这些能力时比 synchronized 更灵活。但很多人用了很久，却不知道它的底层建立在 AQS 之上。 面试中 AQS 更是并发模块的必考题：state 变量有什么用？CLH 队列怎么工作？公平锁和非公平锁到底差在哪？这些问题看似是八股，实则是理解整个 JUC 并发工具包的钥匙。 ReentrantLock 本身几乎没有复杂逻辑，它的全部锁能力，都委托给了内部的 AQS 实现类。今天我们就从 ReentrantLock 切入，逐层拆解 AQS 的核心设计：state 同步状态、CLH 等待队列、公平与非公平实现，彻底搞懂显式锁的底层原理。  一、AQS 是什么？JUC 并发的基石AQS 全称 AbstractQueuedSynchronizer，抽象队列同步器，是 java.util.concurrent 包的核心骨架。 它本质上是一个抽象框架：用一个共享变量维护同步状态，再用一个近似 FIFO 的等待队列管理竞争失败的线程。基于这套框架，JDK 实现...</div></div></div></a><a class="pagination-related" href="/2026/06/01/k8s-guide/" title="K8s 核心概念：Pod&#x2F;Service&#x2F;Deployment"><img class="cover" src="/../img/backend-14-k8s.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-06-01</div><div class="info-item-2">K8s 核心概念：Pod&#x2F;Service&#x2F;Deployment</div></div><div class="info-2"><div class="info-item-1">前言Docker 解决了容器的构建与运行问题，但当业务从几个容器扩展到几十上百个容器时，单机管理就不够用了：实例异常了怎么自动恢复？流量上来了怎么横向扩容？多机集群怎么统一调度？怎样在满足条件时实现尽量不中断服务的滚动发布？ 这些问题，正是 Kubernetes（简称 K8s）要解决的。作为容器编排领域的事实标准，K8s 提供了一整套容器调度、服务发现、滚动发布、自动扩缩容的能力，而支撑这一切的，是三个最核心的基础资源：Pod、Service、Deployment。 本文就从「为什么需要」出发，逐层拆解三大核心资源的设计思想、工作原理与典型用法，同时覆盖 Pod 生命周期、服务发现、滚动更新、配置管理等关键知识点，帮你建立起 K8s 的核心认知框架。   一、Pod：K8s 最小的调度单元很多刚接触 K8s 的人会问：已经有容器了，为什么还要抽象出一个 Pod？ 1.1 Pod 是什么Pod 是 K8s 中最小的可部署计算单元，也是调度器直接调度的对象。它不是替代容器，而是封装一个或多个需要共同运行的容器。  一个 Pod 可以包含 1 个主容器 + 多个辅助容器（Sidecar...</div></div></div></a><a class="pagination-related" href="/2026/06/23/03-function-calling-java/" title="Function Calling 实战：让大模型安全调用 Java 业务能力"><img class="cover" src="/../img/ai-03-function-calling.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-06-23</div><div class="info-item-2">Function Calling 实战：让大模型安全调用 Java 业务能力</div></div><div class="info-2"><div class="info-item-1">前言普通聊天模型只能根据输入生成文字。如果用户问“文档 42 的最新版本是谁创建的”，模型并不知道你的数据库内容；如果用户说“帮我把文档设为只读”，模型也没有权限直接修改业务数据。 Function Calling（也叫 Tool Calling）提供了一座桥梁：应用把可用工具的名称、描述和参数 Schema 告诉模型；模型在需要时返回“调用哪个工具、传什么参数”；真正执行函数的仍然是你的 Java 服务；执行结果再交给模型生成最终回答。 它不是让模型直接访问数据库，更不是绕过后端权限。正确的理解是：模型负责选择与生成参数，应用负责校验、授权、执行、审计和返回结果。  一、Function Calling 的完整流程12345678910111213用户问题   ↓应用把问题 + 工具定义发给模型   ↓模型返回 tool call（工具名 + JSON 参数）   ↓应用校验参数、权限和风险   ↓Java 方法执行真实业务   ↓应用把工具结果返回模型   ↓模型生成最终自然语言回答  关键点：模型返回的是请求，不是执行结果。无论模型声称“已删除成功”还是“已退款”，只有后端...</div></div></div></a></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">qjngbac</div><div class="author-info-description">一个正在学习的开发者</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">42</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">139</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/qjngbac"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/qjngbac" target="_blank" title="Github"><i class="fab fa-github"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到我的博客</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%89%8D%E8%A8%80"><span class="toc-number">1.</span> <span class="toc-text">前言</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%80%E3%80%81JVM-%E8%BF%90%E8%A1%8C%E6%97%B6%E6%95%B0%E6%8D%AE%E5%8C%BA%E6%80%BB%E8%A7%88"><span class="toc-number">2.</span> <span class="toc-text">一、JVM 运行时数据区总览</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%8C%E3%80%81%E7%BA%BF%E7%A8%8B%E7%A7%81%E6%9C%89%E5%8C%BA%E5%9F%9F%EF%BC%9A%E6%AF%8F%E6%9D%A1%E7%BA%BF%E7%A8%8B%E9%83%BD%E6%9C%89%E4%B8%80%E4%BB%BD"><span class="toc-number">3.</span> <span class="toc-text">二、线程私有区域：每条线程都有一份</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#2-1-%E7%A8%8B%E5%BA%8F%E8%AE%A1%E6%95%B0%E5%99%A8%EF%BC%9A%E5%AD%97%E8%8A%82%E7%A0%81%E7%9A%84%E2%80%9D%E8%A1%8C%E5%8F%B7%E6%8C%87%E7%A4%BA%E5%99%A8%E2%80%9D"><span class="toc-number">3.1.</span> <span class="toc-text">2.1 程序计数器：字节码的”行号指示器”</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%A0%B8%E5%BF%83%E4%BD%9C%E7%94%A8"><span class="toc-number">3.1.1.</span> <span class="toc-text">核心作用</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%B8%BA%E4%BB%80%E4%B9%88%E8%A6%81%E7%BA%BF%E7%A8%8B%E7%A7%81%E6%9C%89%EF%BC%9F"><span class="toc-number">3.1.2.</span> <span class="toc-text">为什么要线程私有？</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E4%B8%80%E4%B8%AA%E7%89%B9%E6%AE%8A%E4%B9%8B%E5%A4%84"><span class="toc-number">3.1.3.</span> <span class="toc-text">一个特殊之处</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-2-Java-%E8%99%9A%E6%8B%9F%E6%9C%BA%E6%A0%88%EF%BC%9A%E6%96%B9%E6%B3%95%E8%B0%83%E7%94%A8%E7%9A%84%E2%80%9D%E6%89%A7%E8%A1%8C%E7%8E%B0%E5%9C%BA%E2%80%9D"><span class="toc-number">3.2.</span> <span class="toc-text">2.2 Java 虚拟机栈：方法调用的”执行现场”</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%A0%88%E5%B8%A7%E9%87%8C%E8%A3%85%E4%BA%86%E4%BB%80%E4%B9%88%EF%BC%9F"><span class="toc-number">3.2.1.</span> <span class="toc-text">栈帧里装了什么？</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E5%BC%82%E5%B8%B8"><span class="toc-number">3.2.2.</span> <span class="toc-text">常见异常</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-3-%E6%9C%AC%E5%9C%B0%E6%96%B9%E6%B3%95%E6%A0%88%EF%BC%9ANative-%E6%96%B9%E6%B3%95%E7%9A%84%E5%90%8E%E8%8A%B1%E5%9B%AD"><span class="toc-number">3.3.</span> <span class="toc-text">2.3 本地方法栈：Native 方法的后花园</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%89%E3%80%81%E7%BA%BF%E7%A8%8B%E5%85%B1%E4%BA%AB%E5%8C%BA%E5%9F%9F%EF%BC%9A%E6%89%80%E6%9C%89%E7%BA%BF%E7%A8%8B%E5%85%B1%E7%94%A8%E7%9A%84%E5%86%85%E5%AD%98"><span class="toc-number">4.</span> <span class="toc-text">三、线程共享区域：所有线程共用的内存</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#3-1-Java-%E5%A0%86%EF%BC%9A%E5%AF%B9%E8%B1%A1%E5%86%85%E5%AD%98%E7%9A%84%E2%80%9D%E5%A4%A7%E6%9C%AC%E8%90%A5%E2%80%9D"><span class="toc-number">4.1.</span> <span class="toc-text">3.1 Java 堆：对象内存的”大本营”</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#%E6%A0%B8%E5%BF%83%E4%BD%9C%E7%94%A8-1"><span class="toc-number">4.1.1.</span> <span class="toc-text">核心作用</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%A0%86%E7%9A%84%E5%86%85%E9%83%A8%E5%88%92%E5%88%86"><span class="toc-number">4.1.2.</span> <span class="toc-text">堆的内部划分</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E5%B8%B8%E8%A7%81%E5%BC%82%E5%B8%B8-1"><span class="toc-number">4.1.3.</span> <span class="toc-text">常见异常</span></a></li></ol></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-2-%E6%96%B9%E6%B3%95%E5%8C%BA-%E5%85%83%E7%A9%BA%E9%97%B4%EF%BC%9A%E7%B1%BB%E5%85%83%E6%95%B0%E6%8D%AE%E7%9A%84%E2%80%9D%E6%A1%A3%E6%A1%88%E5%AE%A4%E2%80%9D"><span class="toc-number">4.2.</span> <span class="toc-text">3.2 方法区&#x2F;元空间：类元数据的”档案室”</span></a><ol class="toc-child"><li class="toc-item toc-level-4"><a class="toc-link" href="#JDK-7-%E4%B8%8E-JDK-8-%E7%9A%84%E9%87%8D%E8%A6%81%E5%8F%98%E5%8C%96"><span class="toc-number">4.2.1.</span> <span class="toc-text">JDK 7 与 JDK 8 的重要变化</span></a></li><li class="toc-item toc-level-4"><a class="toc-link" href="#%E8%BF%90%E8%A1%8C%E6%97%B6%E5%B8%B8%E9%87%8F%E6%B1%A0"><span class="toc-number">4.2.2.</span> <span class="toc-text">运行时常量池</span></a></li></ol></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9B%9B%E3%80%81%E5%A0%86-vs-%E6%A0%88%EF%BC%9A%E6%9C%80%E7%BB%8F%E5%85%B8%E7%9A%84%E9%9D%A2%E8%AF%95%E9%A2%98"><span class="toc-number">5.</span> <span class="toc-text">四、堆 vs 栈：最经典的面试题</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%94%E3%80%81%E4%B8%80%E4%B8%AA%E5%AF%B9%E8%B1%A1%E7%9A%84%E8%AF%9E%E7%94%9F%EF%BC%9A%E5%AF%B9%E8%B1%A1%E5%88%9B%E5%BB%BA%E7%9A%84%E5%AE%8C%E6%95%B4%E8%BF%87%E7%A8%8B"><span class="toc-number">6.</span> <span class="toc-text">五、一个对象的诞生：对象创建的完整过程</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%AC%AC%E4%B8%80%E6%AD%A5%EF%BC%9A%E7%B1%BB%E5%8A%A0%E8%BD%BD%E6%A3%80%E6%9F%A5"><span class="toc-number">6.1.</span> <span class="toc-text">第一步：类加载检查</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%AC%AC%E4%BA%8C%E6%AD%A5%EF%BC%9A%E5%88%86%E9%85%8D%E5%86%85%E5%AD%98"><span class="toc-number">6.2.</span> <span class="toc-text">第二步：分配内存</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%AC%AC%E4%B8%89%E6%AD%A5%EF%BC%9A%E5%88%9D%E5%A7%8B%E5%8C%96%E9%9B%B6%E5%80%BC"><span class="toc-number">6.3.</span> <span class="toc-text">第三步：初始化零值</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%AC%AC%E5%9B%9B%E6%AD%A5%EF%BC%9A%E8%AE%BE%E7%BD%AE%E5%AF%B9%E8%B1%A1%E5%A4%B4"><span class="toc-number">6.4.</span> <span class="toc-text">第四步：设置对象头</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%AC%AC%E4%BA%94%E6%AD%A5%EF%BC%9A%E6%89%A7%E8%A1%8C-%E6%96%B9%E6%B3%95"><span class="toc-number">6.5.</span> <span class="toc-text">第五步：执行 &lt;init&gt; 方法</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%AD%E3%80%81%E5%AF%B9%E8%B1%A1%E7%9A%84%E5%86%85%E5%AD%98%E5%B8%83%E5%B1%80%E4%B8%8E%E8%AE%BF%E9%97%AE%E5%AE%9A%E4%BD%8D"><span class="toc-number">7.</span> <span class="toc-text">六、对象的内存布局与访问定位</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%AF%B9%E8%B1%A1%E5%9C%A8%E5%86%85%E5%AD%98%E9%87%8C%E9%95%BF%E4%BB%80%E4%B9%88%E6%A0%B7%EF%BC%9F"><span class="toc-number">7.1.</span> <span class="toc-text">对象在内存里长什么样？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%AF%B9%E8%B1%A1%E6%98%AF%E6%80%8E%E4%B9%88%E8%A2%AB%E8%AE%BF%E9%97%AE%E7%9A%84%EF%BC%9F"><span class="toc-number">7.2.</span> <span class="toc-text">对象是怎么被访问的？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%83%E3%80%81%E5%B8%B8%E8%A7%81%E8%AF%AF%E5%8C%BA%E6%BE%84%E6%B8%85"><span class="toc-number">8.</span> <span class="toc-text">七、常见误区澄清</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%AB%E3%80%81%E5%AE%9E%E6%88%98%EF%BC%9A%E7%94%A8-JVM-%E5%8F%82%E6%95%B0%E8%A7%82%E5%AF%9F%E5%86%85%E5%AD%98%E5%8C%BA%E5%9F%9F"><span class="toc-number">9.</span> <span class="toc-text">八、实战：用 JVM 参数观察内存区域</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%86%99%E5%9C%A8%E6%9C%80%E5%90%8E"><span class="toc-number">10.</span> <span class="toc-text">写在最后</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"><img src="/../img/ai-10-ollama.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"/></a><div class="content"><a class="title" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成">Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成</a><time datetime="2026-07-22T02:00:00.000Z" title="发表于 2026-07-22 10:00:00">2026-07-22</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"><img src="/../img/ai-09-spring-ai.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"/></a><div class="content"><a class="title" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling">Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling</a><time datetime="2026-07-17T02:00:00.000Z" title="发表于 2026-07-17 10:00:00">2026-07-17</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"><img src="/../img/ai-08-vector-database.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"/></a><div class="content"><a class="title" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比">向量数据库选型实战：Chroma、Milvus 与 pgvector 对比</a><time datetime="2026-07-13T02:00:00.000Z" title="发表于 2026-07-13 10:00:00">2026-07-13</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度"><img src="/../img/ai-07-rag-evaluation.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 评估实战：Recall@K、MRR 与回答忠实度"/></a><div class="content"><a class="title" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度">RAG 评估实战：Recall@K、MRR 与回答忠实度</a><time datetime="2026-07-12T02:00:00.000Z" title="发表于 2026-07-12 10:00:00">2026-07-12</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"><img src="/../img/ai-06-rag-retrieval.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"/></a><div class="content"><a class="title" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker">RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker</a><time datetime="2026-07-09T02:00:00.000Z" title="发表于 2026-07-09 10:00:00">2026-07-09</time></div></div></div></div></div></div></main><footer id="footer"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2024 - 2026 By qjngbac</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 7.3.0</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.5.5</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.5.5"></script><script src="/js/main.js?v=5.5.5"></script><div class="js-pjax"></div><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

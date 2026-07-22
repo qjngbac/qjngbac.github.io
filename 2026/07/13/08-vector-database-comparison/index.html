@@ -1,0 +1,476 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>向量数据库选型实战：Chroma、Milvus 与 pgvector 对比 | Wait</title><meta name="author" content="qjngbac"><meta name="copyright" content="qjngbac"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="前言做 RAG 时经常会看到三类建议：个人项目用 Chroma，海量向量用 Milvus，已有 PostgreSQL 就用 pgvector。这个结论方向上没有问题，但真正选型不能只看一句话。 向量数据库不仅负责“存一个 float 数组”。它还要处理向量索引、Top-K 搜索、metadata 过滤、增删改、并发、备份恢复、监控和客户端接入。不同产品的定位不同：Chroma 更偏 AI 应用快速">
+<meta property="og:type" content="article">
+<meta property="og:title" content="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比">
+<meta property="og:url" content="https://qjngbac.github.io/2026/07/13/08-vector-database-comparison/index.html">
+<meta property="og:site_name" content="Wait">
+<meta property="og:description" content="前言做 RAG 时经常会看到三类建议：个人项目用 Chroma，海量向量用 Milvus，已有 PostgreSQL 就用 pgvector。这个结论方向上没有问题，但真正选型不能只看一句话。 向量数据库不仅负责“存一个 float 数组”。它还要处理向量索引、Top-K 搜索、metadata 过滤、增删改、并发、备份恢复、监控和客户端接入。不同产品的定位不同：Chroma 更偏 AI 应用快速">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://qjngbac.github.io/img/ai-08-vector-database.jpg">
+<meta property="article:published_time" content="2026-07-13T02:00:00.000Z">
+<meta property="article:modified_time" content="2026-07-19T09:13:39.020Z">
+<meta property="article:author" content="qjngbac">
+<meta property="article:tag" content="AI工程">
+<meta property="article:tag" content="面试">
+<meta property="article:tag" content="RAG">
+<meta property="article:tag" content="Chroma">
+<meta property="article:tag" content="向量数据库">
+<meta property="article:tag" content="Milvus">
+<meta property="article:tag" content="pgvector">
+<meta property="article:tag" content="HNSW">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://qjngbac.github.io/img/ai-08-vector-database.jpg"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "向量数据库选型实战：Chroma、Milvus 与 pgvector 对比",
+  "url": "https://qjngbac.github.io/2026/07/13/08-vector-database-comparison/",
+  "image": "https://qjngbac.github.io/img/ai-08-vector-database.jpg",
+  "datePublished": "2026-07-13T02:00:00.000Z",
+  "dateModified": "2026-07-19T09:13:39.020Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "qjngbac",
+      "url": "https://qjngbac.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://qjngbac.github.io/2026/07/13/08-vector-database-comparison/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.5.5"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        if (!ttl) return
+        const expiry = Date.now() + ttl * 86400000
+        localStorage.setItem(key, JSON.stringify({ value, expiry }))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return undefined
+        const { value, expiry } = JSON.parse(itemStr)
+        if (Date.now() > expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return value
+      }
+    }
+
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+        script.onload = script.onreadystatechange = () => {
+          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      }),
+      getCSS: (url, id) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onload = link.onreadystatechange = () => {
+          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+        }
+        link.onerror = reject
+        document.head.appendChild(link)
+      }),
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: true
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: '向量数据库选型实战：Chroma、Milvus 与 pgvector 对比',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="generator" content="Hexo 7.3.0"></head><body><div id="loading-box"><div class="loading-left-bg"></div><div class="loading-right-bg"></div><div class="spinner-box"><div class="configure-border-1"><div class="configure-core"></div></div><div class="configure-border-2"><div class="configure-core"></div></div><div class="loading-word">加载中...</div></div></div><script>(()=>{
+  const $loadingBox = document.getElementById('loading-box')
+  const $body = document.body
+  const preloader = {
+    endLoading: () => {
+      if ($loadingBox.classList.contains('loaded')) return
+      $body.style.overflow = ''
+      $loadingBox.classList.add('loaded')
+    },
+    initLoading: () => {
+      $body.style.overflow = 'hidden'
+      $loadingBox.classList.remove('loaded')
+    }
+  }
+
+  preloader.initLoading()
+
+  if (document.readyState === 'complete') {
+    preloader.endLoading()
+  } else {
+    window.addEventListener('load', preloader.endLoading)
+    document.addEventListener('DOMContentLoaded', preloader.endLoading)
+    // Add timeout protection: force end after 7 seconds
+    setTimeout(preloader.endLoading, 7000)
+  }
+
+  if (false) {
+    btf.addGlobalFn('pjaxSend', preloader.initLoading, 'preloader_init')
+    btf.addGlobalFn('pjaxComplete', preloader.endLoading, 'preloader_end')
+  }
+})()</script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">42</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">139</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(/../img/ai-08-vector-database.jpg);"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">Wait</span></a><a class="nav-page-title" href="/"><span class="site-name">向量数据库选型实战：Chroma、Milvus 与 pgvector 对比</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">向量数据库选型实战：Chroma、Milvus 与 pgvector 对比</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-07-13T02:00:00.000Z" title="发表于 2026-07-13 10:00:00">2026-07-13</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-07-19T09:13:39.020Z" title="更新于 2026-07-19 17:13:39">2026-07-19</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/AI%E5%B7%A5%E7%A8%8B/">AI工程</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>做 RAG 时经常会看到三类建议：个人项目用 Chroma，海量向量用 Milvus，已有 PostgreSQL 就用 pgvector。这个结论方向上没有问题，但真正选型不能只看一句话。</p>
+<p>向量数据库不仅负责“存一个 float 数组”。它还要处理向量索引、Top-K 搜索、metadata 过滤、增删改、并发、备份恢复、监控和客户端接入。不同产品的定位不同：Chroma 更偏 AI 应用快速检索，Milvus 是专用、可扩展的向量数据库，pgvector 则把向量能力放进 PostgreSQL 生态。</p>
+<p>本文从架构、索引、过滤、运维和适用场景比较三者，并给出一套公平的性能测试方法。</p>
+<p><img src="/../img/ai-vector-database-selection-map.png" alt="向量数据库选型与部署决策图"></p>
+<hr>
+<h2 id="一、向量检索在做什么"><a href="#一、向量检索在做什么" class="headerlink" title="一、向量检索在做什么"></a>一、向量检索在做什么</h2><p>Embedding 模型把文本映射为固定维度向量：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">“Redis 分布式锁” → [0.12, -0.34, ...]</span><br></pre></td></tr></table></figure>
+
+<p>查询时，把用户问题也转换到同一向量空间，再按距离或相似度寻找邻居。</p>
+<p>常见度量：</p>
+<table>
+<thead>
+<tr>
+<th>度量</th>
+<th>含义</th>
+<th>注意点</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Cosine</td>
+<td>比较方向相似度</td>
+<td>常用于文本向量</td>
+</tr>
+<tr>
+<td>Inner Product</td>
+<td>点积</td>
+<td>是否需归一化取决于模型</td>
+</tr>
+<tr>
+<td>L2</td>
+<td>欧氏距离</td>
+<td>距离越小通常越近</td>
+</tr>
+</tbody></table>
+<p>Embedding 模型、维度、是否归一化和索引操作符必须匹配。更换模型后，旧向量通常不能直接与新向量混合查询。</p>
+<hr>
+<h2 id="二、精确搜索与近似搜索"><a href="#二、精确搜索与近似搜索" class="headerlink" title="二、精确搜索与近似搜索"></a>二、精确搜索与近似搜索</h2><h3 id="2-1-精确搜索"><a href="#2-1-精确搜索" class="headerlink" title="2.1 精确搜索"></a>2.1 精确搜索</h3><p>逐个计算查询向量与所有向量的距离，结果最准确，但数据量大时成本高。</p>
+<h3 id="2-2-ANN-近似最近邻"><a href="#2-2-ANN-近似最近邻" class="headerlink" title="2.2 ANN 近似最近邻"></a>2.2 ANN 近似最近邻</h3><p>HNSW、IVF 等索引用额外数据结构减少搜索范围，以较小召回损失换取速度。</p>
+<p>索引不是免费午餐：</p>
+<ul>
+<li>需要构建时间</li>
+<li>占用内存和磁盘</li>
+<li>参数影响速度与 Recall</li>
+<li>插入和更新成本可能增加</li>
+</ul>
+<p>测试向量库时不能只看延迟，还要同时报告 Recall@K。</p>
+<hr>
+<h2 id="三、Chroma：快速搭建-AI-检索应用"><a href="#三、Chroma：快速搭建-AI-检索应用" class="headerlink" title="三、Chroma：快速搭建 AI 检索应用"></a>三、Chroma：快速搭建 AI 检索应用</h2><p>Chroma 提供集合、Embedding、文档、metadata、过滤和查询能力。当前产品形态要区分本地嵌入式、单节点服务和分布式&#x2F;云部署，不能再把 Chroma 简化成只有本地原型数据库。</p>
+<h3 id="3-1-优势"><a href="#3-1-优势" class="headerlink" title="3.1 优势"></a>3.1 优势</h3><ul>
+<li>Python 接入简单</li>
+<li>与 LangChain 等框架集成方便</li>
+<li>本地开发成本低</li>
+<li>文档和 metadata 管理直接</li>
+<li>当前文档也覆盖稠密、稀疏、全文和混合检索能力，具体支持取决于部署形态与版本</li>
+</ul>
+<p>示例：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> chromadb</span><br><span class="line"></span><br><span class="line">client = chromadb.PersistentClient(path=<span class="string">&quot;./chroma_db&quot;</span>)</span><br><span class="line">collection = client.get_or_create_collection(<span class="string">&quot;backend_docs&quot;</span>)</span><br><span class="line"></span><br><span class="line">collection.add(</span><br><span class="line">    ids=[<span class="string">&quot;redis-001&quot;</span>],</span><br><span class="line">    documents=[<span class="string">&quot;Redis SET NX PX 可用于原子加锁。&quot;</span>],</span><br><span class="line">    embeddings=[[<span class="number">0.1</span>, <span class="number">0.2</span>, <span class="number">0.3</span>]],</span><br><span class="line">    metadatas=[&#123;<span class="string">&quot;topic&quot;</span>: <span class="string">&quot;redis&quot;</span>, <span class="string">&quot;level&quot;</span>: <span class="string">&quot;basic&quot;</span>&#125;],</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">result = collection.query(</span><br><span class="line">    query_embeddings=[[<span class="number">0.11</span>, <span class="number">0.19</span>, <span class="number">0.31</span>]],</span><br><span class="line">    n_results=<span class="number">5</span>,</span><br><span class="line">    where=&#123;<span class="string">&quot;topic&quot;</span>: <span class="string">&quot;redis&quot;</span>&#125;,</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+
+<h3 id="3-2-边界"><a href="#3-2-边界" class="headerlink" title="3.2 边界"></a>3.2 边界</h3><ul>
+<li>单机原型的简单不等于天然满足大规模生产要求</li>
+<li>部署、备份和高可用仍需设计</li>
+<li>不同版本的索引与服务能力应以当前文档为准</li>
+<li>大规模压测前不要根据小数据量推断上限</li>
+</ul>
+<p>适合：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">个人 RAG 项目</span><br><span class="line">教学 Demo</span><br><span class="line">中小知识库与单节点服务</span><br><span class="line">需要快速迭代的 AI 应用</span><br></pre></td></tr></table></figure>
+
+<p>具体容量仍取决于向量维度、硬件、并发和过滤复杂度，不能只按条数判断。</p>
+<hr>
+<h2 id="四、Milvus：专用、可扩展的向量数据库"><a href="#四、Milvus：专用、可扩展的向量数据库" class="headerlink" title="四、Milvus：专用、可扩展的向量数据库"></a>四、Milvus：专用、可扩展的向量数据库</h2><p>Milvus 面向高性能向量搜索，支持多种向量索引、标量过滤、稠密&#x2F;稀疏向量和分布式架构。分布式部署采用计算与存储分离等设计，可独立扩展不同组件。</p>
+<h3 id="4-1-优势"><a href="#4-1-优势" class="headerlink" title="4.1 优势"></a>4.1 优势</h3><ul>
+<li>专用向量检索能力丰富</li>
+<li>多种 ANN 和量化索引</li>
+<li>适合高数据量和高并发</li>
+<li>支持水平扩展和复杂部署</li>
+<li>对稠密、稀疏和混合搜索有更完整能力</li>
+</ul>
+<h3 id="4-2-代价"><a href="#4-2-代价" class="headerlink" title="4.2 代价"></a>4.2 代价</h3><ul>
+<li>组件与运维复杂度更高</li>
+<li>资源占用通常高于嵌入式方案</li>
+<li>需要监控、备份、容量规划</li>
+<li>小数据量下难以体现分布式价值</li>
+</ul>
+<p>Milvus 有三种主要部署形态，选型时要明确比较对象，而不是把它们当成同一种成本：</p>
+<table>
+<thead>
+<tr>
+<th>形态</th>
+<th>特点</th>
+<th>常见用途</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Milvus Lite</td>
+<td>嵌入 Python 进程、接入简单</td>
+<td>本地开发、小规模验证</td>
+</tr>
+<tr>
+<td>Standalone</td>
+<td>单机服务部署</td>
+<td>中等规模、希望独立服务化</td>
+</tr>
+<tr>
+<td>Distributed</td>
+<td>多组件水平扩展</td>
+<td>大规模、高吞吐和高可用</td>
+</tr>
+</tbody></table>
+<p>适合：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">百万到更大规模向量</span><br><span class="line">高并发相似度检索</span><br><span class="line">需要多种索引和扩展能力</span><br><span class="line">有独立运维资源的团队</span><br></pre></td></tr></table></figure>
+
+<p>这里的数量级不是硬门槛。最终仍应以压测和运维能力决定。</p>
+<hr>
+<h2 id="五、pgvector：把向量放进-PostgreSQL"><a href="#五、pgvector：把向量放进-PostgreSQL" class="headerlink" title="五、pgvector：把向量放进 PostgreSQL"></a>五、pgvector：把向量放进 PostgreSQL</h2><p>pgvector 是 PostgreSQL 扩展，提供 vector 类型、距离操作符、精确搜索以及 HNSW、IVFFlat 等近似索引。</p>
+<p>建表：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> EXTENSION IF <span class="keyword">NOT</span> <span class="keyword">EXISTS</span> vector;</span><br><span class="line"></span><br><span class="line"><span class="keyword">CREATE TABLE</span> document_chunk (</span><br><span class="line">    id BIGSERIAL <span class="keyword">PRIMARY KEY</span>,</span><br><span class="line">    document_id <span class="type">BIGINT</span> <span class="keyword">NOT NULL</span>,</span><br><span class="line">    content TEXT <span class="keyword">NOT NULL</span>,</span><br><span class="line">    metadata JSONB <span class="keyword">NOT NULL</span> <span class="keyword">DEFAULT</span> <span class="string">&#x27;&#123;&#125;&#x27;</span>::jsonb,</span><br><span class="line">    embedding VECTOR(<span class="number">1536</span>) <span class="keyword">NOT NULL</span></span><br><span class="line">);</span><br></pre></td></tr></table></figure>
+
+<p>查询：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">SELECT</span></span><br><span class="line">    id,</span><br><span class="line">    document_id,</span><br><span class="line">    content,</span><br><span class="line">    embedding <span class="operator">&lt;=&gt;</span> $<span class="number">1</span> <span class="keyword">AS</span> cosine_distance</span><br><span class="line"><span class="keyword">FROM</span> document_chunk</span><br><span class="line"><span class="keyword">WHERE</span> metadata<span class="operator">-</span><span class="operator">&gt;&gt;</span><span class="string">&#x27;tenant_id&#x27;</span> <span class="operator">=</span> $<span class="number">2</span></span><br><span class="line"><span class="keyword">ORDER</span> <span class="keyword">BY</span> embedding <span class="operator">&lt;=&gt;</span> $<span class="number">1</span></span><br><span class="line">LIMIT <span class="number">10</span>;</span><br></pre></td></tr></table></figure>
+
+<p>HNSW 索引示例：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> INDEX document_chunk_embedding_hnsw</span><br><span class="line"><span class="keyword">ON</span> document_chunk</span><br><span class="line"><span class="keyword">USING</span> hnsw (embedding vector_cosine_ops);</span><br></pre></td></tr></table></figure>
+
+<h3 id="5-1-优势"><a href="#5-1-优势" class="headerlink" title="5.1 优势"></a>5.1 优势</h3><ul>
+<li>与业务关系数据在同一事务和权限体系中</li>
+<li>SQL、JOIN、JSONB 过滤能力成熟</li>
+<li>复用 PostgreSQL 备份、监控和高可用体系</li>
+<li>Java 团队容易接入</li>
+</ul>
+<h3 id="5-2-边界"><a href="#5-2-边界" class="headerlink" title="5.2 边界"></a>5.2 边界</h3><ul>
+<li>向量负载会与 OLTP 业务争夺资源</li>
+<li>大规模高并发向量搜索需要细致调优</li>
+<li>需要考虑表膨胀、索引构建和维护</li>
+<li>不能因为“已经有 PostgreSQL”就忽略容量隔离</li>
+</ul>
+<p>可以将向量表放在独立实例或资源组中，避免影响核心交易库。</p>
+<p>还要特别关注 ANN 与过滤的交互。pgvector 的近似索引通常先扫描索引候选，再应用 <code>WHERE</code> 过滤；租户条件选择性很高时，返回数量可能不足。新版本提供 iterative scan，可逐步扩大扫描范围，但仍应为真实租户分布测试 Recall，并为过滤列建立普通索引或使用分区、部分索引等策略。</p>
+<hr>
+<h2 id="六、三者核心对比"><a href="#六、三者核心对比" class="headerlink" title="六、三者核心对比"></a>六、三者核心对比</h2><table>
+<thead>
+<tr>
+<th>维度</th>
+<th>Chroma</th>
+<th>Milvus</th>
+<th>pgvector</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>产品定位</td>
+<td>AI 应用检索数据库</td>
+<td>专用向量数据库</td>
+<td>PostgreSQL 向量扩展</td>
+</tr>
+<tr>
+<td>上手难度</td>
+<td>低</td>
+<td>中到高</td>
+<td>已熟悉 PostgreSQL 时较低</td>
+</tr>
+<tr>
+<td>本地原型</td>
+<td>很适合</td>
+<td>可用轻量形态</td>
+<td>需要 PostgreSQL</td>
+</tr>
+<tr>
+<td>分布式扩展</td>
+<td>有分布式&#x2F;云形态，需按产品评估</td>
+<td>Distributed 核心能力之一</td>
+<td>依赖 PostgreSQL 架构</td>
+</tr>
+<tr>
+<td>SQL&#x2F;关系查询</td>
+<td>弱</td>
+<td>标量过滤为主</td>
+<td>强</td>
+</tr>
+<tr>
+<td>索引类型</td>
+<td>以产品当前配置为准</td>
+<td>很丰富</td>
+<td>精确、HNSW、IVFFlat</td>
+</tr>
+<tr>
+<td>运维复杂度</td>
+<td>低到中</td>
+<td>高</td>
+<td>中</td>
+</tr>
+<tr>
+<td>业务事务</td>
+<td>不擅长</td>
+<td>不擅长</td>
+<td>强</td>
+</tr>
+</tbody></table>
+<p>这张表是定位对比，不代表任何产品在所有数据量上必然更快。</p>
+<hr>
+<h2 id="七、选型决策树"><a href="#七、选型决策树" class="headerlink" title="七、选型决策树"></a>七、选型决策树</h2><h3 id="场景-1：个人项目和课程-Demo"><a href="#场景-1：个人项目和课程-Demo" class="headerlink" title="场景 1：个人项目和课程 Demo"></a>场景 1：个人项目和课程 Demo</h3><p>优先 Chroma：</p>
+<ul>
+<li>快速实现</li>
+<li>本地持久化</li>
+<li>框架集成简单</li>
+</ul>
+<h3 id="场景-2：已有-PostgreSQL，向量与业务权限强关联"><a href="#场景-2：已有-PostgreSQL，向量与业务权限强关联" class="headerlink" title="场景 2：已有 PostgreSQL，向量与业务权限强关联"></a>场景 2：已有 PostgreSQL，向量与业务权限强关联</h3><p>优先评估 pgvector：</p>
+<ul>
+<li>用户、租户、文档权限可通过 SQL 过滤</li>
+<li>复用事务和备份</li>
+<li>减少新基础设施</li>
+</ul>
+<h3 id="场景-3：大规模专用向量检索平台"><a href="#场景-3：大规模专用向量检索平台" class="headerlink" title="场景 3：大规模专用向量检索平台"></a>场景 3：大规模专用向量检索平台</h3><p>评估 Milvus：</p>
+<ul>
+<li>数据规模和并发较高</li>
+<li>需要多索引和水平扩展</li>
+<li>团队有独立运维能力</li>
+</ul>
+<h3 id="场景-4：不确定"><a href="#场景-4：不确定" class="headerlink" title="场景 4：不确定"></a>场景 4：不确定</h3><p>先用最简单方案建立数据集和压测，再迁移。接口层应抽象出：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">public</span> <span class="keyword">interface</span> <span class="title class_">VectorRepository</span> &#123;</span><br><span class="line">    <span class="keyword">void</span> <span class="title function_">upsert</span><span class="params">(List&lt;VectorDocument&gt; documents)</span>;</span><br><span class="line">    List&lt;SearchResult&gt; <span class="title function_">search</span><span class="params">(SearchRequest request)</span>;</span><br><span class="line">    <span class="keyword">void</span> <span class="title function_">deleteByDocumentId</span><span class="params">(String documentId)</span>;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>避免业务层直接依赖某个客户端的返回对象。</p>
+<hr>
+<h2 id="八、如何公平压测"><a href="#八、如何公平压测" class="headerlink" title="八、如何公平压测"></a>八、如何公平压测</h2><p>必须控制变量：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">相同文档和向量</span><br><span class="line">相同 Embedding 模型与维度</span><br><span class="line">相同距离度量</span><br><span class="line">相同 Top-K</span><br><span class="line">相同 metadata 过滤条件</span><br><span class="line">相同机器资源</span><br><span class="line">相同预热方式</span><br><span class="line">相同并发模型</span><br><span class="line">相同过滤选择性与数据分布</span><br></pre></td></tr></table></figure>
+
+<p>ANN 的 Recall@K 应以同一数据集上的精确搜索结果作为基准，而不是拿人工印象比较。冷启动与预热后的缓存命中差别可能很大，报告中还要分别标明冷、热延迟，以及客户端网络是否包含在测量范围内。</p>
+<h3 id="8-1-指标"><a href="#8-1-指标" class="headerlink" title="8.1 指标"></a>8.1 指标</h3><ul>
+<li>导入吞吐</li>
+<li>索引构建时间</li>
+<li>P50&#x2F;P95&#x2F;P99 查询延迟</li>
+<li>QPS</li>
+<li>Recall@K</li>
+<li>内存与磁盘占用</li>
+<li>删除和更新耗时</li>
+<li>过滤后 Recall</li>
+<li>重启恢复时间</li>
+<li>备份恢复复杂度</li>
+</ul>
+<h3 id="8-2-数据规模"><a href="#8-2-数据规模" class="headerlink" title="8.2 数据规模"></a>8.2 数据规模</h3><p>至少分层：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">10K：验证功能</span><br><span class="line">100K：观察索引差异</span><br><span class="line">1M+：验证真实扩展能力</span><br></pre></td></tr></table></figure>
+
+<p>几十篇博客的数据量不能用来证明某个分布式数据库“性能最好”。</p>
+<hr>
+<h2 id="九、索引参数的基本理解"><a href="#九、索引参数的基本理解" class="headerlink" title="九、索引参数的基本理解"></a>九、索引参数的基本理解</h2><h3 id="HNSW"><a href="#HNSW" class="headerlink" title="HNSW"></a>HNSW</h3><p>通常有较好的速度-召回折中，但构建较慢、内存占用较高。<code>m</code> 影响每个节点的连接数，<code>ef_construction</code> 影响构建质量与时间，查询时的 <code>ef_search</code> 影响搜索范围。参数越积极，Recall 通常越高，延迟和资源消耗也会上升。</p>
+<h3 id="IVFFlat"><a href="#IVFFlat" class="headerlink" title="IVFFlat"></a>IVFFlat</h3><p>先把向量聚类到多个列表，查询时只探测部分列表。需要选择列表数量（<code>lists</code>）和探测数量（<code>probes</code>），通常应在已有数据后构建并用真实数据调参。探测列表越多，Recall 往往越高；探测全部列表时会逐渐失去近似搜索的速度优势。</p>
+<h3 id="精确索引-全表搜索"><a href="#精确索引-全表搜索" class="headerlink" title="精确索引&#x2F;全表搜索"></a>精确索引&#x2F;全表搜索</h3><p>小数据量、离线评估或需要最高准确性时仍然有价值，也可用作 ANN Recall 的基准答案。</p>
+<h3 id="metadata-与租户隔离"><a href="#metadata-与租户隔离" class="headerlink" title="metadata 与租户隔离"></a>metadata 与租户隔离</h3><p>向量相似度不能替代权限过滤。多租户系统应把 <code>tenant_id</code>、可见范围和文档状态作为结构化字段，在检索阶段过滤，并验证过滤后的 Recall 与延迟。无论使用哪种产品，都要设计认证、传输加密、备份恢复、密钥管理和删除传播，不能因为它是“AI 基础设施”就降低数据库安全标准。</p>
+<hr>
+<h2 id="十、面试高频问题"><a href="#十、面试高频问题" class="headerlink" title="十、面试高频问题"></a>十、面试高频问题</h2><p><strong>Q1：Chroma、Milvus、pgvector 如何选？</strong></p>
+<p>原型和中小知识库可优先 Chroma；大规模专用向量检索评估 Milvus；已有 PostgreSQL 且需要关系查询和事务时评估 pgvector。</p>
+<p><strong>Q2：HNSW 和 IVFFlat 有什么区别？</strong></p>
+<p>HNSW 基于多层图，通常查询性能和召回折中较好，但构建与内存成本较高；IVFFlat 基于聚类列表，查询探测部分分区，参数和数据分布影响明显。</p>
+<p><strong>Q3：为什么 ANN 要评估 Recall？</strong></p>
+<p>近似索引用精度换速度，只看延迟可能得到很快但漏掉正确邻居的系统。</p>
+<p><strong>Q4：pgvector 最大优势是什么？</strong></p>
+<p>向量和业务数据处于 PostgreSQL 体系中，可以复用 SQL、事务、权限、JSONB、备份和监控。</p>
+<p><strong>Q5：更换 Embedding 模型要做什么？</strong></p>
+<p>检查维度和向量空间，通常创建新索引或集合并重新生成全部文档向量，不能直接混用旧向量。</p>
+<hr>
+<h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a>参考资料</h2><ul>
+<li>Chroma Architecture：<a target="_blank" rel="noopener" href="https://docs.trychroma.com/docs/overview/architecture">https://docs.trychroma.com/docs/overview/architecture</a></li>
+<li>Chroma Distributed Architecture：<a target="_blank" rel="noopener" href="https://docs.trychroma.com/reference/architecture/distributed">https://docs.trychroma.com/reference/architecture/distributed</a></li>
+<li>Milvus Overview：<a target="_blank" rel="noopener" href="https://milvus.io/docs/overview.md">https://milvus.io/docs/overview.md</a></li>
+<li>Milvus Deployment Options：<a target="_blank" rel="noopener" href="https://milvus.io/docs/install-overview.md">https://milvus.io/docs/install-overview.md</a></li>
+<li>pgvector README：<a target="_blank" rel="noopener" href="https://github.com/pgvector/pgvector">https://github.com/pgvector/pgvector</a></li>
+</ul>
+<hr>
+<h2 id="写在最后"><a href="#写在最后" class="headerlink" title="写在最后"></a>写在最后</h2><p>向量数据库选型不是寻找一个永远最快的产品，而是在数据规模、过滤需求、团队技术栈、可用性和运维成本之间取舍。</p>
+<p>个人 RAG 项目先用 Chroma 完成检索与评估完全合理；当业务需要 SQL 权限和事务时考虑 pgvector；只有规模和吞吐真正达到瓶颈，且团队能承担运维复杂度时，再引入 Milvus 等专用平台。</p>
+<p>后端知识库项目当前选择 Chroma 是合理的：数据规模有限，首要目标是把切分、引用和评估链路做正确。代码仍应通过自有检索接口隔离 Chroma 返回类型，并保存稳定 ID 与 metadata，这样未来迁移到 pgvector 或 Milvus 时无需重写问答业务层。</p>
+<hr>
+<blockquote>
+<p><strong>AI 工程系列文章预告</strong>：</p>
+<ul>
+<li>上一篇：RAG 评估实战：Recall@K、MRR 与回答忠实度</li>
+<li>下一篇：Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling</li>
+</ul>
+</blockquote>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://qjngbac.github.io">qjngbac</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://qjngbac.github.io/2026/07/13/08-vector-database-comparison/">https://qjngbac.github.io/2026/07/13/08-vector-database-comparison/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://qjngbac.github.io" target="_blank">Wait</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/AI%E5%B7%A5%E7%A8%8B/">AI工程</a><a class="post-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><a class="post-meta__tags" href="/tags/RAG/">RAG</a><a class="post-meta__tags" href="/tags/Chroma/">Chroma</a><a class="post-meta__tags" href="/tags/%E5%90%91%E9%87%8F%E6%95%B0%E6%8D%AE%E5%BA%93/">向量数据库</a><a class="post-meta__tags" href="/tags/Milvus/">Milvus</a><a class="post-meta__tags" href="/tags/pgvector/">pgvector</a><a class="post-meta__tags" href="/tags/HNSW/">HNSW</a></div><div class="post-share"><div class="social-share" data-image="/../img/ai-08-vector-database.jpg" data-sites="facebook,x,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"><img class="cover" src="/../img/ai-09-spring-ai.jpg" onerror="onerror=null;src='/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling</div></div><div class="info-2"><div class="info-item-1">前言Python 生态在大模型应用中非常丰富，但对于已经使用 Spring Boot 的团队，鉴权、配置、数据库、日志、监控和部署体系都在 Java 侧。为了接入模型而重新搭建一套独立 Python 服务，并不总是最合适的选择。 Spring AI 为 Java 应用提供统一的模型、Embedding、向量库、Tool Calling、Chat Memory、RAG Advisor 和可观测性抽象。它的价值不是“用 Java 重新实现模型”，而是让 AI 能力进入熟悉的 Spring 配置和依赖注入体系。 本文基于 Spring AI 当前的核心抽象，搭建同步&#x2F;流式聊天、结构化输出、Tool Calling 和简单 RAG，并说明生产项目中的配置、安全和可观测性问题。  一、Spring AI 的核心抽象   抽象 作用    ChatModel 与聊天模型交互的底层统一接口   ChatClient 面向应用的流畅 API，支持同步、流式、Prompt、Advisor 和 Tool   EmbeddingModel 把文本转换为向量   VectorStore 保存文...</div></div></div></a><a class="pagination-related" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度"><img class="cover" src="/../img/ai-07-rag-evaluation.jpg" onerror="onerror=null;src='/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">RAG 评估实战：Recall@K、MRR 与回答忠实度</div></div><div class="info-2"><div class="info-item-1">前言很多 RAG 项目的优化方式是：改一个参数，随便问几个问题，感觉回答比以前好，就宣布“准确率提升”。这种方法无法复现，也无法判断提升来自检索、Prompt、模型还是偶然性。 RAG 是一条组合链路，至少包含文档处理、检索、排序和生成。评估也应拆开：检索阶段判断正确文档有没有被找回来、排在什么位置；生成阶段判断回答是否忠于上下文、是否真正回答问题；端到端阶段再看用户任务是否完成、延迟和成本是否可接受。 本文从构建评估集开始，实现 Recall@K、Hit Rate、MRR，并说明 Faithfulness、Answer Relevance、无答案识别和线上反馈应该如何组合。  一、RAG 评估要拆成三层12345678检索评估→ 正确文档是否被召回、排名是否合理生成评估→ 回答是否忠于上下文、是否相关、是否完整端到端评估→ 用户任务是否完成、延迟和成本是否可接受  只看最终答案有两个问题：  模型可能靠自身知识答对，掩盖检索失败 检索正确但生成失败时，不知道应该改哪一层    二、构建一份可用的评估集每条测试数据至少包含： 123456789101112&#123;  &quo...</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/2026/07/04/05-langchain-rag/" title="LangChain RAG 实战：从文档入库到可追溯问答"><img class="cover" src="/../img/ai-05-langchain-rag.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-04</div><div class="info-item-2">LangChain RAG 实战：从文档入库到可追溯问答</div></div><div class="info-2"><div class="info-item-1">前言大模型能够回答大量通用问题，但它不知道你的私有文档，也可能使用过时知识或生成没有依据的内容。RAG（Retrieval-Augmented Generation，检索增强生成）通过“先检索、再生成”把外部知识放进模型上下文，使回答能够参考知识库并附带来源。 RAG 不能彻底消除幻觉。检索可能漏掉正确文档，切分可能破坏语义，生成模型也可能误读上下文。因此，一个合格的 RAG 系统不仅要能回答，还要保存稳定文档标识、展示引用，并在资料不足时明确降级。 本文使用 LangChain、Chroma 和 Markdown 文档搭建一条可运行的基础链路：文档加载、标题感知切分、Embedding、向量入库、Top-K 检索、带引用生成和无资料拒答。  一、RAG 的完整链路12345离线入库：文档 → 解析 → 切分 → 元数据 → Embedding → 向量库在线问答：问题 → Embedding → 相似度检索 → 上下文组装 → LLM → 答案 + 引用  两条链路要分开设计：文档更新不应阻塞每次问答；在线请求也不应临时重新切分整个知识库。  基础问答通常采用确定的“两步 RA...</div></div></div></a><a class="pagination-related" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"><img class="cover" src="/../img/ai-09-spring-ai.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-17</div><div class="info-item-2">Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling</div></div><div class="info-2"><div class="info-item-1">前言Python 生态在大模型应用中非常丰富，但对于已经使用 Spring Boot 的团队，鉴权、配置、数据库、日志、监控和部署体系都在 Java 侧。为了接入模型而重新搭建一套独立 Python 服务，并不总是最合适的选择。 Spring AI 为 Java 应用提供统一的模型、Embedding、向量库、Tool Calling、Chat Memory、RAG Advisor 和可观测性抽象。它的价值不是“用 Java 重新实现模型”，而是让 AI 能力进入熟悉的 Spring 配置和依赖注入体系。 本文基于 Spring AI 当前的核心抽象，搭建同步&#x2F;流式聊天、结构化输出、Tool Calling 和简单 RAG，并说明生产项目中的配置、安全和可观测性问题。  一、Spring AI 的核心抽象   抽象 作用    ChatModel 与聊天模型交互的底层统一接口   ChatClient 面向应用的流畅 API，支持同步、流式、Prompt、Advisor 和 Tool   EmbeddingModel 把文本转换为向量   VectorStore 保存文...</div></div></div></a><a class="pagination-related" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"><img class="cover" src="/../img/ai-06-rag-retrieval.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-09</div><div class="info-item-2">RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker</div></div><div class="info-2"><div class="info-item-1">前言基础 RAG 通常使用一个 Embedding 模型，把问题转成向量，再做 Top-K 相似度检索。这条链路简单，但很快会遇到问题：搜索 SETNX 时找不到包含精确命令的片段；用户说“它为什么会失效”，单独拿这句话无法检索；向量结果语义相近，却没有真正回答问题；正确片段排在第 8 名，最终只取了前 4 名。 检索优化的核心不是盲目增加模型，而是分阶段解决： 12345让查询更适合检索→ 多路召回扩大候选集→ 融合不同排序→ 对候选做精细重排→ 只把高质量上下文交给生成模型  本文依次介绍 Query Rewrite、BM25 + 向量混合检索、RRF 融合、Reranker 与降级策略，并说明为什么所有优化都必须通过固定评估集验证。   一、先定位检索失败属于哪一类   失败类型 示例 常见方案    查询缺少上下文 “它为什么会失效？” 对话指代消解、查询改写   精确词召回失败 SETNX、错误码、类名 BM25&#x2F;关键词检索   同义表达不一致 “缓存雪崩”与“批量过期” 向量检索   正确文档排序靠后 Top-10 有，Top-4 无 RRF、Reranke...</div></div></div></a><a class="pagination-related" href="/2026/06/18/01-llm-api-engineering/" title="大模型 API 工程化实战：从 curl 到流式调用、重试与成本治理"><img class="cover" src="/../img/ai-01-llm-api.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-06-18</div><div class="info-item-2">大模型 API 工程化实战：从 curl 到流式调用、重试与成本治理</div></div><div class="info-2"><div class="info-item-1">前言很多人第一次接入大模型，只需要几行代码：传入一段文字，等待模型返回答案。但一旦把它放进真实后端系统，问题会立刻变多：请求超时怎么办？限流后是否重试？流式响应中途断开怎么处理？如何统计 Token 和费用？怎样在多个模型之间切换？日志里又该记录什么，哪些内容不能记录？ 因此，大模型 API 接入不能只停留在“能调用”。真正的工程目标是把不稳定、成本可变、响应时间较长的外部模型服务，封装成一个可超时、可重试、可观测、可降级、可替换的基础能力。 本文以 OpenAI Responses API 的通用调用方式为例，从 curl 开始，逐步搭建同步调用、流式输出、异常处理、统一网关与成本治理方案。示例中的模型名统一从环境变量读取，实际使用时应替换为账号当前可用的模型。  一、一次大模型请求到底包含什么大模型 API 本质上仍然是 HTTP API。一次请求通常包含四部分：    部分 作用 常见内容    URL 指定服务和接口 /v1/responses   Header 身份认证与请求格式 Authorization、Content-Type   Body 模型、输入和生成参数 ...</div></div></div></a><a class="pagination-related" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度"><img class="cover" src="/../img/ai-07-rag-evaluation.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-12</div><div class="info-item-2">RAG 评估实战：Recall@K、MRR 与回答忠实度</div></div><div class="info-2"><div class="info-item-1">前言很多 RAG 项目的优化方式是：改一个参数，随便问几个问题，感觉回答比以前好，就宣布“准确率提升”。这种方法无法复现，也无法判断提升来自检索、Prompt、模型还是偶然性。 RAG 是一条组合链路，至少包含文档处理、检索、排序和生成。评估也应拆开：检索阶段判断正确文档有没有被找回来、排在什么位置；生成阶段判断回答是否忠于上下文、是否真正回答问题；端到端阶段再看用户任务是否完成、延迟和成本是否可接受。 本文从构建评估集开始，实现 Recall@K、Hit Rate、MRR，并说明 Faithfulness、Answer Relevance、无答案识别和线上反馈应该如何组合。  一、RAG 评估要拆成三层12345678检索评估→ 正确文档是否被召回、排名是否合理生成评估→ 回答是否忠于上下文、是否相关、是否完整端到端评估→ 用户任务是否完成、延迟和成本是否可接受  只看最终答案有两个问题：  模型可能靠自身知识答对，掩盖检索失败 检索正确但生成失败时，不知道应该改哪一层    二、构建一份可用的评估集每条测试数据至少包含： 123456789101112&#123;  &quo...</div></div></div></a><a class="pagination-related" href="/2026/06/19/02-prompt-context-engineering/" title="Prompt 与上下文工程实战：稳定输出、结构化响应与注入防护"><img class="cover" src="/../img/ai-02-prompt-context.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-06-19</div><div class="info-item-2">Prompt 与上下文工程实战：稳定输出、结构化响应与注入防护</div></div><div class="info-2"><div class="info-item-1">前言很多大模型应用效果不稳定，并不是模型能力不足，而是输入没有把任务讲清楚：目标模糊、上下文混乱、格式只靠自然语言约束、示例互相冲突，甚至把用户上传文档中的指令当成系统命令执行。 Prompt 工程不等于堆砌“你是一位顶级专家”。它真正解决的是：如何把任务、规则、数据和输出契约组织成模型更容易遵循的输入。随着应用变复杂，还要进一步考虑上下文选择、长对话裁剪、检索结果排序、工具结果注入和安全边界，这就是上下文工程。 本文从消息层级、零样本与少样本、结构化输出、模板版本管理、长上下文治理和 Prompt Injection 防护几个方面，给出一套适合后端项目的实战方法。  一、一个高质量 Prompt 的基本结构推荐把 Prompt 拆成五部分： 12345角色与目标→ 输入数据说明→ 必须遵守的约束→ 输出格式→ 必要的示例  示例： 1234567891011121314151617181920212223242526你是 Java 后端面试题整理助手。任务：根据提供的知识片段回答问题。约束：1. 只使用知识片段中能够支持的内容。2. 资料不足时明确回答“现有资料无法确定”。3....</div></div></div></a></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">qjngbac</div><div class="author-info-description">一个正在学习的开发者</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">42</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">139</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/qjngbac"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/qjngbac" target="_blank" title="Github"><i class="fab fa-github"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到我的博客</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%89%8D%E8%A8%80"><span class="toc-number">1.</span> <span class="toc-text">前言</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%80%E3%80%81%E5%90%91%E9%87%8F%E6%A3%80%E7%B4%A2%E5%9C%A8%E5%81%9A%E4%BB%80%E4%B9%88"><span class="toc-number">2.</span> <span class="toc-text">一、向量检索在做什么</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%8C%E3%80%81%E7%B2%BE%E7%A1%AE%E6%90%9C%E7%B4%A2%E4%B8%8E%E8%BF%91%E4%BC%BC%E6%90%9C%E7%B4%A2"><span class="toc-number">3.</span> <span class="toc-text">二、精确搜索与近似搜索</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#2-1-%E7%B2%BE%E7%A1%AE%E6%90%9C%E7%B4%A2"><span class="toc-number">3.1.</span> <span class="toc-text">2.1 精确搜索</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-2-ANN-%E8%BF%91%E4%BC%BC%E6%9C%80%E8%BF%91%E9%82%BB"><span class="toc-number">3.2.</span> <span class="toc-text">2.2 ANN 近似最近邻</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%89%E3%80%81Chroma%EF%BC%9A%E5%BF%AB%E9%80%9F%E6%90%AD%E5%BB%BA-AI-%E6%A3%80%E7%B4%A2%E5%BA%94%E7%94%A8"><span class="toc-number">4.</span> <span class="toc-text">三、Chroma：快速搭建 AI 检索应用</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#3-1-%E4%BC%98%E5%8A%BF"><span class="toc-number">4.1.</span> <span class="toc-text">3.1 优势</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-2-%E8%BE%B9%E7%95%8C"><span class="toc-number">4.2.</span> <span class="toc-text">3.2 边界</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9B%9B%E3%80%81Milvus%EF%BC%9A%E4%B8%93%E7%94%A8%E3%80%81%E5%8F%AF%E6%89%A9%E5%B1%95%E7%9A%84%E5%90%91%E9%87%8F%E6%95%B0%E6%8D%AE%E5%BA%93"><span class="toc-number">5.</span> <span class="toc-text">四、Milvus：专用、可扩展的向量数据库</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#4-1-%E4%BC%98%E5%8A%BF"><span class="toc-number">5.1.</span> <span class="toc-text">4.1 优势</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-2-%E4%BB%A3%E4%BB%B7"><span class="toc-number">5.2.</span> <span class="toc-text">4.2 代价</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%94%E3%80%81pgvector%EF%BC%9A%E6%8A%8A%E5%90%91%E9%87%8F%E6%94%BE%E8%BF%9B-PostgreSQL"><span class="toc-number">6.</span> <span class="toc-text">五、pgvector：把向量放进 PostgreSQL</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#5-1-%E4%BC%98%E5%8A%BF"><span class="toc-number">6.1.</span> <span class="toc-text">5.1 优势</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-2-%E8%BE%B9%E7%95%8C"><span class="toc-number">6.2.</span> <span class="toc-text">5.2 边界</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%AD%E3%80%81%E4%B8%89%E8%80%85%E6%A0%B8%E5%BF%83%E5%AF%B9%E6%AF%94"><span class="toc-number">7.</span> <span class="toc-text">六、三者核心对比</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%83%E3%80%81%E9%80%89%E5%9E%8B%E5%86%B3%E7%AD%96%E6%A0%91"><span class="toc-number">8.</span> <span class="toc-text">七、选型决策树</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%9C%BA%E6%99%AF-1%EF%BC%9A%E4%B8%AA%E4%BA%BA%E9%A1%B9%E7%9B%AE%E5%92%8C%E8%AF%BE%E7%A8%8B-Demo"><span class="toc-number">8.1.</span> <span class="toc-text">场景 1：个人项目和课程 Demo</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%9C%BA%E6%99%AF-2%EF%BC%9A%E5%B7%B2%E6%9C%89-PostgreSQL%EF%BC%8C%E5%90%91%E9%87%8F%E4%B8%8E%E4%B8%9A%E5%8A%A1%E6%9D%83%E9%99%90%E5%BC%BA%E5%85%B3%E8%81%94"><span class="toc-number">8.2.</span> <span class="toc-text">场景 2：已有 PostgreSQL，向量与业务权限强关联</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%9C%BA%E6%99%AF-3%EF%BC%9A%E5%A4%A7%E8%A7%84%E6%A8%A1%E4%B8%93%E7%94%A8%E5%90%91%E9%87%8F%E6%A3%80%E7%B4%A2%E5%B9%B3%E5%8F%B0"><span class="toc-number">8.3.</span> <span class="toc-text">场景 3：大规模专用向量检索平台</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E5%9C%BA%E6%99%AF-4%EF%BC%9A%E4%B8%8D%E7%A1%AE%E5%AE%9A"><span class="toc-number">8.4.</span> <span class="toc-text">场景 4：不确定</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%AB%E3%80%81%E5%A6%82%E4%BD%95%E5%85%AC%E5%B9%B3%E5%8E%8B%E6%B5%8B"><span class="toc-number">9.</span> <span class="toc-text">八、如何公平压测</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#8-1-%E6%8C%87%E6%A0%87"><span class="toc-number">9.1.</span> <span class="toc-text">8.1 指标</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#8-2-%E6%95%B0%E6%8D%AE%E8%A7%84%E6%A8%A1"><span class="toc-number">9.2.</span> <span class="toc-text">8.2 数据规模</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B9%9D%E3%80%81%E7%B4%A2%E5%BC%95%E5%8F%82%E6%95%B0%E7%9A%84%E5%9F%BA%E6%9C%AC%E7%90%86%E8%A7%A3"><span class="toc-number">10.</span> <span class="toc-text">九、索引参数的基本理解</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#HNSW"><span class="toc-number">10.1.</span> <span class="toc-text">HNSW</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#IVFFlat"><span class="toc-number">10.2.</span> <span class="toc-text">IVFFlat</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#%E7%B2%BE%E7%A1%AE%E7%B4%A2%E5%BC%95-%E5%85%A8%E8%A1%A8%E6%90%9C%E7%B4%A2"><span class="toc-number">10.3.</span> <span class="toc-text">精确索引&#x2F;全表搜索</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#metadata-%E4%B8%8E%E7%A7%9F%E6%88%B7%E9%9A%94%E7%A6%BB"><span class="toc-number">10.4.</span> <span class="toc-text">metadata 与租户隔离</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8D%81%E3%80%81%E9%9D%A2%E8%AF%95%E9%AB%98%E9%A2%91%E9%97%AE%E9%A2%98"><span class="toc-number">11.</span> <span class="toc-text">十、面试高频问题</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99"><span class="toc-number">12.</span> <span class="toc-text">参考资料</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%86%99%E5%9C%A8%E6%9C%80%E5%90%8E"><span class="toc-number">13.</span> <span class="toc-text">写在最后</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"><img src="/../img/ai-10-ollama.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"/></a><div class="content"><a class="title" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成">Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成</a><time datetime="2026-07-22T02:00:00.000Z" title="发表于 2026-07-22 10:00:00">2026-07-22</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"><img src="/../img/ai-09-spring-ai.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"/></a><div class="content"><a class="title" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling">Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling</a><time datetime="2026-07-17T02:00:00.000Z" title="发表于 2026-07-17 10:00:00">2026-07-17</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"><img src="/../img/ai-08-vector-database.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"/></a><div class="content"><a class="title" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比">向量数据库选型实战：Chroma、Milvus 与 pgvector 对比</a><time datetime="2026-07-13T02:00:00.000Z" title="发表于 2026-07-13 10:00:00">2026-07-13</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度"><img src="/../img/ai-07-rag-evaluation.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 评估实战：Recall@K、MRR 与回答忠实度"/></a><div class="content"><a class="title" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度">RAG 评估实战：Recall@K、MRR 与回答忠实度</a><time datetime="2026-07-12T02:00:00.000Z" title="发表于 2026-07-12 10:00:00">2026-07-12</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"><img src="/../img/ai-06-rag-retrieval.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"/></a><div class="content"><a class="title" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker">RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker</a><time datetime="2026-07-09T02:00:00.000Z" title="发表于 2026-07-09 10:00:00">2026-07-09</time></div></div></div></div></div></div></main><footer id="footer"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2024 - 2026 By qjngbac</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 7.3.0</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.5.5</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.5.5"></script><script src="/js/main.js?v=5.5.5"></script><div class="js-pjax"></div><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

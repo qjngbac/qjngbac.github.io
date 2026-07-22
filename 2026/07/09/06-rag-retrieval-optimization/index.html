@@ -1,0 +1,442 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker | Wait</title><meta name="author" content="qjngbac"><meta name="copyright" content="qjngbac"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="前言基础 RAG 通常使用一个 Embedding 模型，把问题转成向量，再做 Top-K 相似度检索。这条链路简单，但很快会遇到问题：搜索 SETNX 时找不到包含精确命令的片段；用户说“它为什么会失效”，单独拿这句话无法检索；向量结果语义相近，却没有真正回答问题；正确片段排在第 8 名，最终只取了前 4 名。 检索优化的核心不是盲目增加模型，而是分阶段解决： 12345让查询更适合检索→ 多路">
+<meta property="og:type" content="article">
+<meta property="og:title" content="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker">
+<meta property="og:url" content="https://qjngbac.github.io/2026/07/09/06-rag-retrieval-optimization/index.html">
+<meta property="og:site_name" content="Wait">
+<meta property="og:description" content="前言基础 RAG 通常使用一个 Embedding 模型，把问题转成向量，再做 Top-K 相似度检索。这条链路简单，但很快会遇到问题：搜索 SETNX 时找不到包含精确命令的片段；用户说“它为什么会失效”，单独拿这句话无法检索；向量结果语义相近，却没有真正回答问题；正确片段排在第 8 名，最终只取了前 4 名。 检索优化的核心不是盲目增加模型，而是分阶段解决： 12345让查询更适合检索→ 多路">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://qjngbac.github.io/img/ai-06-rag-retrieval.jpg">
+<meta property="article:published_time" content="2026-07-09T02:00:00.000Z">
+<meta property="article:modified_time" content="2026-07-19T09:13:17.825Z">
+<meta property="article:author" content="qjngbac">
+<meta property="article:tag" content="AI工程">
+<meta property="article:tag" content="面试">
+<meta property="article:tag" content="RAG">
+<meta property="article:tag" content="混合检索">
+<meta property="article:tag" content="BM25">
+<meta property="article:tag" content="RRF">
+<meta property="article:tag" content="Reranker">
+<meta property="article:tag" content="Query Rewrite">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://qjngbac.github.io/img/ai-06-rag-retrieval.jpg"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker",
+  "url": "https://qjngbac.github.io/2026/07/09/06-rag-retrieval-optimization/",
+  "image": "https://qjngbac.github.io/img/ai-06-rag-retrieval.jpg",
+  "datePublished": "2026-07-09T02:00:00.000Z",
+  "dateModified": "2026-07-19T09:13:17.825Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "qjngbac",
+      "url": "https://qjngbac.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://qjngbac.github.io/2026/07/09/06-rag-retrieval-optimization/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.5.5"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        if (!ttl) return
+        const expiry = Date.now() + ttl * 86400000
+        localStorage.setItem(key, JSON.stringify({ value, expiry }))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return undefined
+        const { value, expiry } = JSON.parse(itemStr)
+        if (Date.now() > expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return value
+      }
+    }
+
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+        script.onload = script.onreadystatechange = () => {
+          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      }),
+      getCSS: (url, id) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onload = link.onreadystatechange = () => {
+          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+        }
+        link.onerror = reject
+        document.head.appendChild(link)
+      }),
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: true
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="generator" content="Hexo 7.3.0"></head><body><div id="loading-box"><div class="loading-left-bg"></div><div class="loading-right-bg"></div><div class="spinner-box"><div class="configure-border-1"><div class="configure-core"></div></div><div class="configure-border-2"><div class="configure-core"></div></div><div class="loading-word">加载中...</div></div></div><script>(()=>{
+  const $loadingBox = document.getElementById('loading-box')
+  const $body = document.body
+  const preloader = {
+    endLoading: () => {
+      if ($loadingBox.classList.contains('loaded')) return
+      $body.style.overflow = ''
+      $loadingBox.classList.add('loaded')
+    },
+    initLoading: () => {
+      $body.style.overflow = 'hidden'
+      $loadingBox.classList.remove('loaded')
+    }
+  }
+
+  preloader.initLoading()
+
+  if (document.readyState === 'complete') {
+    preloader.endLoading()
+  } else {
+    window.addEventListener('load', preloader.endLoading)
+    document.addEventListener('DOMContentLoaded', preloader.endLoading)
+    // Add timeout protection: force end after 7 seconds
+    setTimeout(preloader.endLoading, 7000)
+  }
+
+  if (false) {
+    btf.addGlobalFn('pjaxSend', preloader.initLoading, 'preloader_init')
+    btf.addGlobalFn('pjaxComplete', preloader.endLoading, 'preloader_end')
+  }
+})()</script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">42</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">139</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(/../img/ai-06-rag-retrieval.jpg);"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">Wait</span></a><a class="nav-page-title" href="/"><span class="site-name">RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-07-09T02:00:00.000Z" title="发表于 2026-07-09 10:00:00">2026-07-09</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-07-19T09:13:17.825Z" title="更新于 2026-07-19 17:13:17">2026-07-19</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/AI%E5%B7%A5%E7%A8%8B/">AI工程</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>基础 RAG 通常使用一个 Embedding 模型，把问题转成向量，再做 Top-K 相似度检索。这条链路简单，但很快会遇到问题：搜索 <code>SETNX</code> 时找不到包含精确命令的片段；用户说“它为什么会失效”，单独拿这句话无法检索；向量结果语义相近，却没有真正回答问题；正确片段排在第 8 名，最终只取了前 4 名。</p>
+<p>检索优化的核心不是盲目增加模型，而是分阶段解决：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">让查询更适合检索</span><br><span class="line">→ 多路召回扩大候选集</span><br><span class="line">→ 融合不同排序</span><br><span class="line">→ 对候选做精细重排</span><br><span class="line">→ 只把高质量上下文交给生成模型</span><br></pre></td></tr></table></figure>
+
+<p>本文依次介绍 Query Rewrite、BM25 + 向量混合检索、RRF 融合、Reranker 与降级策略，并说明为什么所有优化都必须通过固定评估集验证。</p>
+<p><img src="/../img/ai-rag-hybrid-retrieval-pipeline.png" alt="混合检索、RRF 与 Reranker 管线"></p>
+<hr>
+<h2 id="一、先定位检索失败属于哪一类"><a href="#一、先定位检索失败属于哪一类" class="headerlink" title="一、先定位检索失败属于哪一类"></a>一、先定位检索失败属于哪一类</h2><table>
+<thead>
+<tr>
+<th>失败类型</th>
+<th>示例</th>
+<th>常见方案</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>查询缺少上下文</td>
+<td>“它为什么会失效？”</td>
+<td>对话指代消解、查询改写</td>
+</tr>
+<tr>
+<td>精确词召回失败</td>
+<td><code>SETNX</code>、错误码、类名</td>
+<td>BM25&#x2F;关键词检索</td>
+</tr>
+<tr>
+<td>同义表达不一致</td>
+<td>“缓存雪崩”与“批量过期”</td>
+<td>向量检索</td>
+</tr>
+<tr>
+<td>正确文档排序靠后</td>
+<td>Top-10 有，Top-4 无</td>
+<td>RRF、Reranker</td>
+</tr>
+<tr>
+<td>文档本身没覆盖</td>
+<td>知识库没有 Redlock</td>
+<td>拒答或补充知识库</td>
+</tr>
+<tr>
+<td>Chunk 设计错误</td>
+<td>关键结论被拆开</td>
+<td>调整切分与 metadata</td>
+</tr>
+</tbody></table>
+<p>先看错误样本，再选技术。若知识库根本没有答案，增加 Reranker 也不能凭空创造正确文档。</p>
+<hr>
+<h2 id="二、Query-Rewrite：把对话问题改成可独立检索的查询"><a href="#二、Query-Rewrite：把对话问题改成可独立检索的查询" class="headerlink" title="二、Query Rewrite：把对话问题改成可独立检索的查询"></a>二、Query Rewrite：把对话问题改成可独立检索的查询</h2><p>用户在多轮对话中经常省略主语：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">上一轮：Redis 分布式锁通常怎么实现？</span><br><span class="line">当前轮：它在主从切换时为什么可能出问题？</span><br></pre></td></tr></table></figure>
+
+<p>直接检索“它在主从切换时为什么可能出问题”效果通常不稳定。改写后：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">Redis 分布式锁在主从复制和故障切换过程中为什么可能失去互斥性？</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-1-改写-Prompt"><a href="#2-1-改写-Prompt" class="headerlink" title="2.1 改写 Prompt"></a>2.1 改写 Prompt</h3><figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">根据对话历史，将当前问题改写为一个可以独立检索的技术查询。</span><br><span class="line">要求：</span><br><span class="line">1. 保留原意，不回答问题。</span><br><span class="line">2. 补全指代、技术对象和限制条件。</span><br><span class="line">3. 不添加对话中没有的新事实。</span><br><span class="line">4. 只返回一条改写查询。</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-2-Multi-Query"><a href="#2-2-Multi-Query" class="headerlink" title="2.2 Multi-Query"></a>2.2 Multi-Query</h3><p>复杂问题可以生成 2～3 个不同角度的查询：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">原问题：Redis 分布式锁有哪些问题？</span><br><span class="line"></span><br><span class="line">查询 1：Redis SET NX PX 分布式锁的正确实现与误删风险</span><br><span class="line">查询 2：Redis 分布式锁租约过期、续期和业务超时问题</span><br><span class="line">查询 3：Redis 主从切换对分布式锁互斥性的影响</span><br></pre></td></tr></table></figure>
+
+<p>多查询会增加检索和去重成本，数量不宜无限扩张。对明确的关键词问题，原始查询可能已经最好，应保留原查询参与召回。</p>
+<hr>
+<h2 id="三、向量检索与-BM25-为什么互补"><a href="#三、向量检索与-BM25-为什么互补" class="headerlink" title="三、向量检索与 BM25 为什么互补"></a>三、向量检索与 BM25 为什么互补</h2><h3 id="3-1-向量检索"><a href="#3-1-向量检索" class="headerlink" title="3.1 向量检索"></a>3.1 向量检索</h3><p>优点：</p>
+<ul>
+<li>捕捉语义相似和同义表达</li>
+<li>对自然语言问题友好</li>
+<li>不要求文档出现完全相同词语</li>
+</ul>
+<p>不足：</p>
+<ul>
+<li>精确错误码、方法名、缩写可能不稳定</li>
+<li>相似主题容易混入</li>
+<li>分数跨模型和索引不一定可直接比较</li>
+</ul>
+<h3 id="3-2-BM25"><a href="#3-2-BM25" class="headerlink" title="3.2 BM25"></a>3.2 BM25</h3><p>BM25 是经典稀疏检索方法，基于词频、逆文档频率和文档长度进行相关性排序。</p>
+<p>常见形式可以写成：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">BM25(q, d) = Σ IDF(t) × f(t,d) × (k1 + 1)</span><br><span class="line">              / (f(t,d) + k1 × (1 - b + b × |d| / avgdl))</span><br></pre></td></tr></table></figure>
+
+<p><code>k1</code> 控制词频饱和速度，<code>b</code> 控制文档长度归一化。它们需要结合语料验证；中文场景中，分词和技术词典往往比微调参数更先决定召回效果。</p>
+<p>优点：</p>
+<ul>
+<li>精确关键词和技术术语召回强</li>
+<li>结果容易解释</li>
+<li>CPU 成本低</li>
+</ul>
+<p>不足：</p>
+<ul>
+<li>不理解同义表达</li>
+<li>中文需要合理分词</li>
+<li>用户用词与文档不一致时容易漏召回</li>
+</ul>
+<p>因此常见混合链路是：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">Query</span><br><span class="line"> ├─ Dense Retriever：Top-20</span><br><span class="line"> └─ BM25 Retriever：Top-20</span><br><span class="line">          ↓</span><br><span class="line">     合并、去重、融合</span><br><span class="line">          ↓</span><br><span class="line">       Candidate Top-20</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="四、实现一个简化-BM25-检索器"><a href="#四、实现一个简化-BM25-检索器" class="headerlink" title="四、实现一个简化 BM25 检索器"></a>四、实现一个简化 BM25 检索器</h2><p>安装：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">pip install rank-bm25 jieba</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> dataclasses <span class="keyword">import</span> dataclass</span><br><span class="line"><span class="keyword">from</span> rank_bm25 <span class="keyword">import</span> BM25Okapi</span><br><span class="line"><span class="keyword">import</span> jieba</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="meta">@dataclass(<span class="params">frozen=<span class="literal">True</span></span>)</span></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">Chunk</span>:</span><br><span class="line">    chunk_id: <span class="built_in">str</span></span><br><span class="line">    text: <span class="built_in">str</span></span><br><span class="line">    metadata: <span class="built_in">dict</span></span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">BM25Retriever</span>:</span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__init__</span>(<span class="params">self, chunks: <span class="built_in">list</span>[Chunk]</span>) -&gt; <span class="literal">None</span>:</span><br><span class="line">        <span class="variable language_">self</span>._chunks = chunks</span><br><span class="line">        corpus = [<span class="variable language_">self</span>._tokenize(chunk.text) <span class="keyword">for</span> chunk <span class="keyword">in</span> chunks]</span><br><span class="line">        <span class="variable language_">self</span>._bm25 = BM25Okapi(corpus)</span><br><span class="line"></span><br><span class="line"><span class="meta">    @staticmethod</span></span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">_tokenize</span>(<span class="params">text: <span class="built_in">str</span></span>) -&gt; <span class="built_in">list</span>[<span class="built_in">str</span>]:</span><br><span class="line">        <span class="keyword">return</span> [token.strip() <span class="keyword">for</span> token <span class="keyword">in</span> jieba.lcut(text) <span class="keyword">if</span> token.strip()]</span><br><span class="line"></span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">search</span>(<span class="params">self, query: <span class="built_in">str</span>, top_k: <span class="built_in">int</span> = <span class="number">20</span></span>) -&gt; <span class="built_in">list</span>[<span class="built_in">tuple</span>[Chunk, <span class="built_in">float</span>]]:</span><br><span class="line">        scores = <span class="variable language_">self</span>._bm25.get_scores(<span class="variable language_">self</span>._tokenize(query))</span><br><span class="line">        ranked = <span class="built_in">sorted</span>(</span><br><span class="line">            <span class="built_in">enumerate</span>(scores),</span><br><span class="line">            key=<span class="keyword">lambda</span> item: item[<span class="number">1</span>],</span><br><span class="line">            reverse=<span class="literal">True</span>,</span><br><span class="line">        )[:top_k]</span><br><span class="line">        <span class="keyword">return</span> [</span><br><span class="line">            (<span class="variable language_">self</span>._chunks[index], <span class="built_in">float</span>(score))</span><br><span class="line">            <span class="keyword">for</span> index, score <span class="keyword">in</span> ranked</span><br><span class="line">            <span class="keyword">if</span> <span class="built_in">float</span>(score) &gt; <span class="number">0</span></span><br><span class="line">        ]</span><br></pre></td></tr></table></figure>
+
+<p>技术文档可加入自定义词典：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">jieba.add_word(<span class="string">&quot;SETNX&quot;</span>)</span><br><span class="line">jieba.add_word(<span class="string">&quot;EndpointSlice&quot;</span>)</span><br><span class="line">jieba.add_word(<span class="string">&quot;CompletableFuture&quot;</span>)</span><br></pre></td></tr></table></figure>
+
+<p>生产环境应让 BM25 索引与文档增删改同步，不要只在进程启动时读取一次后永远不更新。</p>
+<hr>
+<h2 id="五、为什么不能直接相加两路分数"><a href="#五、为什么不能直接相加两路分数" class="headerlink" title="五、为什么不能直接相加两路分数"></a>五、为什么不能直接相加两路分数</h2><p>向量检索可能返回余弦相似度、距离或归一化得分；BM25 分数范围又与语料有关。直接做：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">final = vector_score + bm25_score</span><br></pre></td></tr></table></figure>
+
+<p>通常没有统一意义。</p>
+<p>解决思路：</p>
+<ul>
+<li>对各路分数做经过验证的归一化</li>
+<li>训练一个融合模型</li>
+<li>使用只依赖排名的 RRF</li>
+</ul>
+<p>对于中小型个人项目，RRF 简单、稳健、容易解释。</p>
+<hr>
+<h2 id="六、RRF：使用排名融合多路结果"><a href="#六、RRF：使用排名融合多路结果" class="headerlink" title="六、RRF：使用排名融合多路结果"></a>六、RRF：使用排名融合多路结果</h2><p>Reciprocal Rank Fusion 对每个文档按其在各结果列表中的排名累加：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">score(d) = Σ 1 / (k + rank_i(d))</span><br></pre></td></tr></table></figure>
+
+<p>其中排名从 1 开始，<code>k</code> 是平滑常数。常见示例使用 60，但它仍然是可调参数，不是固定真理。如果某一路检索质量明显更高，还可以使用加权 RRF；权重必须从验证集获得，不能凭感觉把某一路放大。</p>
+<p>实现：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> collections <span class="keyword">import</span> defaultdict</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">def</span> <span class="title function_">reciprocal_rank_fusion</span>(<span class="params"></span></span><br><span class="line"><span class="params">        ranked_lists: <span class="built_in">list</span>[<span class="built_in">list</span>[Chunk]],</span></span><br><span class="line"><span class="params">        k: <span class="built_in">int</span> = <span class="number">60</span>,</span></span><br><span class="line"><span class="params"></span>) -&gt; <span class="built_in">list</span>[<span class="built_in">tuple</span>[Chunk, <span class="built_in">float</span>]]:</span><br><span class="line">    scores: <span class="built_in">dict</span>[<span class="built_in">str</span>, <span class="built_in">float</span>] = defaultdict(<span class="built_in">float</span>)</span><br><span class="line">    documents: <span class="built_in">dict</span>[<span class="built_in">str</span>, Chunk] = &#123;&#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> ranked <span class="keyword">in</span> ranked_lists:</span><br><span class="line">        <span class="keyword">for</span> rank, chunk <span class="keyword">in</span> <span class="built_in">enumerate</span>(ranked, start=<span class="number">1</span>):</span><br><span class="line">            scores[chunk.chunk_id] += <span class="number">1.0</span> / (k + rank)</span><br><span class="line">            documents[chunk.chunk_id] = chunk</span><br><span class="line"></span><br><span class="line">    ordered = <span class="built_in">sorted</span>(</span><br><span class="line">        scores.items(),</span><br><span class="line">        key=<span class="keyword">lambda</span> item: item[<span class="number">1</span>],</span><br><span class="line">        reverse=<span class="literal">True</span>,</span><br><span class="line">    )</span><br><span class="line">    <span class="keyword">return</span> [(documents[chunk_id], score) <span class="keyword">for</span> chunk_id, score <span class="keyword">in</span> ordered]</span><br></pre></td></tr></table></figure>
+
+<p>必须按稳定 <code>chunk_id</code> 去重，不能按全文字符串模糊去重，否则轻微格式变化会产生重复候选。</p>
+<hr>
+<h2 id="七、Reranker：对候选做更精细的相关性判断"><a href="#七、Reranker：对候选做更精细的相关性判断" class="headerlink" title="七、Reranker：对候选做更精细的相关性判断"></a>七、Reranker：对候选做更精细的相关性判断</h2><p>Embedding 检索通常分别编码 query 和 document，速度快，适合大范围召回。Cross-Encoder Reranker 会把 <code>query + document</code> 一起输入模型，直接预测相关性，通常更准确但更慢。</p>
+<p>典型链路：</p>
+<figure class="highlight text"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">向量 Top-30 + BM25 Top-30</span><br><span class="line">→ RRF 合并 Top-30</span><br><span class="line">→ Reranker 逐对打分</span><br><span class="line">→ 最终 Top-5</span><br></pre></td></tr></table></figure>
+
+<p>不要先只取 Top-4 再重排，因为正确文档不在候选集时，Reranker 无能为力。</p>
+<p>伪代码：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">rerank</span>(<span class="params">query: <span class="built_in">str</span>, candidates: <span class="built_in">list</span>[Chunk], model, top_k: <span class="built_in">int</span> = <span class="number">5</span></span>):</span><br><span class="line">    pairs = [(query, chunk.text) <span class="keyword">for</span> chunk <span class="keyword">in</span> candidates]</span><br><span class="line">    scores = model.predict(pairs)</span><br><span class="line">    ranked = <span class="built_in">sorted</span>(</span><br><span class="line">        <span class="built_in">zip</span>(candidates, scores),</span><br><span class="line">        key=<span class="keyword">lambda</span> item: <span class="built_in">float</span>(item[<span class="number">1</span>]),</span><br><span class="line">        reverse=<span class="literal">True</span>,</span><br><span class="line">    )</span><br><span class="line">    <span class="keyword">return</span> ranked[:top_k]</span><br></pre></td></tr></table></figure>
+
+<p>选择 Reranker 时关注：</p>
+<ul>
+<li>是否支持中文和代码混合文本</li>
+<li>最大输入长度</li>
+<li>CPU&#x2F;GPU 延迟</li>
+<li>许可证</li>
+<li>模型体积</li>
+<li>是否能批量推理</li>
+</ul>
+<p>个人知识库规模小，可以先用 CPU 和较小模型验证价值，不必直接部署大型服务。</p>
+<hr>
+<h2 id="八、完整检索管线"><a href="#八、完整检索管线" class="headerlink" title="八、完整检索管线"></a>八、完整检索管线</h2><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">retrieve</span>(<span class="params">query: <span class="built_in">str</span></span>) -&gt; <span class="built_in">list</span>[Chunk]:</span><br><span class="line">    rewritten_queries = query_rewriter.generate_queries(query, max_queries=<span class="number">3</span>)</span><br><span class="line">    all_queries = <span class="built_in">list</span>(<span class="built_in">dict</span>.fromkeys([query, *rewritten_queries]))</span><br><span class="line"></span><br><span class="line">    dense_lists = []</span><br><span class="line">    sparse_lists = []</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> item <span class="keyword">in</span> all_queries:</span><br><span class="line">        dense_lists.append(dense_retriever.search(item, top_k=<span class="number">20</span>))</span><br><span class="line">        sparse_lists.append(bm25_retriever.search(item, top_k=<span class="number">20</span>))</span><br><span class="line"></span><br><span class="line">    ranked_lists = [</span><br><span class="line">        [chunk <span class="keyword">for</span> chunk, _ <span class="keyword">in</span> result]</span><br><span class="line">        <span class="keyword">for</span> result <span class="keyword">in</span> [*dense_lists, *sparse_lists]</span><br><span class="line">    ]</span><br><span class="line"></span><br><span class="line">    fused = reciprocal_rank_fusion(ranked_lists, k=<span class="number">60</span>)</span><br><span class="line">    candidates = [chunk <span class="keyword">for</span> chunk, _ <span class="keyword">in</span> fused[:<span class="number">30</span>]]</span><br><span class="line">    <span class="keyword">return</span> [chunk <span class="keyword">for</span> chunk, _ <span class="keyword">in</span> rerank(query, candidates, reranker, top_k=<span class="number">5</span>)]</span><br></pre></td></tr></table></figure>
+
+<p>真实项目还要加入：</p>
+<ul>
+<li>权限和 metadata 过滤</li>
+<li>超时与降级</li>
+<li>查询缓存</li>
+<li>召回结果日志</li>
+<li>每阶段耗时</li>
+<li>重写失败时使用原查询</li>
+<li>Reranker 不可用时回退 RRF 结果</li>
+</ul>
+<p>权限、租户和时间范围等过滤应尽量在各检索器内部尽早执行。需要注意，有些 ANN 索引会先取近邻再做过滤：过滤条件越严格，最终结果越可能不足 Top-K。此时需要提高候选量、使用支持过滤的索引策略，或在离线评估中按不同过滤选择性单独测量召回。</p>
+<p>还应给每个阶段分配延迟预算，例如改写、两路召回、融合和重排分别设置超时。改写超时保留原查询，BM25 故障退回向量检索，Reranker 超时返回 RRF 排名；降级必须记录指标，否则长期故障会被“仍能回答”掩盖。</p>
+<hr>
+<h2 id="九、检索阈值与无答案判断"><a href="#九、检索阈值与无答案判断" class="headerlink" title="九、检索阈值与无答案判断"></a>九、检索阈值与无答案判断</h2><p>单个固定相似度阈值容易失效，因为模型、距离度量、文档类型变化都会影响分数分布。</p>
+<p>更可靠的方法：</p>
+<ol>
+<li>在标注集上观察相关与不相关结果的分数分布</li>
+<li>分不同主题或查询类型设策略</li>
+<li>结合 Top-1、Top-2 差距和 Reranker 分数</li>
+<li>用一个支持性判定器判断上下文是否能回答</li>
+<li>对无答案问题单独评估误答率</li>
+</ol>
+<p>如果没有足够依据，系统应拒答，而不是因为“总能检索出 Top-K”就强行生成。</p>
+<hr>
+<h2 id="十、如何证明优化有效"><a href="#十、如何证明优化有效" class="headerlink" title="十、如何证明优化有效"></a>十、如何证明优化有效</h2><p>至少建立四组对比：</p>
+<table>
+<thead>
+<tr>
+<th>方案</th>
+<th>Recall@5</th>
+<th>MRR</th>
+<th>P95 检索延迟</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>纯向量</td>
+<td>基线</td>
+<td>基线</td>
+<td>基线</td>
+</tr>
+<tr>
+<td>BM25</td>
+<td>实测</td>
+<td>实测</td>
+<td>实测</td>
+</tr>
+<tr>
+<td>向量 + BM25 + RRF</td>
+<td>实测</td>
+<td>实测</td>
+<td>实测</td>
+</tr>
+<tr>
+<td>混合检索 + Reranker</td>
+<td>实测</td>
+<td>实测</td>
+<td>实测</td>
+</tr>
+</tbody></table>
+<p>还要查看错误样本：</p>
+<ul>
+<li>精确词问题是否改善</li>
+<li>同义问题是否退化</li>
+<li>Reranker 是否过度偏爱长文本</li>
+<li>Query Rewrite 是否改变原意</li>
+<li>延迟增加是否值得</li>
+</ul>
+<p>没有评估数据时，不要在简历里写“准确率显著提升”。</p>
+<p>对正在建设的后端知识库项目，建议按可归因顺序落地：先固定问题集并测纯向量基线，再加入 BM25 与 RRF，确认精确词和 Recall@K 改善后，最后评估 Reranker 的增益。这样每一步都能说明解决了哪类错误，也避免一次引入四个组件后无法定位退化来源。</p>
+<hr>
+<h2 id="十一、面试高频问题"><a href="#十一、面试高频问题" class="headerlink" title="十一、面试高频问题"></a>十一、面试高频问题</h2><p><strong>Q1：为什么要做混合检索？</strong></p>
+<p>向量检索擅长语义匹配，BM25 擅长精确关键词，两者互补，可以提高候选召回覆盖。</p>
+<p><strong>Q2：RRF 为什么适合融合？</strong></p>
+<p>它只依赖各路排名，不要求不同检索器的分数处于同一量纲，简单且容易扩展多路结果。</p>
+<p><strong>Q3：Retriever 和 Reranker 的区别？</strong></p>
+<p>Retriever 从大规模语料快速召回候选；Reranker 对较小候选集进行更精细的 query-document 相关性排序。</p>
+<p><strong>Q4：为什么先扩大候选再重排？</strong></p>
+<p>Reranker 只能调整候选顺序，无法找回召回阶段完全漏掉的正确文档。</p>
+<p><strong>Q5：Query Rewrite 有什么风险？</strong></p>
+<p>可能改变原意、加入不存在的事实或丢失关键词，因此应保留原查询、限制改写数量并通过测试集验证。</p>
+<hr>
+<h2 id="参考资料"><a href="#参考资料" class="headerlink" title="参考资料"></a>参考资料</h2><ul>
+<li>Reciprocal Rank Fusion 原始论文：<a target="_blank" rel="noopener" href="https://doi.org/10.1145/1571941.1572114">https://doi.org/10.1145/1571941.1572114</a></li>
+<li>LangChain Retrieval：<a target="_blank" rel="noopener" href="https://docs.langchain.com/oss/python/langchain/retrieval">https://docs.langchain.com/oss/python/langchain/retrieval</a></li>
+<li>Sentence Transformers Cross-Encoder：<a target="_blank" rel="noopener" href="https://www.sbert.net/examples/cross_encoder/applications/README.html">https://www.sbert.net/examples/cross_encoder/applications/README.html</a></li>
+</ul>
+<hr>
+<h2 id="写在最后"><a href="#写在最后" class="headerlink" title="写在最后"></a>写在最后</h2><p>RAG 检索优化不是把 Query Rewrite、BM25、RRF 和 Reranker 全部堆上去，而是用错误样本找出瓶颈，再用最小方案解决。</p>
+<p>合理的工程顺序是：先建立基线和评估集，再加混合召回，确认 Recall 提升后加入重排序，最后比较质量、延迟和成本。只有能量化地说明“为什么更好”，优化才真正有价值。</p>
+<hr>
+<blockquote>
+<p><strong>AI 工程系列文章预告</strong>：</p>
+<ul>
+<li>上一篇：LangChain RAG 实战：从文档入库到可追溯问答</li>
+<li>下一篇：RAG 评估实战：Recall@K、MRR 与回答忠实度</li>
+</ul>
+</blockquote>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://qjngbac.github.io">qjngbac</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://qjngbac.github.io/2026/07/09/06-rag-retrieval-optimization/">https://qjngbac.github.io/2026/07/09/06-rag-retrieval-optimization/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://qjngbac.github.io" target="_blank">Wait</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/AI%E5%B7%A5%E7%A8%8B/">AI工程</a><a class="post-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><a class="post-meta__tags" href="/tags/RAG/">RAG</a><a class="post-meta__tags" href="/tags/%E6%B7%B7%E5%90%88%E6%A3%80%E7%B4%A2/">混合检索</a><a class="post-meta__tags" href="/tags/BM25/">BM25</a><a class="post-meta__tags" href="/tags/RRF/">RRF</a><a class="post-meta__tags" href="/tags/Reranker/">Reranker</a><a class="post-meta__tags" href="/tags/Query-Rewrite/">Query Rewrite</a></div><div class="post-share"><div class="social-share" data-image="/../img/ai-06-rag-retrieval.jpg" data-sites="facebook,x,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度"><img class="cover" src="/../img/ai-07-rag-evaluation.jpg" onerror="onerror=null;src='/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">RAG 评估实战：Recall@K、MRR 与回答忠实度</div></div><div class="info-2"><div class="info-item-1">前言很多 RAG 项目的优化方式是：改一个参数，随便问几个问题，感觉回答比以前好，就宣布“准确率提升”。这种方法无法复现，也无法判断提升来自检索、Prompt、模型还是偶然性。 RAG 是一条组合链路，至少包含文档处理、检索、排序和生成。评估也应拆开：检索阶段判断正确文档有没有被找回来、排在什么位置；生成阶段判断回答是否忠于上下文、是否真正回答问题；端到端阶段再看用户任务是否完成、延迟和成本是否可接受。 本文从构建评估集开始，实现 Recall@K、Hit Rate、MRR，并说明 Faithfulness、Answer Relevance、无答案识别和线上反馈应该如何组合。  一、RAG 评估要拆成三层12345678检索评估→ 正确文档是否被召回、排名是否合理生成评估→ 回答是否忠于上下文、是否相关、是否完整端到端评估→ 用户任务是否完成、延迟和成本是否可接受  只看最终答案有两个问题：  模型可能靠自身知识答对，掩盖检索失败 检索正确但生成失败时，不知道应该改哪一层    二、构建一份可用的评估集每条测试数据至少包含： 123456789101112&#123;  &quo...</div></div></div></a><a class="pagination-related" href="/2026/07/07/git-docker-linux-interview/" title="Git、Docker、Linux 面试高频问答：后端开发必会的三大基本功"><img class="cover" src="/img/git-docker-linux-cover.jpg" onerror="onerror=null;src='/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Git、Docker、Linux 面试高频问答：后端开发必会的三大基本功</div></div><div class="info-2"><div class="info-item-1">前言面试中，Git、Docker、Linux 这三个工具几乎每场都会被问到。很多人觉得”会用就行”，但面试官问的不是”你会不会敲命令”，而是”你理不理解背后的原理”。 本文整理了这三个方向的高频面试题，每个问题都给出简洁但有深度的回答。不是命令手册，而是帮你建立知识框架。  一、Git 篇Q1：Git 的工作区域有哪些？Git 本地有三个核心区域，配合一个远程仓库： 1234567工作区（Working Directory）    ↓ git add暂存区（Stage / Index）    ↓ git commit本地仓库（Local Repository）    ↓ git push远程仓库（Remote Repository）   工作区：你正在编辑的文件目录 暂存区：git add 后文件的临时存储区，准备提交 本地仓库：git commit 后文件存储的地方，完整历史记录 远程仓库：GitHub&#x2F;GitLab 等托管平台  Q2：git merge 和 git rebase 有什么区别？   对比项 merge rebase    提交历史 保留已有提交；必要...</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"><img class="cover" src="/../img/ai-08-vector-database.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-13</div><div class="info-item-2">向量数据库选型实战：Chroma、Milvus 与 pgvector 对比</div></div><div class="info-2"><div class="info-item-1">前言做 RAG 时经常会看到三类建议：个人项目用 Chroma，海量向量用 Milvus，已有 PostgreSQL 就用 pgvector。这个结论方向上没有问题，但真正选型不能只看一句话。 向量数据库不仅负责“存一个 float 数组”。它还要处理向量索引、Top-K 搜索、metadata 过滤、增删改、并发、备份恢复、监控和客户端接入。不同产品的定位不同：Chroma 更偏 AI 应用快速检索，Milvus 是专用、可扩展的向量数据库，pgvector 则把向量能力放进 PostgreSQL 生态。 本文从架构、索引、过滤、运维和适用场景比较三者，并给出一套公平的性能测试方法。   一、向量检索在做什么Embedding 模型把文本映射为固定维度向量： 1“Redis 分布式锁” → [0.12, -0.34, ...]  查询时，把用户问题也转换到同一向量空间，再按距离或相似度寻找邻居。 常见度量：    度量 含义 注意点    Cosine 比较方向相似度 常用于文本向量   Inner Product 点积 是否需归一化取决于模型   L2 欧氏距离 距离越小通常...</div></div></div></a><a class="pagination-related" href="/2026/07/04/05-langchain-rag/" title="LangChain RAG 实战：从文档入库到可追溯问答"><img class="cover" src="/../img/ai-05-langchain-rag.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-04</div><div class="info-item-2">LangChain RAG 实战：从文档入库到可追溯问答</div></div><div class="info-2"><div class="info-item-1">前言大模型能够回答大量通用问题，但它不知道你的私有文档，也可能使用过时知识或生成没有依据的内容。RAG（Retrieval-Augmented Generation，检索增强生成）通过“先检索、再生成”把外部知识放进模型上下文，使回答能够参考知识库并附带来源。 RAG 不能彻底消除幻觉。检索可能漏掉正确文档，切分可能破坏语义，生成模型也可能误读上下文。因此，一个合格的 RAG 系统不仅要能回答，还要保存稳定文档标识、展示引用，并在资料不足时明确降级。 本文使用 LangChain、Chroma 和 Markdown 文档搭建一条可运行的基础链路：文档加载、标题感知切分、Embedding、向量入库、Top-K 检索、带引用生成和无资料拒答。  一、RAG 的完整链路12345离线入库：文档 → 解析 → 切分 → 元数据 → Embedding → 向量库在线问答：问题 → Embedding → 相似度检索 → 上下文组装 → LLM → 答案 + 引用  两条链路要分开设计：文档更新不应阻塞每次问答；在线请求也不应临时重新切分整个知识库。  基础问答通常采用确定的“两步 RA...</div></div></div></a><a class="pagination-related" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"><img class="cover" src="/../img/ai-09-spring-ai.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-17</div><div class="info-item-2">Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling</div></div><div class="info-2"><div class="info-item-1">前言Python 生态在大模型应用中非常丰富，但对于已经使用 Spring Boot 的团队，鉴权、配置、数据库、日志、监控和部署体系都在 Java 侧。为了接入模型而重新搭建一套独立 Python 服务，并不总是最合适的选择。 Spring AI 为 Java 应用提供统一的模型、Embedding、向量库、Tool Calling、Chat Memory、RAG Advisor 和可观测性抽象。它的价值不是“用 Java 重新实现模型”，而是让 AI 能力进入熟悉的 Spring 配置和依赖注入体系。 本文基于 Spring AI 当前的核心抽象，搭建同步&#x2F;流式聊天、结构化输出、Tool Calling 和简单 RAG，并说明生产项目中的配置、安全和可观测性问题。  一、Spring AI 的核心抽象   抽象 作用    ChatModel 与聊天模型交互的底层统一接口   ChatClient 面向应用的流畅 API，支持同步、流式、Prompt、Advisor 和 Tool   EmbeddingModel 把文本转换为向量   VectorStore 保存文...</div></div></div></a><a class="pagination-related" href="/2026/06/23/03-function-calling-java/" title="Function Calling 实战：让大模型安全调用 Java 业务能力"><img class="cover" src="/../img/ai-03-function-calling.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-06-23</div><div class="info-item-2">Function Calling 实战：让大模型安全调用 Java 业务能力</div></div><div class="info-2"><div class="info-item-1">前言普通聊天模型只能根据输入生成文字。如果用户问“文档 42 的最新版本是谁创建的”，模型并不知道你的数据库内容；如果用户说“帮我把文档设为只读”，模型也没有权限直接修改业务数据。 Function Calling（也叫 Tool Calling）提供了一座桥梁：应用把可用工具的名称、描述和参数 Schema 告诉模型；模型在需要时返回“调用哪个工具、传什么参数”；真正执行函数的仍然是你的 Java 服务；执行结果再交给模型生成最终回答。 它不是让模型直接访问数据库，更不是绕过后端权限。正确的理解是：模型负责选择与生成参数，应用负责校验、授权、执行、审计和返回结果。  一、Function Calling 的完整流程12345678910111213用户问题   ↓应用把问题 + 工具定义发给模型   ↓模型返回 tool call（工具名 + JSON 参数）   ↓应用校验参数、权限和风险   ↓Java 方法执行真实业务   ↓应用把工具结果返回模型   ↓模型生成最终自然语言回答  关键点：模型返回的是请求，不是执行结果。无论模型声称“已删除成功”还是“已退款”，只有后端...</div></div></div></a><a class="pagination-related" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度"><img class="cover" src="/../img/ai-07-rag-evaluation.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-12</div><div class="info-item-2">RAG 评估实战：Recall@K、MRR 与回答忠实度</div></div><div class="info-2"><div class="info-item-1">前言很多 RAG 项目的优化方式是：改一个参数，随便问几个问题，感觉回答比以前好，就宣布“准确率提升”。这种方法无法复现，也无法判断提升来自检索、Prompt、模型还是偶然性。 RAG 是一条组合链路，至少包含文档处理、检索、排序和生成。评估也应拆开：检索阶段判断正确文档有没有被找回来、排在什么位置；生成阶段判断回答是否忠于上下文、是否真正回答问题；端到端阶段再看用户任务是否完成、延迟和成本是否可接受。 本文从构建评估集开始，实现 Recall@K、Hit Rate、MRR，并说明 Faithfulness、Answer Relevance、无答案识别和线上反馈应该如何组合。  一、RAG 评估要拆成三层12345678检索评估→ 正确文档是否被召回、排名是否合理生成评估→ 回答是否忠于上下文、是否相关、是否完整端到端评估→ 用户任务是否完成、延迟和成本是否可接受  只看最终答案有两个问题：  模型可能靠自身知识答对，掩盖检索失败 检索正确但生成失败时，不知道应该改哪一层    二、构建一份可用的评估集每条测试数据至少包含： 123456789101112&#123;  &quo...</div></div></div></a><a class="pagination-related" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"><img class="cover" src="/../img/ai-10-ollama.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-22</div><div class="info-item-2">Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成</div></div><div class="info-2"><div class="info-item-1">前言云端模型 API 上手快、能力强，但有持续费用、网络依赖和数据出网限制。Ollama 提供了一套简单的本地模型管理与 API 服务，可以在 Windows、macOS 和 Linux 上拉取并运行支持的模型，再通过本地 HTTP 接口接入 Python、Java 或 AI 框架。 本地部署不等于“零成本”。模型需要磁盘、内存或显存，CPU 推理速度可能较慢，升级、并发和监控都需要自己承担。它更准确的价值是：降低按次 API 费用、提高数据本地性，并为开发测试提供可控模型服务。 本文介绍 Ollama 的安装验证、模型选择、CPU&#x2F;GPU 运行、REST API、Embedding、Spring Boot 接入、上下文和内存优化，以及本地部署的适用边界。  一、Ollama 的基本架构安装后，Ollama 在本机提供模型管理和推理服务： 1234567CLI / Python / Spring Boot / LangChain                ↓       http://localhost:11434/api                ↓     ...</div></div></div></a></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">qjngbac</div><div class="author-info-description">一个正在学习的开发者</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">42</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">139</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/qjngbac"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/qjngbac" target="_blank" title="Github"><i class="fab fa-github"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到我的博客</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%89%8D%E8%A8%80"><span class="toc-number">1.</span> <span class="toc-text">前言</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%80%E3%80%81%E5%85%88%E5%AE%9A%E4%BD%8D%E6%A3%80%E7%B4%A2%E5%A4%B1%E8%B4%A5%E5%B1%9E%E4%BA%8E%E5%93%AA%E4%B8%80%E7%B1%BB"><span class="toc-number">2.</span> <span class="toc-text">一、先定位检索失败属于哪一类</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%8C%E3%80%81Query-Rewrite%EF%BC%9A%E6%8A%8A%E5%AF%B9%E8%AF%9D%E9%97%AE%E9%A2%98%E6%94%B9%E6%88%90%E5%8F%AF%E7%8B%AC%E7%AB%8B%E6%A3%80%E7%B4%A2%E7%9A%84%E6%9F%A5%E8%AF%A2"><span class="toc-number">3.</span> <span class="toc-text">二、Query Rewrite：把对话问题改成可独立检索的查询</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#2-1-%E6%94%B9%E5%86%99-Prompt"><span class="toc-number">3.1.</span> <span class="toc-text">2.1 改写 Prompt</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-2-Multi-Query"><span class="toc-number">3.2.</span> <span class="toc-text">2.2 Multi-Query</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%89%E3%80%81%E5%90%91%E9%87%8F%E6%A3%80%E7%B4%A2%E4%B8%8E-BM25-%E4%B8%BA%E4%BB%80%E4%B9%88%E4%BA%92%E8%A1%A5"><span class="toc-number">4.</span> <span class="toc-text">三、向量检索与 BM25 为什么互补</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#3-1-%E5%90%91%E9%87%8F%E6%A3%80%E7%B4%A2"><span class="toc-number">4.1.</span> <span class="toc-text">3.1 向量检索</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-2-BM25"><span class="toc-number">4.2.</span> <span class="toc-text">3.2 BM25</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9B%9B%E3%80%81%E5%AE%9E%E7%8E%B0%E4%B8%80%E4%B8%AA%E7%AE%80%E5%8C%96-BM25-%E6%A3%80%E7%B4%A2%E5%99%A8"><span class="toc-number">5.</span> <span class="toc-text">四、实现一个简化 BM25 检索器</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%94%E3%80%81%E4%B8%BA%E4%BB%80%E4%B9%88%E4%B8%8D%E8%83%BD%E7%9B%B4%E6%8E%A5%E7%9B%B8%E5%8A%A0%E4%B8%A4%E8%B7%AF%E5%88%86%E6%95%B0"><span class="toc-number">6.</span> <span class="toc-text">五、为什么不能直接相加两路分数</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%AD%E3%80%81RRF%EF%BC%9A%E4%BD%BF%E7%94%A8%E6%8E%92%E5%90%8D%E8%9E%8D%E5%90%88%E5%A4%9A%E8%B7%AF%E7%BB%93%E6%9E%9C"><span class="toc-number">7.</span> <span class="toc-text">六、RRF：使用排名融合多路结果</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%83%E3%80%81Reranker%EF%BC%9A%E5%AF%B9%E5%80%99%E9%80%89%E5%81%9A%E6%9B%B4%E7%B2%BE%E7%BB%86%E7%9A%84%E7%9B%B8%E5%85%B3%E6%80%A7%E5%88%A4%E6%96%AD"><span class="toc-number">8.</span> <span class="toc-text">七、Reranker：对候选做更精细的相关性判断</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%AB%E3%80%81%E5%AE%8C%E6%95%B4%E6%A3%80%E7%B4%A2%E7%AE%A1%E7%BA%BF"><span class="toc-number">9.</span> <span class="toc-text">八、完整检索管线</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B9%9D%E3%80%81%E6%A3%80%E7%B4%A2%E9%98%88%E5%80%BC%E4%B8%8E%E6%97%A0%E7%AD%94%E6%A1%88%E5%88%A4%E6%96%AD"><span class="toc-number">10.</span> <span class="toc-text">九、检索阈值与无答案判断</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8D%81%E3%80%81%E5%A6%82%E4%BD%95%E8%AF%81%E6%98%8E%E4%BC%98%E5%8C%96%E6%9C%89%E6%95%88"><span class="toc-number">11.</span> <span class="toc-text">十、如何证明优化有效</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8D%81%E4%B8%80%E3%80%81%E9%9D%A2%E8%AF%95%E9%AB%98%E9%A2%91%E9%97%AE%E9%A2%98"><span class="toc-number">12.</span> <span class="toc-text">十一、面试高频问题</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%8F%82%E8%80%83%E8%B5%84%E6%96%99"><span class="toc-number">13.</span> <span class="toc-text">参考资料</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%86%99%E5%9C%A8%E6%9C%80%E5%90%8E"><span class="toc-number">14.</span> <span class="toc-text">写在最后</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"><img src="/../img/ai-10-ollama.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"/></a><div class="content"><a class="title" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成">Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成</a><time datetime="2026-07-22T02:00:00.000Z" title="发表于 2026-07-22 10:00:00">2026-07-22</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"><img src="/../img/ai-09-spring-ai.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"/></a><div class="content"><a class="title" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling">Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling</a><time datetime="2026-07-17T02:00:00.000Z" title="发表于 2026-07-17 10:00:00">2026-07-17</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"><img src="/../img/ai-08-vector-database.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"/></a><div class="content"><a class="title" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比">向量数据库选型实战：Chroma、Milvus 与 pgvector 对比</a><time datetime="2026-07-13T02:00:00.000Z" title="发表于 2026-07-13 10:00:00">2026-07-13</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度"><img src="/../img/ai-07-rag-evaluation.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 评估实战：Recall@K、MRR 与回答忠实度"/></a><div class="content"><a class="title" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度">RAG 评估实战：Recall@K、MRR 与回答忠实度</a><time datetime="2026-07-12T02:00:00.000Z" title="发表于 2026-07-12 10:00:00">2026-07-12</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"><img src="/../img/ai-06-rag-retrieval.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"/></a><div class="content"><a class="title" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker">RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker</a><time datetime="2026-07-09T02:00:00.000Z" title="发表于 2026-07-09 10:00:00">2026-07-09</time></div></div></div></div></div></div></main><footer id="footer"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2024 - 2026 By qjngbac</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 7.3.0</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.5.5</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.5.5"></script><script src="/js/main.js?v=5.5.5"></script><div class="js-pjax"></div><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

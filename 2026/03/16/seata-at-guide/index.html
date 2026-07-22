@@ -1,0 +1,459 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>分布式事务实战：Seata 的 AT 模式原理 | Wait</title><meta name="author" content="qjngbac"><meta name="copyright" content="qjngbac"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="前言微服务架构下，单体应用被拆成多个服务，数据库也随之按业务拆分。原本一个本地事务就能搞定的下单流程，现在变成了「订单服务建单 + 库存服务扣库 + 账户服务扣钱」跨三个服务、三个数据库的操作。单个服务的本地事务只能保证自己的数据正确，只要有一个环节失败，就会出现订单建了但库存没扣、钱扣了但订单没生成的数据不一致问题。 这就是分布式事务要解决的核心问题：跨服务、跨数据源场景下，如何保证多个操作要么">
+<meta property="og:type" content="article">
+<meta property="og:title" content="分布式事务实战：Seata 的 AT 模式原理">
+<meta property="og:url" content="https://qjngbac.github.io/2026/03/16/seata-at-guide/index.html">
+<meta property="og:site_name" content="Wait">
+<meta property="og:description" content="前言微服务架构下，单体应用被拆成多个服务，数据库也随之按业务拆分。原本一个本地事务就能搞定的下单流程，现在变成了「订单服务建单 + 库存服务扣库 + 账户服务扣钱」跨三个服务、三个数据库的操作。单个服务的本地事务只能保证自己的数据正确，只要有一个环节失败，就会出现订单建了但库存没扣、钱扣了但订单没生成的数据不一致问题。 这就是分布式事务要解决的核心问题：跨服务、跨数据源场景下，如何保证多个操作要么">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://qjngbac.github.io/img/backend-11-seata.jpg">
+<meta property="article:published_time" content="2026-03-16T07:00:00.000Z">
+<meta property="article:modified_time" content="2026-07-19T09:08:20.582Z">
+<meta property="article:author" content="qjngbac">
+<meta property="article:tag" content="后端">
+<meta property="article:tag" content="面试">
+<meta property="article:tag" content="微服务">
+<meta property="article:tag" content="分布式事务">
+<meta property="article:tag" content="Seata">
+<meta property="article:tag" content="AT模式">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://qjngbac.github.io/img/backend-11-seata.jpg"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "分布式事务实战：Seata 的 AT 模式原理",
+  "url": "https://qjngbac.github.io/2026/03/16/seata-at-guide/",
+  "image": "https://qjngbac.github.io/img/backend-11-seata.jpg",
+  "datePublished": "2026-03-16T07:00:00.000Z",
+  "dateModified": "2026-07-19T09:08:20.582Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "qjngbac",
+      "url": "https://qjngbac.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://qjngbac.github.io/2026/03/16/seata-at-guide/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.5.5"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        if (!ttl) return
+        const expiry = Date.now() + ttl * 86400000
+        localStorage.setItem(key, JSON.stringify({ value, expiry }))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return undefined
+        const { value, expiry } = JSON.parse(itemStr)
+        if (Date.now() > expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return value
+      }
+    }
+
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+        script.onload = script.onreadystatechange = () => {
+          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      }),
+      getCSS: (url, id) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onload = link.onreadystatechange = () => {
+          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+        }
+        link.onerror = reject
+        document.head.appendChild(link)
+      }),
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: true
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: '分布式事务实战：Seata 的 AT 模式原理',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="generator" content="Hexo 7.3.0"></head><body><div id="loading-box"><div class="loading-left-bg"></div><div class="loading-right-bg"></div><div class="spinner-box"><div class="configure-border-1"><div class="configure-core"></div></div><div class="configure-border-2"><div class="configure-core"></div></div><div class="loading-word">加载中...</div></div></div><script>(()=>{
+  const $loadingBox = document.getElementById('loading-box')
+  const $body = document.body
+  const preloader = {
+    endLoading: () => {
+      if ($loadingBox.classList.contains('loaded')) return
+      $body.style.overflow = ''
+      $loadingBox.classList.add('loaded')
+    },
+    initLoading: () => {
+      $body.style.overflow = 'hidden'
+      $loadingBox.classList.remove('loaded')
+    }
+  }
+
+  preloader.initLoading()
+
+  if (document.readyState === 'complete') {
+    preloader.endLoading()
+  } else {
+    window.addEventListener('load', preloader.endLoading)
+    document.addEventListener('DOMContentLoaded', preloader.endLoading)
+    // Add timeout protection: force end after 7 seconds
+    setTimeout(preloader.endLoading, 7000)
+  }
+
+  if (false) {
+    btf.addGlobalFn('pjaxSend', preloader.initLoading, 'preloader_init')
+    btf.addGlobalFn('pjaxComplete', preloader.endLoading, 'preloader_end')
+  }
+})()</script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">42</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">139</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(/../img/backend-11-seata.jpg);"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">Wait</span></a><a class="nav-page-title" href="/"><span class="site-name">分布式事务实战：Seata 的 AT 模式原理</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">分布式事务实战：Seata 的 AT 模式原理</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2026-03-16T07:00:00.000Z" title="发表于 2026-03-16 15:00:00">2026-03-16</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-07-19T09:08:20.582Z" title="更新于 2026-07-19 17:08:20">2026-07-19</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/%E5%90%8E%E7%AB%AF%E5%B7%A5%E7%A8%8B/">后端工程</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>微服务架构下，单体应用被拆成多个服务，数据库也随之按业务拆分。原本一个本地事务就能搞定的下单流程，现在变成了「订单服务建单 + 库存服务扣库 + 账户服务扣钱」跨三个服务、三个数据库的操作。单个服务的本地事务只能保证自己的数据正确，只要有一个环节失败，就会出现订单建了但库存没扣、钱扣了但订单没生成的数据不一致问题。</p>
+<p>这就是分布式事务要解决的核心问题：跨服务、跨数据源场景下，如何保证多个操作要么全部成功、要么全部失败。</p>
+<p>业界分布式事务方案有很多：TCC、Saga、可靠消息最终一致等等。Seata AT 模式通过代理 JDBC 数据源、自动记录数据镜像和生成补偿操作，把业务侵入降得很低；业务代码通常只需标记全局事务，但数据库表、SQL 类型、数据源代理和调用链透传仍需满足框架约束。</p>
+<p>本文就从架构角色、核心原理到完整实战，一次性讲透 Seata AT 模式的底层逻辑与落地方法。</p>
+<hr>
+<h2 id="一、Seata-核心架构：三个角色-两个层级"><a href="#一、Seata-核心架构：三个角色-两个层级" class="headerlink" title="一、Seata 核心架构：三个角色 + 两个层级"></a>一、Seata 核心架构：三个角色 + 两个层级</h2><p>Seata 把分布式事务拆分为「全局事务」和「分支事务」，并通过三个核心角色协同完成整个事务的协调与执行。</p>
+<h3 id="1-1-两个事务层级"><a href="#1-1-两个事务层级" class="headerlink" title="1.1 两个事务层级"></a>1.1 两个事务层级</h3><ul>
+<li><strong>全局事务</strong>：贯穿整个业务链路的大事务，比如一次完整的下单流程就是一个全局事务。它由多个分支事务组成，最终要么全部提交，要么全部回滚。</li>
+<li><strong>分支事务</strong>：每个服务内部的本地事务，是全局事务的一个组成单元。每个分支事务只负责自己数据库的操作，服从全局事务的统一调度。</li>
+</ul>
+<p>全局事务有唯一的 <code>XID</code>（全局事务 ID），在整个调用链路中透传，所有分支事务都通过 XID 归属到同一个全局事务下。</p>
+<h3 id="1-2-三大核心角色"><a href="#1-2-三大核心角色" class="headerlink" title="1.2 三大核心角色"></a>1.2 三大核心角色</h3><table>
+<thead>
+<tr>
+<th>角色</th>
+<th>全称</th>
+<th>职责</th>
+<th>部署位置</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>TC</strong></td>
+<td>Transaction Coordinator</td>
+<td>维护全局事务和分支事务的状态，指挥所有 RM 提交或回滚</td>
+<td>独立部署的 Seata Server</td>
+</tr>
+<tr>
+<td><strong>TM</strong></td>
+<td>Transaction Manager</td>
+<td>全局事务的发起者，负责开启、提交或回滚全局事务</td>
+<td>业务发起方（如订单服务）</td>
+</tr>
+<tr>
+<td><strong>RM</strong></td>
+<td>Resource Manager</td>
+<td>管理分支事务资源，执行本地事务，生成回滚日志</td>
+<td>每个业务服务内嵌</td>
+</tr>
+</tbody></table>
+<p>用一次下单流程串起来就是：</p>
+<ol>
+<li>订单服务（TM）发起全局事务，向 TC 申请一个全局事务 ID（XID）</li>
+<li>XID 沿着调用链传递到库存服务、账户服务（通过 Feign&#x2F;Servlet 自动透传）</li>
+<li>每个服务的 RM 把自己的本地事务注册为分支事务，向 TC 报备</li>
+<li>所有分支执行完毕后，TM 向 TC 发起全局提交&#x2F;回滚</li>
+<li>TC 指挥所有 RM 统一提交或回滚分支事务</li>
+</ol>
+<p><img src="/../img/seata-architecture.png" alt="Seata 三大角色协作流程"></p>
+<h3 id="1-3-Seata-的四种事务模式"><a href="#1-3-Seata-的四种事务模式" class="headerlink" title="1.3 Seata 的四种事务模式"></a>1.3 Seata 的四种事务模式</h3><p>Seata 不只有 AT 模式，它支持四种事务模式，适用于不同场景：</p>
+<table>
+<thead>
+<tr>
+<th>模式</th>
+<th>原理</th>
+<th>侵入性</th>
+<th>一致性</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>AT</strong></td>
+<td>自动记录数据镜像并执行补偿</td>
+<td>低侵入</td>
+<td>默认读隔离较弱，最终收敛</td>
+<td>支持本地 ACID 事务且通过 JDBC 访问的关系型数据库</td>
+</tr>
+<tr>
+<td><strong>TCC</strong></td>
+<td>手写 Try&#x2F;Confirm&#x2F;Cancel</td>
+<td>强侵入</td>
+<td>最终一致</td>
+<td>非关系型数据库、自定义补偿逻辑</td>
+</tr>
+<tr>
+<td><strong>Saga</strong></td>
+<td>长事务 + 补偿服务</td>
+<td>中等</td>
+<td>最终一致</td>
+<td>长流程业务、跨多服务编排</td>
+</tr>
+<tr>
+<td><strong>XA</strong></td>
+<td>数据库原生 XA 协议</td>
+<td>低侵入</td>
+<td>强一致性更强</td>
+<td>数据源支持 XA、可接受资源长期占用的场景</td>
+</tr>
+</tbody></table>
+<p>AT 模式是使用最广泛的，也是本文的重点。</p>
+<hr>
+<h2 id="二、AT-模式核心原理：自动补偿，低侵入"><a href="#二、AT-模式核心原理：自动补偿，低侵入" class="headerlink" title="二、AT 模式核心原理：自动补偿，低侵入"></a>二、AT 模式核心原理：自动补偿，低侵入</h2><p>AT（Auto Transaction）模式是 Seata 最具特色的实现。它的核心设计思想是：<strong>自动生成回滚日志，全局回滚时自动反向补偿</strong>，业务代码通常不需要手写补偿逻辑。</p>
+<h3 id="2-1-整体机制"><a href="#2-1-整体机制" class="headerlink" title="2.1 整体机制"></a>2.1 整体机制</h3><p>AT 模式基于 JDBC 数据源代理做拦截，在业务 SQL 执行的同时，自动生成数据的前后镜像，写入 <code>undo_log</code> 表。补偿过程对业务代码较透明，但仍需要全局事务注解、XID 透传、代理数据源、主键和受支持的 SQL。</p>
+<p>它的执行流程分为两个阶段：</p>
+<ul>
+<li><strong>一阶段</strong>：执行业务本地事务，同时生成 undo 回滚日志，向 TC 注册分支，申请全局锁</li>
+<li><strong>二阶段提交</strong>：异步删除 undo 日志，释放全局锁，速度极快</li>
+<li><strong>二阶段回滚</strong>：根据 undo 日志反向执行 SQL，补偿数据，释放全局锁</li>
+</ul>
+<h3 id="2-2-一阶段：业务执行-自动生成回滚日志"><a href="#2-2-一阶段：业务执行-自动生成回滚日志" class="headerlink" title="2.2 一阶段：业务执行 + 自动生成回滚日志"></a>2.2 一阶段：业务执行 + 自动生成回滚日志</h3><p>一阶段是 AT 模式最精妙的部分，业务执行和回滚日志生成在<strong>同一个本地事务</strong>内完成。</p>
+<p>完整步骤：</p>
+<ol>
+<li><strong>拦截 SQL</strong>：RM 通过 <code>DataSourceProxy</code> 代理数据源，拦截业务的 UPDATE&#x2F;INSERT&#x2F;DELETE 语句</li>
+<li><strong>查询前镜像</strong>：根据业务 SQL 的 WHERE 条件，自动查询出修改前的数据行，生成「前镜像（Before Image）」</li>
+<li><strong>执行业务 SQL</strong>：正常执行业务的增删改操作</li>
+<li><strong>查询后镜像</strong>：根据主键查询修改后的数据行，生成「后镜像（After Image）」</li>
+<li><strong>生成 undo log</strong>：把前后镜像、业务 SQL、表名、主键信息组装成回滚日志，和业务数据在<strong>同一个本地事务</strong>中写入数据库</li>
+<li><strong>注册分支 + 申请锁</strong>：向 TC 注册分支事务，并申请对应数据行的全局锁</li>
+<li><strong>提交本地事务</strong>：业务数据和 undo_log 在同一个本地事务中一起提交</li>
+</ol>
+<blockquote>
+<p><strong>关键点</strong>：一阶段结束时，本地事务已经提交，数据已经落库。这意味着 AT 模式是<strong>最终一致性</strong>方案，中间存在短暂的数据不一致窗口。</p>
+</blockquote>
+<h3 id="2-3-二阶段提交：异步清理"><a href="#2-3-二阶段提交：异步清理" class="headerlink" title="2.3 二阶段提交：异步清理"></a>2.3 二阶段提交：异步清理</h3><p>如果所有分支都执行成功，TM 发起全局提交：</p>
+<ol>
+<li>TC 收到提交请求，标记全局事务为提交状态</li>
+<li>异步通知所有 RM 删除对应的 undo_log 日志，释放全局锁</li>
+<li>提交过程非常快，因为只需要删除日志，不需要操作业务数据</li>
+</ol>
+<h3 id="2-4-二阶段回滚：自动反向补偿"><a href="#2-4-二阶段回滚：自动反向补偿" class="headerlink" title="2.4 二阶段回滚：自动反向补偿"></a>2.4 二阶段回滚：自动反向补偿</h3><p>如果任意一个分支执行失败，TM 发起全局回滚：</p>
+<ol>
+<li>TC 收到回滚请求，指挥所有 RM 执行回滚</li>
+<li>RM 根据 XID 和分支 ID 找到对应的 undo_log</li>
+<li><strong>数据校验（脏写检测）</strong>：用后镜像和当前数据库数据对比，如果数据不一致，说明在全局事务执行期间被其他事务修改了，触发告警，需要人工介入处理</li>
+<li><strong>生成反向 SQL</strong>：根据前镜像自动生成反向语句<ul>
+<li>前镜像有数据，后镜像有数据 → 生成 UPDATE，用前镜像覆盖当前数据</li>
+<li>前镜像无数据，后镜像有数据 → 生成 DELETE，删除当前数据</li>
+<li>前镜像有数据，后镜像无数据 → 生成 INSERT，把前镜像数据插回去</li>
+</ul>
+</li>
+<li>执行反向 SQL，完成数据回滚</li>
+<li>删除 undo_log，释放全局锁，向 TC 上报回滚结果</li>
+</ol>
+<p>正常情况下回滚由框架自动完成，业务代码不需要手写反向 SQL，这就是 AT 模式最大的优势。若当前数据与后镜像不一致，Seata 会按脏数据处理策略报告回滚失败或交给自定义 <code>FailureHandler</code> 处理，不能简单理解为一定能够自动恢复。</p>
+<p><img src="/../img/seata-at-two-phase-flow.png" alt="Seata AT 两阶段提交与回滚流程"></p>
+<h3 id="2-5-隔离性如何保证？"><a href="#2-5-隔离性如何保证？" class="headerlink" title="2.5 隔离性如何保证？"></a>2.5 隔离性如何保证？</h3><p>分布式事务下，隔离性是个难题。AT 模式通过两把锁来平衡并发与安全：</p>
+<ul>
+<li><strong>本地锁</strong>：数据库本身的行锁，一阶段本地事务提交前持有</li>
+<li><strong>全局锁</strong>：TC 维护的逻辑锁，一阶段结束后持有，直到二阶段提交&#x2F;回滚才释放</li>
+</ul>
+<p>在本地数据库隔离级别为读已提交或更高时，AT 普通 <code>SELECT</code> 仍可能读到“分支已本地提交、全局事务尚未结束”的数据，因此全局事务层面默认近似读未提交。若需要全局读已提交，可使用 Seata 代理支持的 <code>SELECT ... FOR UPDATE</code>：查询会尝试获取全局锁，等待相关全局事务结束后再返回。</p>
+<h3 id="2-6-写隔离与脏写防护"><a href="#2-6-写隔离与脏写防护" class="headerlink" title="2.6 写隔离与脏写防护"></a>2.6 写隔离与脏写防护</h3><p>AT 模式通过<strong>全局锁</strong>实现写隔离：</p>
+<ul>
+<li>事务 A 修改 row_x，一阶段提交后持有 row_x 的全局锁</li>
+<li>事务 B 也想修改 row_x，它会先在本地事务中持有数据库行锁，再反复尝试申请全局锁；超时仍拿不到时会回滚本地事务</li>
+<li>事务 A 回滚时，数据被正确恢复；事务 B 拿到锁后才开始执行</li>
+</ul>
+<p>如果写操作绕过 Seata 数据源代理，它不会参与全局锁竞争，可能在 AT 一阶段提交后改写同一行，导致后续回滚镜像校验失败。所以需要纳入分布式事务保护的共享数据写入都应经过 Seata 代理；无法接入的写入应通过业务版本号、幂等或其他并发控制补足。</p>
+<hr>
+<h2 id="三、实战落地：Spring-Boot-整合-Seata-AT-模式"><a href="#三、实战落地：Spring-Boot-整合-Seata-AT-模式" class="headerlink" title="三、实战落地：Spring Boot 整合 Seata AT 模式"></a>三、实战落地：Spring Boot 整合 Seata AT 模式</h2><p>下面以经典的「下单扣库存减余额」场景为例，从零搭建一套 Seata AT 模式的分布式事务。</p>
+<h3 id="3-1-环境准备"><a href="#3-1-环境准备" class="headerlink" title="3.1 环境准备"></a>3.1 环境准备</h3><p><strong>启动 Seata Server（TC）</strong>：</p>
+<p>从 Seata 官网下载服务端，配置注册中心（以 Nacos 为例），启动 TC 服务，默认端口 8091。</p>
+<p><strong>数据库准备</strong>：</p>
+<p>每个业务库都必须创建 <code>undo_log</code> 表：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE TABLE</span> `undo_log` (</span><br><span class="line">  `id` <span class="type">bigint</span>(<span class="number">20</span>) <span class="keyword">NOT NULL</span> AUTO_INCREMENT,</span><br><span class="line">  `branch_id` <span class="type">bigint</span>(<span class="number">20</span>) <span class="keyword">NOT NULL</span>,</span><br><span class="line">  `xid` <span class="type">varchar</span>(<span class="number">100</span>) <span class="keyword">NOT NULL</span>,</span><br><span class="line">  `context` <span class="type">varchar</span>(<span class="number">128</span>) <span class="keyword">NOT NULL</span>,</span><br><span class="line">  `rollback_info` longblob <span class="keyword">NOT NULL</span>,</span><br><span class="line">  `log_status` <span class="type">int</span>(<span class="number">11</span>) <span class="keyword">NOT NULL</span>,</span><br><span class="line">  `log_created` datetime <span class="keyword">NOT NULL</span>,</span><br><span class="line">  `log_modified` datetime <span class="keyword">NOT NULL</span>,</span><br><span class="line">  `ext` <span class="type">varchar</span>(<span class="number">100</span>) <span class="keyword">DEFAULT</span> <span class="keyword">NULL</span>,</span><br><span class="line">  <span class="keyword">PRIMARY KEY</span> (`id`),</span><br><span class="line">  <span class="keyword">UNIQUE</span> KEY `ux_undo_log` (`xid`,`branch_id`)</span><br><span class="line">) ENGINE<span class="operator">=</span>InnoDB <span class="keyword">DEFAULT</span> CHARSET<span class="operator">=</span>utf8;</span><br></pre></td></tr></table></figure>
+
+<p>同时创建三个业务库：<code>order_db</code>、<code>stock_db</code>、<code>account_db</code>，分别对应订单表、库存表、账户表。</p>
+<h3 id="3-2-项目依赖与配置"><a href="#3-2-项目依赖与配置" class="headerlink" title="3.2 项目依赖与配置"></a>3.2 项目依赖与配置</h3><p>每个业务服务引入 Seata 依赖：</p>
+<figure class="highlight xml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="tag">&lt;<span class="name">dependency</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">groupId</span>&gt;</span>com.alibaba.cloud<span class="tag">&lt;/<span class="name">groupId</span>&gt;</span></span><br><span class="line">    <span class="tag">&lt;<span class="name">artifactId</span>&gt;</span>spring-cloud-starter-alibaba-seata<span class="tag">&lt;/<span class="name">artifactId</span>&gt;</span></span><br><span class="line"><span class="tag">&lt;/<span class="name">dependency</span>&gt;</span></span><br></pre></td></tr></table></figure>
+
+<p>每个服务的配置：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">seata:</span></span><br><span class="line">  <span class="attr">tx-service-group:</span> <span class="string">order_tx_group</span></span><br><span class="line">  <span class="attr">data-source-proxy-mode:</span> <span class="string">AT</span></span><br><span class="line">  <span class="attr">registry:</span></span><br><span class="line">    <span class="attr">type:</span> <span class="string">nacos</span></span><br><span class="line">    <span class="attr">nacos:</span></span><br><span class="line">      <span class="attr">server-addr:</span> <span class="string">localhost:8848</span></span><br><span class="line">  <span class="attr">service:</span></span><br><span class="line">    <span class="attr">vgroup-mapping:</span></span><br><span class="line">      <span class="attr">order_tx_group:</span> <span class="string">default</span></span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>配置键会随 Seata 与 Spring Cloud Alibaba 版本变化，以上采用 Seata 原生 <code>seata.*</code> 前缀，落地时应以项目依赖版本的官方示例为准。单数据源通常可自动代理；多数据源需要确认每个参与 AT 事务的数据源都已被代理，避免重复代理或漏代理。</p>
+</blockquote>
+<h3 id="3-3-业务代码实现"><a href="#3-3-业务代码实现" class="headerlink" title="3.3 业务代码实现"></a>3.3 业务代码实现</h3><p><strong>订单服务（全局事务发起方 TM）</strong>：</p>
+<p>只需要在入口方法上加一个 <code>@GlobalTransactional</code> 注解：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">@Service</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">OrderServiceImpl</span> <span class="keyword">implements</span> <span class="title class_">OrderService</span> &#123;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Autowired</span></span><br><span class="line">    <span class="keyword">private</span> OrderMapper orderMapper;</span><br><span class="line">    <span class="meta">@Autowired</span></span><br><span class="line">    <span class="keyword">private</span> StockFeignClient stockFeignClient;</span><br><span class="line">    <span class="meta">@Autowired</span></span><br><span class="line">    <span class="keyword">private</span> AccountFeignClient accountFeignClient;</span><br><span class="line"></span><br><span class="line">    <span class="meta">@Override</span></span><br><span class="line">    <span class="meta">@GlobalTransactional(name = &quot;create-order&quot;, rollbackFor = Exception.class)</span></span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">createOrder</span><span class="params">(OrderDTO orderDTO)</span> &#123;</span><br><span class="line">        <span class="comment">// 1. 本地创建订单</span></span><br><span class="line">        <span class="type">Order</span> <span class="variable">order</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">Order</span>();</span><br><span class="line">        order.setUserId(orderDTO.getUserId());</span><br><span class="line">        order.setAmount(orderDTO.getAmount());</span><br><span class="line">        orderMapper.insert(order);</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 2. 远程调用扣库存</span></span><br><span class="line">        stockFeignClient.deduct(orderDTO.getProductId(), orderDTO.getCount());</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 3. 远程调用扣余额</span></span><br><span class="line">        accountFeignClient.decrease(orderDTO.getUserId(), orderDTO.getAmount());</span><br><span class="line"></span><br><span class="line">        <span class="comment">// 模拟异常，触发全局回滚</span></span><br><span class="line">        <span class="comment">// if (true) throw new RuntimeException(&quot;模拟异常&quot;);</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><strong>库存服务、账户服务（分支事务 RM）</strong>：</p>
+<p>正常编写业务 Mapper 和 Service，通常不需要再加全局事务注解。正确引入 Seata 与 RPC 框架集成后，XID 才会通过 Feign 等调用链透传，代理数据源据此识别并注册分支事务。</p>
+<h3 id="3-4-验证效果"><a href="#3-4-验证效果" class="headerlink" title="3.4 验证效果"></a>3.4 验证效果</h3><ol>
+<li><strong>正常执行</strong>：三个服务都成功，订单、库存、账户数据一致，undo_log 自动清理</li>
+<li><strong>模拟异常</strong>：在订单服务最后抛出异常<ul>
+<li>订单数据自动回滚消失</li>
+<li>库存和账户数据自动回滚到扣减前的状态</li>
+<li>各库的 undo_log 执行完后自动清理</li>
+</ul>
+</li>
+</ol>
+<p>全程业务代码几乎没有改动，分布式事务就落地了。</p>
+<hr>
+<h2 id="四、常见坑点与最佳实践"><a href="#四、常见坑点与最佳实践" class="headerlink" title="四、常见坑点与最佳实践"></a>四、常见坑点与最佳实践</h2><h3 id="1-表必须有主键"><a href="#1-表必须有主键" class="headerlink" title="1. 表必须有主键"></a>1. 表必须有主键</h3><p>AT 模式通过主键定位数据行、生成前后镜像。没有主键的表无法生成回滚日志，会直接报错。</p>
+<h3 id="2-一致性级别是最终一致"><a href="#2-一致性级别是最终一致" class="headerlink" title="2. 一致性级别是最终一致"></a>2. 一致性级别是最终一致</h3><p>一阶段本地事务已经提交，普通查询可能读到全局事务尚未最终确认的数据；二阶段提交异步清理，回滚则执行补偿。这个窗口取决于链路耗时、锁冲突和故障恢复，不能笼统保证为毫秒级，不适合要求严格隔离的核心账务场景。</p>
+<h3 id="3-尽量避免长事务"><a href="#3-尽量避免长事务" class="headerlink" title="3. 尽量避免长事务"></a>3. 尽量避免长事务</h3><p>全局锁持有时间越长，并发冲突概率越高。长事务会严重降低系统吞吐量，还容易导致锁超时。尽量把全局事务内的操作做精简。</p>
+<h3 id="4-TC-必须高可用"><a href="#4-TC-必须高可用" class="headerlink" title="4. TC 必须高可用"></a>4. TC 必须高可用</h3><p>TC 是整个分布式事务的协调中心，单点故障会导致所有事务无法提交&#x2F;回滚。生产环境必须部署 TC 集群，配合注册中心实现高可用。</p>
+<h3 id="5-复杂-SQL-的限制"><a href="#5-复杂-SQL-的限制" class="headerlink" title="5. 复杂 SQL 的限制"></a>5. 复杂 SQL 的限制</h3><p>AT 模式对复杂 SQL 的支持有限：</p>
+<ul>
+<li>多表 JOIN 的 UPDATE 语句，可能无法正确生成前后镜像</li>
+<li>子查询中的 UPDATE，镜像生成可能不完整</li>
+<li>建议 AT 模式下使用简单的单表 CRUD 操作，复杂场景用 TCC 模式</li>
+</ul>
+<h3 id="6-undo-log-的清理"><a href="#6-undo-log-的清理" class="headerlink" title="6. undo_log 的清理"></a>6. undo_log 的清理</h3><p>正常提交时，<code>undo_log</code> 会在二阶段异步批量删除；回滚完成后也会删除对应记录。需要监控长期残留，但不能脱离 XID、分支状态和保留策略直接手工清表，否则可能破坏仍在恢复中的事务。</p>
+<hr>
+<h2 id="五、AT-vs-TCC：怎么选？"><a href="#五、AT-vs-TCC：怎么选？" class="headerlink" title="五、AT vs TCC：怎么选？"></a>五、AT vs TCC：怎么选？</h2><table>
+<thead>
+<tr>
+<th>维度</th>
+<th>AT 模式</th>
+<th>TCC 模式</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>业务侵入</strong></td>
+<td>低侵入，依赖数据源代理和 SQL 支持</td>
+<td>强侵入，手写 Try&#x2F;Confirm&#x2F;Cancel</td>
+</tr>
+<tr>
+<td><strong>开发成本</strong></td>
+<td>低</td>
+<td>高</td>
+</tr>
+<tr>
+<td><strong>一致性</strong></td>
+<td>最终一致</td>
+<td>最终一致</td>
+</tr>
+<tr>
+<td><strong>性能</strong></td>
+<td>有镜像查询、undo_log 和全局锁开销</td>
+<td>可按业务控制资源预留，性能取决于实现</td>
+</tr>
+<tr>
+<td><strong>灵活性</strong></td>
+<td>低，只能操作关系型数据库</td>
+<td>高，可操作任意资源</td>
+</tr>
+<tr>
+<td><strong>适用场景</strong></td>
+<td>JDBC 关系型数据库，绝大多数场景</td>
+<td>非关系型数据库、自定义补偿、高性能要求</td>
+</tr>
+</tbody></table>
+<p><strong>选型建议</strong>：</p>
+<ul>
+<li>常规 JDBC 单表事务可优先评估 AT：开发成本较低，但要先确认数据库、SQL、热点行竞争和隔离要求</li>
+<li>特殊场景选 TCC：操作 Redis&#x2F;MQ 等非数据库资源、需要自定义补偿逻辑、对性能要求极高</li>
+</ul>
+<hr>
+<h2 id="六、面试高频问题"><a href="#六、面试高频问题" class="headerlink" title="六、面试高频问题"></a>六、面试高频问题</h2><p><strong>Q1：Seata 的三个角色是什么？</strong></p>
+<p>TC（事务协调者）：独立部署，维护全局事务状态，指挥提交&#x2F;回滚。TM（事务管理者）：业务发起方，开启&#x2F;提交&#x2F;回滚全局事务。RM（资源管理者）：每个服务内嵌，执行本地事务，注册分支，执行提交&#x2F;回滚。</p>
+<p><strong>Q2：AT 模式的一阶段做了什么？</strong></p>
+<p>代理数据源拦截 SQL → 查询前镜像 → 执行业务 SQL → 查询后镜像 → 生成 undo_log（与业务数据在同一本地事务中提交）→ 注册分支事务 + 申请全局锁 → 提交本地事务。</p>
+<p><strong>Q3：AT 模式回滚时怎么保证数据正确？</strong></p>
+<p>根据 undo_log 中的前镜像生成反向 SQL。回滚前用后镜像和当前数据做校验；不一致表示存在事务外修改或脏写，回滚会按配置失败重试、记录异常或交给自定义处理器，不能直接覆盖当前数据。</p>
+<p><strong>Q4：AT 模式的一致性级别是什么？</strong></p>
+<p>AT 一阶段会提交本地事务，普通查询可能在全局事务结束前看到中间状态；全局提交异步清理，回滚通过补偿恢复，因此通常按最终收敛理解。需要全局读已提交时，可结合 <code>SELECT ... FOR UPDATE</code> 与全局锁。</p>
+<p><strong>Q5：AT 和 TCC 怎么选？</strong></p>
+<p>AT 业务侵入较低，适合受支持的 JDBC 关系型数据库与 SQL 场景。TCC 侵入性强但资源控制更灵活，适合非数据库资源、自定义预留和补偿场景；应按隔离、热点竞争和开发成本选择。</p>
+<p><strong>Q6：什么是全局锁？和本地锁的区别？</strong></p>
+<p>本地锁是数据库行锁，一阶段提交前持有。全局锁是 TC 维护的逻辑锁，一阶段结束后持有直到二阶段完成。全局锁保证多个全局事务不会同时修改同一行数据，防止脏写。</p>
+<hr>
+<h2 id="写在最后"><a href="#写在最后" class="headerlink" title="写在最后"></a>写在最后</h2><p>Seata AT 模式之所以流行，核心在于它降低了分布式事务的开发成本。它把协调与常见补偿逻辑封装到框架里，业务侧主要关注事务边界和 SQL，但仍要正确配置数据源代理、XID 透传、<code>undo_log</code> 与 TC，才能形成完整链路。</p>
+<p>当然，没有万能的方案。AT 模式也有它的边界：最终一致、依赖关系型数据库、不适合超高频热点数据。理解它的原理和适用场景，才能在合适的地方用合适的方案，而不是为了用而用。</p>
+<hr>
+<blockquote>
+<p><strong>系列文章预告</strong>：</p>
+<ul>
+<li>上一篇：CAP 与 BASE 理论：分布式系统的基石</li>
+<li>下一篇：分布式 ID 生成：Snowflake 方案的取舍</li>
+</ul>
+</blockquote>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://qjngbac.github.io">qjngbac</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://qjngbac.github.io/2026/03/16/seata-at-guide/">https://qjngbac.github.io/2026/03/16/seata-at-guide/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://qjngbac.github.io" target="_blank">Wait</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/%E5%90%8E%E7%AB%AF/">后端</a><a class="post-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><a class="post-meta__tags" href="/tags/%E5%BE%AE%E6%9C%8D%E5%8A%A1/">微服务</a><a class="post-meta__tags" href="/tags/%E5%88%86%E5%B8%83%E5%BC%8F%E4%BA%8B%E5%8A%A1/">分布式事务</a><a class="post-meta__tags" href="/tags/Seata/">Seata</a><a class="post-meta__tags" href="/tags/AT%E6%A8%A1%E5%BC%8F/">AT模式</a></div><div class="post-share"><div class="social-share" data-image="/../img/backend-11-seata.jpg" data-sites="facebook,x,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/2026/04/15/mq-intro-guide/" title="消息队列入门：为什么需要 MQ"><img class="cover" src="/../img/backend-07-mq-intro.jpg" onerror="onerror=null;src='/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">消息队列入门：为什么需要 MQ</div></div><div class="info-2"><div class="info-item-1">前言很多刚接触后端开发的同学都会有一个疑问：好好的同步调用不用，为什么非要引入消息队列？平白多了一个中间件，系统复杂度上去了，还要处理消息丢失、重复消费、积压等一堆问题，这不是给自己找麻烦吗？ 有这个疑问太正常了。在业务量小、逻辑简单的阶段，同步调用确实简单直接、调试方便。但随着业务增长、系统拆分、流量上升，你会发现同步调用的天花板越来越明显：接口响应越来越慢、上下游改一处全链路都要改、活动峰值一来系统直接被打垮。 消息队列（Message Queue，简称 MQ）不是什么炫技的黑科技，它本质是解决「异步、解耦、削峰」三大问题的标准方案，是分布式系统的核心组件之一。 今天我们就从真实业务场景出发，讲清楚为什么需要 MQ，它的三大核心价值是什么，再对比三款最主流的 MQ 产品，帮你搞定选型难题。  一、没有 MQ 的日子：同步调用的三大痛点我们用最经典的「下单流程」举例，看看随着业务迭代，同步调用会遇到哪些无法回避的问题。 1. 初期：简单高效业务早期，下单逻辑很简单：创建订单 + 扣减库存。两个步骤同步串行执行，总耗时约 100ms，用户体验良好，代码也简单直观。 2. 迭代一：...</div></div></div></a><a class="pagination-related" href="/2026/03/14/distributed-lock-guide/" title="Redis 分布式锁：从 Redisson 到 RedLock"><img class="cover" src="/../img/backend-06-distributed-lock.jpg" onerror="onerror=null;src='/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Redis 分布式锁：从 Redisson 到 RedLock</div></div><div class="info-2"><div class="info-item-1">前言在分布式系统中，多个服务实例共同操作同一个共享资源时，本地锁已经完全失效。比如库存扣减、订单幂等、定时任务防重执行，这些场景都需要一把全局的「锁」来保证互斥性，这就是分布式锁。 实现分布式锁的方案有很多：数据库、ZooKeeper、Redis 都可以做。其中 Redis 凭借高性能、低延迟、实现简单的特点，成为绝大多数业务场景的首选。但很多人对 Redis 分布式锁的认知停留在「SETNX 加锁、DEL 解锁」的初级版本，既说不清楚 Redisson 的看门狗机制，也讲不明白 RedLock 要解决什么问题。 本文就从最基础的手写锁开始，一步步演进到工业级的 Redisson 实现，再到多集群下的 RedLock 算法，最后对比 Redis 与 ZooKeeper 两种分布式锁的选型差异，把分布式锁的底层逻辑一次性讲透。  一、为什么需要分布式锁？在单体应用中，我们用 synchronized、ReentrantLock 就能解决线程安全问题。但当服务部署了多个实例，多个 JVM 进程各自独立，本地锁就完全失效了——A 实例加的锁，B 实例根本感知不到，并发操作共享资源时依然...</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/2026/06/01/k8s-guide/" title="K8s 核心概念：Pod&#x2F;Service&#x2F;Deployment"><img class="cover" src="/../img/backend-14-k8s.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-06-01</div><div class="info-item-2">K8s 核心概念：Pod&#x2F;Service&#x2F;Deployment</div></div><div class="info-2"><div class="info-item-1">前言Docker 解决了容器的构建与运行问题，但当业务从几个容器扩展到几十上百个容器时，单机管理就不够用了：实例异常了怎么自动恢复？流量上来了怎么横向扩容？多机集群怎么统一调度？怎样在满足条件时实现尽量不中断服务的滚动发布？ 这些问题，正是 Kubernetes（简称 K8s）要解决的。作为容器编排领域的事实标准，K8s 提供了一整套容器调度、服务发现、滚动发布、自动扩缩容的能力，而支撑这一切的，是三个最核心的基础资源：Pod、Service、Deployment。 本文就从「为什么需要」出发，逐层拆解三大核心资源的设计思想、工作原理与典型用法，同时覆盖 Pod 生命周期、服务发现、滚动更新、配置管理等关键知识点，帮你建立起 K8s 的核心认知框架。   一、Pod：K8s 最小的调度单元很多刚接触 K8s 的人会问：已经有容器了，为什么还要抽象出一个 Pod？ 1.1 Pod 是什么Pod 是 K8s 中最小的可部署计算单元，也是调度器直接调度的对象。它不是替代容器，而是封装一个或多个需要共同运行的容器。  一个 Pod 可以包含 1 个主容器 + 多个辅助容器（Sidecar...</div></div></div></a><a class="pagination-related" href="/2025/12/07/sharding-guide/" title="分库分表实战：百万级表的水平拆分策略"><img class="cover" src="/img/backend-03-sharding.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2025-12-07</div><div class="info-item-2">分库分表实战：百万级表的水平拆分策略</div></div><div class="info-2"><div class="info-item-1">前言业务初期，单库单表简单高效。但随着业务增长，当订单表数据量突破千万、单表体积超过 20G 时，问题会集中爆发：查询越来越慢、索引体积膨胀、数据库连接数打满、单机存储逼近上限。加索引、优化 SQL 的收益越来越小，这时候分库分表就成了必然选择。 分库分表不是简单地把一张表拆成多张表，它涉及拆分策略选型、分片键设计、平滑扩容、分布式事务等一系列问题。选对了方案，系统容量和吞吐会明显提升；选错了分片键，后续会陷入跨库查询、数据倾斜的无尽泥潭。 本文就以最经典的订单表拆分为例，从拆分策略、分片键选型、ShardingSphere 落地到平滑扩容，完整讲透水平分库分表的实战全流程。  一、为什么需要分库分表？单库单表的四道天花板：    瓶颈 说明    性能瓶颈 热点数据与大范围扫描增加，Buffer Pool 命中、IO 与写入竞争逐渐恶化   存储瓶颈 磁盘空间逼近单机上限，大表 DDL 无法在线执行   连接瓶颈 单机连接数有限，业务量大时连接打满   并发瓶颈 单机 CPU、IO 有上限，无法横向扩展   什么时候该考虑分库分表？   观察信号 判断方式    容量增长 单机...</div></div></div></a><a class="pagination-related" href="/2025/11/12/mysql-index-guide/" title="MySQL 索引原理：B+ 树为什么这么快"><img class="cover" src="/img/backend-01-mysql-index.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2025-11-12</div><div class="info-item-2">MySQL 索引原理：B+ 树为什么这么快</div></div><div class="info-2"><div class="info-item-1">前言做后端开发，几乎每天都在和索引打交道：慢查询加个索引，性能立刻提升好几倍。可很多人只知道「索引能提速」，却说不清背后的原理：  为什么数据库选 B+ 树做索引，而不用二叉树、哈希表？ 聚簇索引和非聚簇索引到底差在哪？什么是回表？ 联合索引为什么要遵循最左前缀原则？ 索引下推到底「推」了什么，为什么能提速？  索引从来不是什么玄学，它的所有特性、所有优化规则，都根植于底层的数据结构设计。看懂了 B+ 树，你就能理解所有索引规则的来龙去脉，写 SQL、建索引时就能预判性能，而不是靠瞎试。 今天我们从数据结构的底层逻辑出发，把 B+ 树结构、聚簇&#x2F;非聚簇索引、联合索引最左前缀、索引下推一次性讲透。  一、索引的本质：用排序换查找效率1.1 没有索引的代价没有可用索引时，查询通常只能走全表扫描：读取并检查候选记录，代价随数据页数量增长。是否慢到不可接受还取决于表大小、缓存命中率、返回比例和存储性能。 百万级表上的频繁全表扫描往往会带来明显 IO 和 CPU 压力，但小表或需要返回大部分数据时，全表扫描也可能是优化器的合理选择。 1.2 索引的核心思想对本文讨论的 InnoD...</div></div></div></a><a class="pagination-related" href="/2026/01/19/cap-base-guide/" title="CAP 与 BASE 理论：分布式系统的基石"><img class="cover" src="/../img/backend-10-cap-base.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-01-19</div><div class="info-item-2">CAP 与 BASE 理论：分布式系统的基石</div></div><div class="info-2"><div class="info-item-1">前言做分布式系统开发，绕不开 CAP 和 BASE 这两大基础理论。很多人面试时能背出「三选二」，但真到做技术选型时，却搞不清什么时候该追求强一致、什么时候该接受最终一致，也说不清楚 BASE 理论到底指导了哪些工程实践。 实际上，CAP 不是刻板的选择题，而是告诉我们一个客观事实：分布式系统必须为网络分区做好准备，分区发生时需要在一致性和可用性之间权衡。而 BASE 则提供了一种常见的工程思路：在业务允许的范围内接受暂时不一致，通过补偿和收敛换取更高的可用性与可扩展性。 今天我们就从底层逻辑到工程实践，彻底讲透 CAP 三要素的取舍、BASE 三大核心，以及最终一致性的常见落地方案。  一、CAP 定理：分布式系统的「不可能三角」CAP 猜想由计算机科学家 Eric Brewer 于 2000 年提出，2002 年由 Seth Gilbert 和 Nancy Lynch 在异步网络模型下形式化证明。更准确的结论是：当网络分区发生时，分布式系统无法同时提供线性一致性和对所有非故障节点请求的可用响应。 1.1 三要素分别是什么我们先把每个概念的真实含义讲透，避免只背定义。 一致性（...</div></div></div></a><a class="pagination-related" href="/2026/07/07/git-docker-linux-interview/" title="Git、Docker、Linux 面试高频问答：后端开发必会的三大基本功"><img class="cover" src="/img/git-docker-linux-cover.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-07-07</div><div class="info-item-2">Git、Docker、Linux 面试高频问答：后端开发必会的三大基本功</div></div><div class="info-2"><div class="info-item-1">前言面试中，Git、Docker、Linux 这三个工具几乎每场都会被问到。很多人觉得”会用就行”，但面试官问的不是”你会不会敲命令”，而是”你理不理解背后的原理”。 本文整理了这三个方向的高频面试题，每个问题都给出简洁但有深度的回答。不是命令手册，而是帮你建立知识框架。  一、Git 篇Q1：Git 的工作区域有哪些？Git 本地有三个核心区域，配合一个远程仓库： 1234567工作区（Working Directory）    ↓ git add暂存区（Stage / Index）    ↓ git commit本地仓库（Local Repository）    ↓ git push远程仓库（Remote Repository）   工作区：你正在编辑的文件目录 暂存区：git add 后文件的临时存储区，准备提交 本地仓库：git commit 后文件存储的地方，完整历史记录 远程仓库：GitHub&#x2F;GitLab 等托管平台  Q2：git merge 和 git rebase 有什么区别？   对比项 merge rebase    提交历史 保留已有提交；必要...</div></div></div></a><a class="pagination-related" href="/2025/11/22/mysql-mvcc-guide/" title="MySQL 事务与锁：MVCC 是怎么实现的"><img class="cover" src="/img/backend-02-mysql-mvcc.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2025-11-22</div><div class="info-item-2">MySQL 事务与锁：MVCC 是怎么实现的</div></div><div class="info-2"><div class="info-item-1">前言在并发场景下操作数据库，我们总会遇到各种反直觉的数据问题：刚插入的数据查不到、同一个事务两次查询同一条数据结果不一样、范围更新时莫名多出不存在的行。这些问题的本质，都和事务隔离性与锁机制息息相关。 而 MVCC（多版本并发控制） 就是 InnoDB 解决读写冲突、提升并发性能的核心武器。它让读操作不用加锁、写操作不阻塞读，在保证隔离性的同时，大幅提升了数据库的并发能力。 很多人听过 MVCC 的名字，却搞不清它到底怎么实现的：undo log 起什么作用？Read View 是怎么判断可见性的？行锁、间隙锁、临键锁又和 MVCC 是什么关系？ 今天我们就从 ACID 四大特性讲起，逐层深入，把隔离级别、undo 版本链、Read View 可见性、三类行锁一次性讲透。  一、事务的基石：ACID 四大特性事务是一组原子性的 SQL 操作，要么全部执行成功，要么全部失败回滚。    特性 含义 底层实现    原子性（Atomicity） 要么全成功，要么全回滚 undo log   一致性（Consistency） 事务前后满足业务规则与数据库约束 数据库约束、应用规则以及 ...</div></div></div></a></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">qjngbac</div><div class="author-info-description">一个正在学习的开发者</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">42</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">139</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/qjngbac"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/qjngbac" target="_blank" title="Github"><i class="fab fa-github"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到我的博客</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%89%8D%E8%A8%80"><span class="toc-number">1.</span> <span class="toc-text">前言</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%80%E3%80%81Seata-%E6%A0%B8%E5%BF%83%E6%9E%B6%E6%9E%84%EF%BC%9A%E4%B8%89%E4%B8%AA%E8%A7%92%E8%89%B2-%E4%B8%A4%E4%B8%AA%E5%B1%82%E7%BA%A7"><span class="toc-number">2.</span> <span class="toc-text">一、Seata 核心架构：三个角色 + 两个层级</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-1-%E4%B8%A4%E4%B8%AA%E4%BA%8B%E5%8A%A1%E5%B1%82%E7%BA%A7"><span class="toc-number">2.1.</span> <span class="toc-text">1.1 两个事务层级</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#1-2-%E4%B8%89%E5%A4%A7%E6%A0%B8%E5%BF%83%E8%A7%92%E8%89%B2"><span class="toc-number">2.2.</span> <span class="toc-text">1.2 三大核心角色</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#1-3-Seata-%E7%9A%84%E5%9B%9B%E7%A7%8D%E4%BA%8B%E5%8A%A1%E6%A8%A1%E5%BC%8F"><span class="toc-number">2.3.</span> <span class="toc-text">1.3 Seata 的四种事务模式</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%8C%E3%80%81AT-%E6%A8%A1%E5%BC%8F%E6%A0%B8%E5%BF%83%E5%8E%9F%E7%90%86%EF%BC%9A%E8%87%AA%E5%8A%A8%E8%A1%A5%E5%81%BF%EF%BC%8C%E4%BD%8E%E4%BE%B5%E5%85%A5"><span class="toc-number">3.</span> <span class="toc-text">二、AT 模式核心原理：自动补偿，低侵入</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#2-1-%E6%95%B4%E4%BD%93%E6%9C%BA%E5%88%B6"><span class="toc-number">3.1.</span> <span class="toc-text">2.1 整体机制</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-2-%E4%B8%80%E9%98%B6%E6%AE%B5%EF%BC%9A%E4%B8%9A%E5%8A%A1%E6%89%A7%E8%A1%8C-%E8%87%AA%E5%8A%A8%E7%94%9F%E6%88%90%E5%9B%9E%E6%BB%9A%E6%97%A5%E5%BF%97"><span class="toc-number">3.2.</span> <span class="toc-text">2.2 一阶段：业务执行 + 自动生成回滚日志</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-3-%E4%BA%8C%E9%98%B6%E6%AE%B5%E6%8F%90%E4%BA%A4%EF%BC%9A%E5%BC%82%E6%AD%A5%E6%B8%85%E7%90%86"><span class="toc-number">3.3.</span> <span class="toc-text">2.3 二阶段提交：异步清理</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-4-%E4%BA%8C%E9%98%B6%E6%AE%B5%E5%9B%9E%E6%BB%9A%EF%BC%9A%E8%87%AA%E5%8A%A8%E5%8F%8D%E5%90%91%E8%A1%A5%E5%81%BF"><span class="toc-number">3.4.</span> <span class="toc-text">2.4 二阶段回滚：自动反向补偿</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-5-%E9%9A%94%E7%A6%BB%E6%80%A7%E5%A6%82%E4%BD%95%E4%BF%9D%E8%AF%81%EF%BC%9F"><span class="toc-number">3.5.</span> <span class="toc-text">2.5 隔离性如何保证？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-6-%E5%86%99%E9%9A%94%E7%A6%BB%E4%B8%8E%E8%84%8F%E5%86%99%E9%98%B2%E6%8A%A4"><span class="toc-number">3.6.</span> <span class="toc-text">2.6 写隔离与脏写防护</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%89%E3%80%81%E5%AE%9E%E6%88%98%E8%90%BD%E5%9C%B0%EF%BC%9ASpring-Boot-%E6%95%B4%E5%90%88-Seata-AT-%E6%A8%A1%E5%BC%8F"><span class="toc-number">4.</span> <span class="toc-text">三、实战落地：Spring Boot 整合 Seata AT 模式</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#3-1-%E7%8E%AF%E5%A2%83%E5%87%86%E5%A4%87"><span class="toc-number">4.1.</span> <span class="toc-text">3.1 环境准备</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-2-%E9%A1%B9%E7%9B%AE%E4%BE%9D%E8%B5%96%E4%B8%8E%E9%85%8D%E7%BD%AE"><span class="toc-number">4.2.</span> <span class="toc-text">3.2 项目依赖与配置</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-3-%E4%B8%9A%E5%8A%A1%E4%BB%A3%E7%A0%81%E5%AE%9E%E7%8E%B0"><span class="toc-number">4.3.</span> <span class="toc-text">3.3 业务代码实现</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-4-%E9%AA%8C%E8%AF%81%E6%95%88%E6%9E%9C"><span class="toc-number">4.4.</span> <span class="toc-text">3.4 验证效果</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9B%9B%E3%80%81%E5%B8%B8%E8%A7%81%E5%9D%91%E7%82%B9%E4%B8%8E%E6%9C%80%E4%BD%B3%E5%AE%9E%E8%B7%B5"><span class="toc-number">5.</span> <span class="toc-text">四、常见坑点与最佳实践</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-%E8%A1%A8%E5%BF%85%E9%A1%BB%E6%9C%89%E4%B8%BB%E9%94%AE"><span class="toc-number">5.1.</span> <span class="toc-text">1. 表必须有主键</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-%E4%B8%80%E8%87%B4%E6%80%A7%E7%BA%A7%E5%88%AB%E6%98%AF%E6%9C%80%E7%BB%88%E4%B8%80%E8%87%B4"><span class="toc-number">5.2.</span> <span class="toc-text">2. 一致性级别是最终一致</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-%E5%B0%BD%E9%87%8F%E9%81%BF%E5%85%8D%E9%95%BF%E4%BA%8B%E5%8A%A1"><span class="toc-number">5.3.</span> <span class="toc-text">3. 尽量避免长事务</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-TC-%E5%BF%85%E9%A1%BB%E9%AB%98%E5%8F%AF%E7%94%A8"><span class="toc-number">5.4.</span> <span class="toc-text">4. TC 必须高可用</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-%E5%A4%8D%E6%9D%82-SQL-%E7%9A%84%E9%99%90%E5%88%B6"><span class="toc-number">5.5.</span> <span class="toc-text">5. 复杂 SQL 的限制</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#6-undo-log-%E7%9A%84%E6%B8%85%E7%90%86"><span class="toc-number">5.6.</span> <span class="toc-text">6. undo_log 的清理</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%94%E3%80%81AT-vs-TCC%EF%BC%9A%E6%80%8E%E4%B9%88%E9%80%89%EF%BC%9F"><span class="toc-number">6.</span> <span class="toc-text">五、AT vs TCC：怎么选？</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%AD%E3%80%81%E9%9D%A2%E8%AF%95%E9%AB%98%E9%A2%91%E9%97%AE%E9%A2%98"><span class="toc-number">7.</span> <span class="toc-text">六、面试高频问题</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%86%99%E5%9C%A8%E6%9C%80%E5%90%8E"><span class="toc-number">8.</span> <span class="toc-text">写在最后</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"><img src="/../img/ai-10-ollama.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"/></a><div class="content"><a class="title" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成">Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成</a><time datetime="2026-07-22T02:00:00.000Z" title="发表于 2026-07-22 10:00:00">2026-07-22</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"><img src="/../img/ai-09-spring-ai.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"/></a><div class="content"><a class="title" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling">Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling</a><time datetime="2026-07-17T02:00:00.000Z" title="发表于 2026-07-17 10:00:00">2026-07-17</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"><img src="/../img/ai-08-vector-database.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"/></a><div class="content"><a class="title" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比">向量数据库选型实战：Chroma、Milvus 与 pgvector 对比</a><time datetime="2026-07-13T02:00:00.000Z" title="发表于 2026-07-13 10:00:00">2026-07-13</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度"><img src="/../img/ai-07-rag-evaluation.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 评估实战：Recall@K、MRR 与回答忠实度"/></a><div class="content"><a class="title" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度">RAG 评估实战：Recall@K、MRR 与回答忠实度</a><time datetime="2026-07-12T02:00:00.000Z" title="发表于 2026-07-12 10:00:00">2026-07-12</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"><img src="/../img/ai-06-rag-retrieval.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"/></a><div class="content"><a class="title" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker">RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker</a><time datetime="2026-07-09T02:00:00.000Z" title="发表于 2026-07-09 10:00:00">2026-07-09</time></div></div></div></div></div></div></main><footer id="footer"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2024 - 2026 By qjngbac</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 7.3.0</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.5.5</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.5.5"></script><script src="/js/main.js?v=5.5.5"></script><div class="js-pjax"></div><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

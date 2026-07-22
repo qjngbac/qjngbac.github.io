@@ -1,0 +1,478 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>OOM 问题定位：线上内存溢出的完整排查流程 | Wait</title><meta name="author" content="qjngbac"><meta name="copyright" content="qjngbac"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="前言凌晨运维告警群突然炸锅：核心服务 Pod 频繁重启，错误日志里反复出现 java.lang.OutOfMemoryError。很多开发遇到线上 OOM 的第一反应是重启服务先恢复业务，重启完就没了下文，结果过几天问题复现，周而复始。 OOM 不是玄学，但也不只等于“Java 堆里对象太多”。根因可能是对象泄漏或容量不足，也可能来自元空间、直接内存、线程创建、超大数组，甚至是容器的 cgroup">
+<meta property="og:type" content="article">
+<meta property="og:title" content="OOM 问题定位：线上内存溢出的完整排查流程">
+<meta property="og:url" content="https://qjngbac.github.io/2025/08/11/oom-troubleshooting-guide/index.html">
+<meta property="og:site_name" content="Wait">
+<meta property="og:description" content="前言凌晨运维告警群突然炸锅：核心服务 Pod 频繁重启，错误日志里反复出现 java.lang.OutOfMemoryError。很多开发遇到线上 OOM 的第一反应是重启服务先恢复业务，重启完就没了下文，结果过几天问题复现，周而复始。 OOM 不是玄学，但也不只等于“Java 堆里对象太多”。根因可能是对象泄漏或容量不足，也可能来自元空间、直接内存、线程创建、超大数组，甚至是容器的 cgroup">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://qjngbac.github.io/img/java-series-14-oom.jpg">
+<meta property="article:published_time" content="2025-08-11T07:00:00.000Z">
+<meta property="article:modified_time" content="2026-07-19T09:00:14.150Z">
+<meta property="article:author" content="qjngbac">
+<meta property="article:tag" content="面试">
+<meta property="article:tag" content="Java">
+<meta property="article:tag" content="JVM">
+<meta property="article:tag" content="OOM">
+<meta property="article:tag" content="内存溢出">
+<meta property="article:tag" content="MAT">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://qjngbac.github.io/img/java-series-14-oom.jpg"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "OOM 问题定位：线上内存溢出的完整排查流程",
+  "url": "https://qjngbac.github.io/2025/08/11/oom-troubleshooting-guide/",
+  "image": "https://qjngbac.github.io/img/java-series-14-oom.jpg",
+  "datePublished": "2025-08-11T07:00:00.000Z",
+  "dateModified": "2026-07-19T09:00:14.150Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "qjngbac",
+      "url": "https://qjngbac.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://qjngbac.github.io/2025/08/11/oom-troubleshooting-guide/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.5.5"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        if (!ttl) return
+        const expiry = Date.now() + ttl * 86400000
+        localStorage.setItem(key, JSON.stringify({ value, expiry }))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return undefined
+        const { value, expiry } = JSON.parse(itemStr)
+        if (Date.now() > expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return value
+      }
+    }
+
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+        script.onload = script.onreadystatechange = () => {
+          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      }),
+      getCSS: (url, id) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onload = link.onreadystatechange = () => {
+          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+        }
+        link.onerror = reject
+        document.head.appendChild(link)
+      }),
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: true
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'OOM 问题定位：线上内存溢出的完整排查流程',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="generator" content="Hexo 7.3.0"></head><body><div id="loading-box"><div class="loading-left-bg"></div><div class="loading-right-bg"></div><div class="spinner-box"><div class="configure-border-1"><div class="configure-core"></div></div><div class="configure-border-2"><div class="configure-core"></div></div><div class="loading-word">加载中...</div></div></div><script>(()=>{
+  const $loadingBox = document.getElementById('loading-box')
+  const $body = document.body
+  const preloader = {
+    endLoading: () => {
+      if ($loadingBox.classList.contains('loaded')) return
+      $body.style.overflow = ''
+      $loadingBox.classList.add('loaded')
+    },
+    initLoading: () => {
+      $body.style.overflow = 'hidden'
+      $loadingBox.classList.remove('loaded')
+    }
+  }
+
+  preloader.initLoading()
+
+  if (document.readyState === 'complete') {
+    preloader.endLoading()
+  } else {
+    window.addEventListener('load', preloader.endLoading)
+    document.addEventListener('DOMContentLoaded', preloader.endLoading)
+    // Add timeout protection: force end after 7 seconds
+    setTimeout(preloader.endLoading, 7000)
+  }
+
+  if (false) {
+    btf.addGlobalFn('pjaxSend', preloader.initLoading, 'preloader_init')
+    btf.addGlobalFn('pjaxComplete', preloader.endLoading, 'preloader_end')
+  }
+})()</script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">42</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">139</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(/img/java-series-14-oom.jpg);"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">Wait</span></a><a class="nav-page-title" href="/"><span class="site-name">OOM 问题定位：线上内存溢出的完整排查流程</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">OOM 问题定位：线上内存溢出的完整排查流程</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2025-08-11T07:00:00.000Z" title="发表于 2025-08-11 15:00:00">2025-08-11</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-07-19T09:00:14.150Z" title="更新于 2026-07-19 17:00:14">2026-07-19</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/Java-%E6%B7%B1%E5%BA%A6/">Java 深度</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>凌晨运维告警群突然炸锅：核心服务 Pod 频繁重启，错误日志里反复出现 <code>java.lang.OutOfMemoryError</code>。很多开发遇到线上 OOM 的第一反应是重启服务先恢复业务，重启完就没了下文，结果过几天问题复现，周而复始。</p>
+<p>OOM 不是玄学，但也不只等于“Java 堆里对象太多”。根因可能是对象泄漏或容量不足，也可能来自元空间、直接内存、线程创建、超大数组，甚至是容器的 cgroup 内存上限。先确认内存区域和退出原因，再选择堆快照、线程栈或原生内存工具，才能避免查错方向。</p>
+<p>本文就以一次真实的线上堆溢出为例，带你走完从现场保留、dump 抓取、MAT 深度分析到根因定位的完整流程，最后总结五大高频 OOM 场景的识别与排查方法。</p>
+<hr>
+<h2 id="一、故障第一现场：先止血，再排查"><a href="#一、故障第一现场：先止血，再排查" class="headerlink" title="一、故障第一现场：先止血，再排查"></a>一、故障第一现场：先止血，再排查</h2><h3 id="1-1-第一步：确认异常类型"><a href="#1-1-第一步：确认异常类型" class="headerlink" title="1.1 第一步：确认异常类型"></a>1.1 第一步：确认异常类型</h3><p>不同报错对应完全不同的根因：</p>
+<table>
+<thead>
+<tr>
+<th>OOM 类型</th>
+<th>报错信息</th>
+<th>根因方向</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>堆溢出</td>
+<td><code>Java heap space</code></td>
+<td>内存泄漏 &#x2F; 堆太小</td>
+</tr>
+<tr>
+<td>GC 过度</td>
+<td><code>GC overhead limit exceeded</code></td>
+<td>堆接近耗尽</td>
+</tr>
+<tr>
+<td>元空间</td>
+<td><code>Metaspace</code></td>
+<td>类加载泄漏</td>
+</tr>
+<tr>
+<td>直接内存</td>
+<td><code>Direct buffer memory</code></td>
+<td>NIO&#x2F;Netty 泄漏</td>
+</tr>
+<tr>
+<td>原生线程</td>
+<td><code>unable to create new native thread</code></td>
+<td>线程数过多 &#x2F; 原生内存不足 &#x2F; 系统限制</td>
+</tr>
+<tr>
+<td>超大数组</td>
+<td><code>Requested array size exceeds VM limit</code></td>
+<td>数组长度请求超过 JVM 可表示或可分配范围</td>
+</tr>
+</tbody></table>
+<blockquote>
+<p><code>StackOverflowError</code> 是线程栈因递归过深等原因耗尽；Kubernetes 的 <code>OOMKilled</code> 则是容器被操作系统杀死。二者都不是 <code>OutOfMemoryError</code>，排查工具也不同。</p>
+</blockquote>
+<!-- 配图 1：OOM 类型分类图 -->
+<!-- 插入位置：此处 -->
+
+<p><img src="/../img/oom-types-overview.png" alt="OOM 类型分类"></p>
+<h3 id="1-2-第二步：紧急止血"><a href="#1-2-第二步：紧急止血" class="headerlink" title="1.2 第二步：紧急止血"></a>1.2 第二步：紧急止血</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">1. 流量高的服务 → 限流、切走部分流量</span><br><span class="line">2. 非核心功能 → 临时关闭</span><br><span class="line">3. 多实例 → 摘除故障节点，保证其他节点正常</span><br></pre></td></tr></table></figure>
+
+<h3 id="1-3-第三步：保留现场"><a href="#1-3-第三步：保留现场" class="headerlink" title="1.3 第三步：保留现场"></a>1.3 第三步：保留现场</h3><p><strong>千万不要立刻重启服务！</strong> 重启后堆内存数据全部清空，现场彻底销毁。</p>
+<p>正确做法：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">1. 故障节点从集群摘流，不再接收新请求</span><br><span class="line">2. 导出堆转储快照（dump 文件）</span><br><span class="line">3. 导出完成后再重启服务恢复业务</span><br></pre></td></tr></table></figure>
+
+<p><strong>最佳实践：JVM 启动参数提前加上自动 dump：</strong></p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">-XX:+HeapDumpOnOutOfMemoryError</span><br><span class="line">-XX:HeapDumpPath=/var/log/java/heap.hprof</span><br></pre></td></tr></table></figure>
+
+<p><code>HeapDumpPath</code> 所在磁盘要预留至少接近最大堆大小的空间；在容器中应使用持久卷。固定文件名已存在时，后续 dump 也可能写入失败，生产上更适合配置独立目录并做好归档。</p>
+<hr>
+<h2 id="二、获取堆快照：三种-dump-抓取方式"><a href="#二、获取堆快照：三种-dump-抓取方式" class="headerlink" title="二、获取堆快照：三种 dump 抓取方式"></a>二、获取堆快照：三种 dump 抓取方式</h2><h3 id="2-1-方式一：jmap-手动导出"><a href="#2-1-方式一：jmap-手动导出" class="headerlink" title="2.1 方式一：jmap 手动导出"></a>2.1 方式一：jmap 手动导出</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 找到 Java 进程号</span></span><br><span class="line">jps -l</span><br><span class="line"></span><br><span class="line"><span class="comment"># 导出完整堆快照</span></span><br><span class="line">jmap -dump:format=b,file=heap.hprof &lt;pid&gt;</span><br><span class="line"></span><br><span class="line"><span class="comment"># 只导出存活对象（会触发 Full GC，高峰期慎用）</span></span><br><span class="line">jmap -dump:live,format=b,file=heap.hprof &lt;pid&gt;</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-2-方式二：JVM-参数自动导出"><a href="#2-2-方式二：JVM-参数自动导出" class="headerlink" title="2.2 方式二：JVM 参数自动导出"></a>2.2 方式二：JVM 参数自动导出</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">-XX:+HeapDumpOnOutOfMemoryError</span><br><span class="line">-XX:HeapDumpPath=/var/log/java/heap.hprof</span><br></pre></td></tr></table></figure>
+
+<p>生产环境标准配置，强烈建议所有核心服务都加上。</p>
+<h3 id="2-3-方式三：Arthas-在线导出"><a href="#2-3-方式三：Arthas-在线导出" class="headerlink" title="2.3 方式三：Arthas 在线导出"></a>2.3 方式三：Arthas 在线导出</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 下载 Arthas</span></span><br><span class="line">curl -O https://arthas.aliyun.com/arthas-boot.jar</span><br><span class="line"></span><br><span class="line"><span class="comment"># 启动，选择 Java 进程</span></span><br><span class="line">java -jar arthas-boot.jar</span><br><span class="line"></span><br><span class="line"><span class="comment"># 导出堆快照</span></span><br><span class="line">heapdump /logs/heap.hprof</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-4-查看堆内存概况（不导出-dump）"><a href="#2-4-查看堆内存概况（不导出-dump）" class="headerlink" title="2.4 查看堆内存概况（不导出 dump）"></a>2.4 查看堆内存概况（不导出 dump）</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 查看堆内存使用情况（较新 JDK 推荐 jcmd）</span></span><br><span class="line">jcmd &lt;pid&gt; GC.heap_info</span><br><span class="line"></span><br><span class="line"><span class="comment"># 查看对象统计（快速定位大对象）</span></span><br><span class="line">jcmd &lt;pid&gt; GC.class_histogram | <span class="built_in">head</span> -30</span><br><span class="line"></span><br><span class="line"><span class="comment"># 只看存活对象会触发 Full GC，高峰期慎用</span></span><br><span class="line">jmap -histo:live &lt;pid&gt; | <span class="built_in">head</span> -30</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="三、MAT-深度分析：定位内存泄漏真凶"><a href="#三、MAT-深度分析：定位内存泄漏真凶" class="headerlink" title="三、MAT 深度分析：定位内存泄漏真凶"></a>三、MAT 深度分析：定位内存泄漏真凶</h2><p>Eclipse MAT（Memory Analyzer Tool）是 OOM 排查的标配工具。</p>
+<h3 id="3-1-MAT-核心概念"><a href="#3-1-MAT-核心概念" class="headerlink" title="3.1 MAT 核心概念"></a>3.1 MAT 核心概念</h3><table>
+<thead>
+<tr>
+<th>概念</th>
+<th>含义</th>
+<th>排查价值</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>浅堆（Shallow Heap）</strong></td>
+<td>对象本身占用的内存</td>
+<td>参考价值有限</td>
+</tr>
+<tr>
+<td><strong>深堆（Retained Heap）</strong></td>
+<td>对象被 GC 回收后能释放的总内存</td>
+<td><strong>最核心指标</strong></td>
+</tr>
+<tr>
+<td><strong>支配树（Dominator Tree）</strong></td>
+<td>对象间的支配关系</td>
+<td>快速找大对象</td>
+</tr>
+<tr>
+<td><strong>GC Roots</strong></td>
+<td>垃圾回收的根对象</td>
+<td>追溯泄漏引用链</td>
+</tr>
+<tr>
+<td><strong>泄漏嫌疑报告</strong></td>
+<td>MAT 自动分析的高概率泄漏点</td>
+<td>新手首选</td>
+</tr>
+</tbody></table>
+<h3 id="3-2-标准排查四步走"><a href="#3-2-标准排查四步走" class="headerlink" title="3.2 标准排查四步走"></a>3.2 标准排查四步走</h3><p><strong>第一步：看泄漏嫌疑报告</strong></p>
+<p>打开 MAT → File → Open Heap Dump → 选择 Leak Suspects Report</p>
+<p>MAT 会自动分析，给出类似：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">Problem Suspect 1:</span><br><span class="line">  78% of heap occupied by:</span><br><span class="line">    HashMap$Node[] at 0x7f3c00048</span><br><span class="line">    Referenced by:</span><br><span class="line">      com.example.service.CacheManager.localCache (static field)</span><br></pre></td></tr></table></figure>
+
+<p><strong>第二步：支配树找大对象</strong></p>
+<p>打开 Dominator Tree，按 Retained Heap 降序排列：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">对象                                    深堆          占比</span><br><span class="line">─────────────────────────────────────────────────────────</span><br><span class="line">HashMap$Node[]                         5.2 GB       78%</span><br><span class="line">  └── java.util.HashMap                5.2 GB</span><br><span class="line">       └── com.example.Order           4.8 GB</span><br><span class="line">            └── byte[] (content)       3.1 GB</span><br></pre></td></tr></table></figure>
+
+<p><strong>第三步：追引用链，找泄漏根因</strong></p>
+<p>右键大对象 → Path to GC Roots → exclude all phantom&#x2F;weak&#x2F;soft etc. references</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">引用链：</span><br><span class="line">GC Root (Thread Local Variable)</span><br><span class="line">  → com.example.service.CacheManager</span><br><span class="line">    → static HashMap localCache</span><br><span class="line">      → HashMap$Node[]</span><br><span class="line">        → 1,200,000 条过期订单数据  ← 泄漏对象</span><br></pre></td></tr></table></figure>
+
+<p><strong>第四步：直方图看对象分布</strong></p>
+<p>打开 Histogram，按 Retained Heap 排序：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">类名                    实例数        浅堆        深堆</span><br><span class="line">──────────────────────────────────────────────────────</span><br><span class="line">byte[]                  2,500,000    1.8 GB     1.8 GB</span><br><span class="line">char[]                  1,200,000    800 MB     800 MB</span><br><span class="line">com.example.Order       1,200,000    450 MB     4.8 GB</span><br><span class="line">java.lang.String        3,000,000    300 MB     600 MB</span><br></pre></td></tr></table></figure>
+
+<!-- 配图 2：MAT 分析流程图 -->
+<!-- 插入位置：此处 -->
+
+<p><img src="/../img/oom-mat-analysis-flow.png" alt="MAT 分析流程"></p>
+<hr>
+<h2 id="四、常见内存泄漏代码模式"><a href="#四、常见内存泄漏代码模式" class="headerlink" title="四、常见内存泄漏代码模式"></a>四、常见内存泄漏代码模式</h2><h3 id="4-1-静态集合无界增长"><a href="#4-1-静态集合无界增长" class="headerlink" title="4.1 静态集合无界增长"></a>4.1 静态集合无界增长</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// ❌ 内存泄漏：静态 Map 只进不出</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">OrderCache</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> Map&lt;String, Order&gt; CACHE = <span class="keyword">new</span> <span class="title class_">HashMap</span>&lt;&gt;();</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">put</span><span class="params">(String key, Order order)</span> &#123;</span><br><span class="line">        CACHE.put(key, order);  <span class="comment">// 永远不会被 GC</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// ✅ 修复：使用有界缓存</span></span><br><span class="line"><span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> Cache&lt;String, Order&gt; CACHE = Caffeine.newBuilder()</span><br><span class="line">        .maximumSize(<span class="number">10000</span>)</span><br><span class="line">        .expireAfterWrite(<span class="number">10</span>, TimeUnit.MINUTES)</span><br><span class="line">        .build();</span><br></pre></td></tr></table></figure>
+
+<h3 id="4-2-长生命周期对象持有短生命周期对象"><a href="#4-2-长生命周期对象持有短生命周期对象" class="headerlink" title="4.2 长生命周期对象持有短生命周期对象"></a>4.2 长生命周期对象持有短生命周期对象</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// ❌ 内存泄漏：单例 Service 持有 Request 级别的数据</span></span><br><span class="line"><span class="meta">@Service</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">OrderService</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> List&lt;Order&gt; tempList = <span class="keyword">new</span> <span class="title class_">ArrayList</span>&lt;&gt;();  <span class="comment">// 单例，不会销毁</span></span><br><span class="line">    </span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">process</span><span class="params">(Order order)</span> &#123;</span><br><span class="line">        tempList.add(order);  <span class="comment">// 每次请求都加，永不清理</span></span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// ✅ 修复：方法内局部变量</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">process</span><span class="params">(Order order)</span> &#123;</span><br><span class="line">    List&lt;Order&gt; tempList = <span class="keyword">new</span> <span class="title class_">ArrayList</span>&lt;&gt;();  <span class="comment">// 方法结束自动回收</span></span><br><span class="line">    tempList.add(order);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="4-3-连接-流未关闭"><a href="#4-3-连接-流未关闭" class="headerlink" title="4.3 连接&#x2F;流未关闭"></a>4.3 连接&#x2F;流未关闭</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// ❌ 内存泄漏：连接未关闭</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">readFile</span><span class="params">(String path)</span> <span class="keyword">throws</span> IOException &#123;</span><br><span class="line">    <span class="type">InputStream</span> <span class="variable">is</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">FileInputStream</span>(path);</span><br><span class="line">    <span class="type">byte</span>[] data = is.readAllBytes();</span><br><span class="line">    <span class="comment">// 忘了关闭 is，连接泄漏</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// ✅ 修复：try-with-resources</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">readFile</span><span class="params">(String path)</span> <span class="keyword">throws</span> IOException &#123;</span><br><span class="line">    <span class="keyword">try</span> (<span class="type">InputStream</span> <span class="variable">is</span> <span class="operator">=</span> <span class="keyword">new</span> <span class="title class_">FileInputStream</span>(path)) &#123;</span><br><span class="line">        <span class="type">byte</span>[] data = is.readAllBytes();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h3 id="4-4-监听器-回调未注销"><a href="#4-4-监听器-回调未注销" class="headerlink" title="4.4 监听器&#x2F;回调未注销"></a>4.4 监听器&#x2F;回调未注销</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// ❌ 内存泄漏：注册了监听器但从未注销</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">MyListener</span> <span class="keyword">implements</span> <span class="title class_">ApplicationListener</span> &#123;</span><br><span class="line">    <span class="comment">// 注册后一直存在于 Spring 容器</span></span><br><span class="line">    <span class="comment">// 如果内部持有大量数据，会导致泄漏</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// ✅ 修复：使用弱引用或及时注销</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="4-5-ThreadLocal-未清理"><a href="#4-5-ThreadLocal-未清理" class="headerlink" title="4.5 ThreadLocal 未清理"></a>4.5 ThreadLocal 未清理</h3><figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// ❌ 内存泄漏：ThreadLocal 未 remove</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">class</span> <span class="title class_">UserContext</span> &#123;</span><br><span class="line">    <span class="keyword">private</span> <span class="keyword">static</span> <span class="keyword">final</span> ThreadLocal&lt;User&gt; CURRENT_USER = <span class="keyword">new</span> <span class="title class_">ThreadLocal</span>&lt;&gt;();</span><br><span class="line">    </span><br><span class="line">    <span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">set</span><span class="params">(User user)</span> &#123;</span><br><span class="line">        CURRENT_USER.set(user);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="comment">// 忘了 remove，线程池中的线程会一直持有</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// ✅ 修复：用完必须 remove</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">static</span> <span class="keyword">void</span> <span class="title function_">clear</span><span class="params">()</span> &#123;</span><br><span class="line">    CURRENT_USER.remove();  <span class="comment">// 在 finally 中调用</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="五、常见-OOM-与相关错误场景"><a href="#五、常见-OOM-与相关错误场景" class="headerlink" title="五、常见 OOM 与相关错误场景"></a>五、常见 OOM 与相关错误场景</h2><h3 id="5-1-Java-heap-space（堆溢出）"><a href="#5-1-Java-heap-space（堆溢出）" class="headerlink" title="5.1 Java heap space（堆溢出）"></a>5.1 Java heap space（堆溢出）</h3><p>最常见，两类根因：</p>
+<table>
+<thead>
+<tr>
+<th>根因</th>
+<th>特征</th>
+<th>解决方案</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>内存泄漏</td>
+<td>对象数量持续增长</td>
+<td>修复代码，消除泄漏点</td>
+</tr>
+<tr>
+<td>容量不足</td>
+<td>对象数量正常但堆太小</td>
+<td>调大堆内存或优化业务</td>
+</tr>
+</tbody></table>
+<h3 id="5-2-GC-overhead-limit-exceeded"><a href="#5-2-GC-overhead-limit-exceeded" class="headerlink" title="5.2 GC overhead limit exceeded"></a>5.2 GC overhead limit exceeded</h3><p>JVM 几乎把全部时间都耗在 GC 上，却只能回收极少的堆空间。HotSpot 的典型判定条件是连续多次 GC 花费超过约 98% 的时间、每次回收不到约 2% 的堆。本质通常是堆接近耗尽，但也应结合 GC 日志确认是泄漏、分配速率过高还是堆容量不足。</p>
+<h3 id="5-3-Metaspace（元空间溢出）"><a href="#5-3-Metaspace（元空间溢出）" class="headerlink" title="5.3 Metaspace（元空间溢出）"></a>5.3 Metaspace（元空间溢出）</h3><p>常见原因：</p>
+<ul>
+<li>动态代理&#x2F;CGLIB 生成太多类</li>
+<li>类加载器泄漏（热部署场景）</li>
+<li>元空间配置太小</li>
+</ul>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 调大元空间</span></span><br><span class="line">-XX:MetaspaceSize=256m</span><br><span class="line">-XX:MaxMetaspaceSize=512m</span><br></pre></td></tr></table></figure>
+
+<h3 id="5-4-Direct-buffer-memory（直接内存溢出）"><a href="#5-4-Direct-buffer-memory（直接内存溢出）" class="headerlink" title="5.4 Direct buffer memory（直接内存溢出）"></a>5.4 Direct buffer memory（直接内存溢出）</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 调大直接内存</span></span><br><span class="line">-XX:MaxDirectMemorySize=512m</span><br></pre></td></tr></table></figure>
+
+<p>排查时先看 <code>BufferPoolMXBean</code>（JMX 指标 <code>java.nio:type=BufferPool,name=direct</code>）的 <code>MemoryUsed</code> 与 <code>TotalCapacity</code>。堆 dump 虽然不包含堆外字节本身，但能看到 <code>DirectByteBuffer</code> 包装对象及其引用链。NMT 更适合观察 JVM 原生内存总分类，未必能把所有直接缓冲区都单独归因：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 启动时开启 NMT</span></span><br><span class="line">-XX:NativeMemoryTracking=detail</span><br><span class="line"></span><br><span class="line"><span class="comment"># 查看内存分布</span></span><br><span class="line">jcmd &lt;pid&gt; VM.native_memory summary</span><br></pre></td></tr></table></figure>
+
+<h3 id="5-5-unable-to-create-new-native-thread"><a href="#5-5-unable-to-create-new-native-thread" class="headerlink" title="5.5 unable to create new native thread"></a>5.5 unable to create new native thread</h3><p>JVM 创建 Java 线程时还需要分配原生线程和线程栈；线程数失控、单线程栈过大、进程&#x2F;用户线程数限制或容器内存不足，都可能触发该 OOM。排查时同时检查线程 dump、进程线程数、<code>-Xss</code>、系统限制和容器内存，而不是只调大 Java 堆：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 查看 JVM 线程概况与线程 dump</span></span><br><span class="line">jcmd &lt;pid&gt; Thread.<span class="built_in">print</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># Linux 下查看进程线程数</span></span><br><span class="line"><span class="built_in">cat</span> /proc/&lt;pid&gt;/status | grep Threads</span><br></pre></td></tr></table></figure>
+
+<h3 id="5-6-Requested-array-size-exceeds-VM-limit"><a href="#5-6-Requested-array-size-exceeds-VM-limit" class="headerlink" title="5.6 Requested array size exceeds VM limit"></a>5.6 Requested array size exceeds VM limit</h3><p>通常是程序计算出的数组长度异常，超过 JVM 能表示或允许的单数组上限。它不等同于“堆太小”，盲目增加 <code>-Xmx</code> 往往无效；应检查长度计算、整数溢出和一次性读取超大文件等逻辑。</p>
+<h3 id="5-7-相关但不是-OOM：StackOverflowError-与-OOMKilled"><a href="#5-7-相关但不是-OOM：StackOverflowError-与-OOMKilled" class="headerlink" title="5.7 相关但不是 OOM：StackOverflowError 与 OOMKilled"></a>5.7 相关但不是 OOM：StackOverflowError 与 OOMKilled</h3><p><code>StackOverflowError</code> 通常由无限递归或调用层级过深导致：</p>
+<p>几乎都是无限递归：</p>
+<figure class="highlight java"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// ❌ 无限递归</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">recurse</span><span class="params">()</span> &#123;</span><br><span class="line">    recurse();  <span class="comment">// 没有终止条件</span></span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="comment">// ✅ 加终止条件</span></span><br><span class="line"><span class="keyword">public</span> <span class="keyword">void</span> <span class="title function_">recurse</span><span class="params">(<span class="type">int</span> depth)</span> &#123;</span><br><span class="line">    <span class="keyword">if</span> (depth &lt;= <span class="number">0</span>) <span class="keyword">return</span>;</span><br><span class="line">    recurse(depth - <span class="number">1</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>Kubernetes 的 <code>OOMKilled</code> 是容器内存超过 cgroup 限制后被操作系统终止，进程可能来不及抛出 Java 异常或生成 heap dump。此时应结合 Pod 状态、容器内存曲线、堆外内存和 <code>-Xmx</code>&#x2F;<code>MaxRAMPercentage</code> 排查。</p>
+<hr>
+<h2 id="六、JVM-内存参数调优"><a href="#六、JVM-内存参数调优" class="headerlink" title="六、JVM 内存参数调优"></a>六、JVM 内存参数调优</h2><h3 id="6-1-堆内存设置"><a href="#6-1-堆内存设置" class="headerlink" title="6.1 堆内存设置"></a>6.1 堆内存设置</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 基本设置</span></span><br><span class="line">-Xms4g                <span class="comment"># 初始堆大小（建议和 Xmx 一样）</span></span><br><span class="line">-Xmx4g                <span class="comment"># 最大堆大小</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># 新生代（Parallel/CMS 等收集器可按需设置；G1 通常不建议固定 Xmn）</span></span><br><span class="line">-Xmn1g                <span class="comment"># 新生代大小（一般为堆的 1/3 到 1/4）</span></span><br><span class="line">-XX:SurvivorRatio=8   <span class="comment"># Eden:S0:S1 = 8:1:1</span></span><br></pre></td></tr></table></figure>
+
+<h3 id="6-2-GC-收集器选择"><a href="#6-2-GC-收集器选择" class="headerlink" title="6.2 GC 收集器选择"></a>6.2 GC 收集器选择</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># G1 收集器（推荐，JDK 9+ 默认）</span></span><br><span class="line">-XX:+UseG1GC</span><br><span class="line">-XX:MaxGCPauseMillis=200</span><br><span class="line">-XX:InitiatingHeapOccupancyPercent=45</span><br><span class="line"></span><br><span class="line"><span class="comment"># ZGC（超低延迟，JDK 15+）</span></span><br><span class="line">-XX:+UseZGC</span><br></pre></td></tr></table></figure>
+
+<h3 id="6-3-自动-dump-配置"><a href="#6-3-自动-dump-配置" class="headerlink" title="6.3 自动 dump 配置"></a>6.3 自动 dump 配置</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">-XX:+HeapDumpOnOutOfMemoryError</span><br><span class="line">-XX:HeapDumpPath=/var/log/java/heap.hprof</span><br><span class="line"><span class="comment"># JDK 8 GC 日志</span></span><br><span class="line">-XX:+PrintGCDetails</span><br><span class="line">-XX:+PrintGCDateStamps</span><br><span class="line">-Xloggc:/var/log/java/gc.log</span><br><span class="line"></span><br><span class="line"><span class="comment"># JDK 9+ 推荐统一日志</span></span><br><span class="line">-Xlog:gc*,safepoint:file=/var/log/java/gc.log:<span class="keyword">time</span>,<span class="built_in">uptime</span>,level,tags:filecount=5,filesize=100m</span><br></pre></td></tr></table></figure>
+
+<h3 id="6-4-生产环境推荐配置"><a href="#6-4-生产环境推荐配置" class="headerlink" title="6.4 生产环境推荐配置"></a>6.4 生产环境推荐配置</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">java \</span><br><span class="line">  -Xms4g -Xmx4g \</span><br><span class="line">  -XX:+UseG1GC \</span><br><span class="line">  -XX:MaxGCPauseMillis=200 \</span><br><span class="line">  -XX:+HeapDumpOnOutOfMemoryError \</span><br><span class="line">  -XX:HeapDumpPath=/var/log/java/heap.hprof \</span><br><span class="line">  -Xlog:gc*,safepoint:file=/var/log/java/gc.log:<span class="keyword">time</span>,<span class="built_in">uptime</span>,level,tags:filecount=5,filesize=100m \</span><br><span class="line">  -jar app.jar</span><br></pre></td></tr></table></figure>
+
+<hr>
+<h2 id="七、监控告警建议"><a href="#七、监控告警建议" class="headerlink" title="七、监控告警建议"></a>七、监控告警建议</h2><p>下面的数值只能作为起始模板，应结合堆大小、GC 目标、流量周期和历史基线调整；比瞬时使用率更重要的是 Full GC 后仍持续上涨的趋势。</p>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>阈值</th>
+<th>告警级别</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>堆内存使用率</td>
+<td>&gt; 85%</td>
+<td>警告</td>
+</tr>
+<tr>
+<td>堆内存使用率</td>
+<td>&gt; 95%</td>
+<td>严重</td>
+</tr>
+<tr>
+<td>Full GC 频率</td>
+<td>&gt; 5次&#x2F;小时</td>
+<td>警告</td>
+</tr>
+<tr>
+<td>GC 耗时占比</td>
+<td>&gt; 10%</td>
+<td>警告</td>
+</tr>
+<tr>
+<td>元空间使用率</td>
+<td>&gt; 80%</td>
+<td>警告</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="八、完整排查流程总结"><a href="#八、完整排查流程总结" class="headerlink" title="八、完整排查流程总结"></a>八、完整排查流程总结</h2><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">1. 确认异常类型 → 看日志确定是哪种 OOM</span><br><span class="line">2. 保留现场导出 dump → 优先自动 dump，没有就 jmap</span><br><span class="line">3. MAT 初步分析 → 泄漏嫌疑报告，快速定位大对象</span><br><span class="line">4. 支配树深挖 → 按深堆排序，找占用最大的对象</span><br><span class="line">5. 追溯 GC 引用链 → 找到泄漏对象到 GC Roots 的路径</span><br><span class="line">6. 验证根因修复 → 修复代码，观察内存曲线</span><br></pre></td></tr></table></figure>
+
+<h3 id="避坑提醒"><a href="#避坑提醒" class="headerlink" title="避坑提醒"></a>避坑提醒</h3><table>
+<thead>
+<tr>
+<th>错误做法</th>
+<th>正确做法</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>只看浅堆</td>
+<td>看深堆（Retained Heap）</td>
+</tr>
+<tr>
+<td>上来就怪 JVM</td>
+<td>先区分泄漏、容量、原生内存和容器限制</td>
+</tr>
+<tr>
+<td>一上来就调大堆</td>
+<td>先看清报错类型</td>
+</tr>
+<tr>
+<td>高峰期 dump</td>
+<td>摘流或低峰期操作</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="九、面试高频问题"><a href="#九、面试高频问题" class="headerlink" title="九、面试高频问题"></a>九、面试高频问题</h2><p><strong>Q1：OOM 和常见内存相关错误有哪些？</strong></p>
+<p>常见 OOM 包括堆溢出（Java heap space）、GC 过度（GC overhead limit exceeded）、元空间溢出（Metaspace）、直接内存溢出（Direct buffer memory）、无法创建原生线程和数组尺寸超限。<code>StackOverflowError</code> 与 Kubernetes <code>OOMKilled</code> 都不是 <code>OutOfMemoryError</code>，排查时不能混为一类。</p>
+<p><strong>Q2：线上 OOM 怎么排查？</strong></p>
+<p>先根据完整异常、GC 日志和容器状态判断资源区域，再收集对应证据：堆问题看 heap dump&#x2F;MAT，元空间看类加载统计，直接内存看 BufferPool 与 NMT，原生线程问题看线程 dump、系统限制和容器内存。最后区分泄漏、突发分配、容量不足或配置错误并修复；不要把“调大堆”当成通用答案。</p>
+<p><strong>Q3：MAT 的核心指标是什么？</strong></p>
+<p>深堆（Retained Heap），表示对象被 GC 回收后能释放的总内存。深堆最大的对象通常是最值得优先排查的泄漏嫌疑点，但还要结合 GC Roots 引用链确认根因。</p>
+<p><strong>Q4：什么是内存泄漏？怎么预防？</strong></p>
+<p>对象被意外持有无法被 GC 回收。常见原因：静态集合无界增长、连接未关闭、ThreadLocal 未清理、监听器未注销。预防：使用有界缓存、try-with-resources、及时 remove。</p>
+<p><strong>Q5：JVM 启动参数怎么配置？</strong></p>
+<p>固定 <code>-Xms/-Xmx</code> 可以减少运行期堆伸缩，但在容器环境还要给非堆、线程栈和原生内存留余量；使用 G1 时通常让 JVM 自适应新生代大小，不要随手固定 <code>-Xmn</code>。同时配置 <code>HeapDumpOnOutOfMemoryError</code>，再依据延迟目标和 JDK 版本选择 G1、ZGC 等收集器。</p>
+<p><strong>Q6：如何区分内存泄漏和容量不足？</strong></p>
+<p>重点看多次 Full GC 后的存活集、对象数量和业务负载：某类对象在负载回落后仍持续增长，并存在异常 GC Roots 引用链，才更像泄漏；对象生命周期正常但峰值存活集确实超过容量，则更像容量不足。仅凭一次对象数量快照不能定性。</p>
+<hr>
+<h2 id="写在最后"><a href="#写在最后" class="headerlink" title="写在最后"></a>写在最后</h2><p>OOM 排查从来不是靠运气碰，而是一套有章法的方法论。日志定类型、dump 留现场、MAT 找大对象、引用链追根因，四步走下来，绝大多数问题都能水落石出。</p>
+<p>比工具更重要的是对 JVM 内存模型的理解：知道对象为什么存活、为什么回收不了、不同内存区域各自管什么，遇到问题时才能快速缩小范围。</p>
+<p>工具只是手段，底层原理才是解决问题的根本。</p>
+<hr>
+<blockquote>
+<p><strong>系列文章预告</strong>：</p>
+<ul>
+<li>上一篇：接口响应慢排查：从 3 秒优化到 200 毫秒</li>
+<li>下一篇：SQL 优化实战：一条 SQL 从 5 秒到 50 毫秒</li>
+</ul>
+</blockquote>
+<p><em>如果觉得有帮助，欢迎点赞收藏，有问题欢迎评论区交流。</em></p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://qjngbac.github.io">qjngbac</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://qjngbac.github.io/2025/08/11/oom-troubleshooting-guide/">https://qjngbac.github.io/2025/08/11/oom-troubleshooting-guide/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://qjngbac.github.io" target="_blank">Wait</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><a class="post-meta__tags" href="/tags/Java/">Java</a><a class="post-meta__tags" href="/tags/JVM/">JVM</a><a class="post-meta__tags" href="/tags/OOM/">OOM</a><a class="post-meta__tags" href="/tags/%E5%86%85%E5%AD%98%E6%BA%A2%E5%87%BA/">内存溢出</a><a class="post-meta__tags" href="/tags/MAT/">MAT</a></div><div class="post-share"><div class="social-share" data-image="/img/java-series-14-oom.jpg" data-sites="facebook,x,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/2025/08/26/aqs-reentrantlock-guide/" title="AQS 源码分析：ReentrantLock 背后的秘密"><img class="cover" src="/img/java-series-05-aqs.jpg" onerror="onerror=null;src='/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">AQS 源码分析：ReentrantLock 背后的秘密</div></div><div class="info-2"><div class="info-item-1">前言写 Java 并发代码，ReentrantLock 是常用的显式锁：它可配置公平策略，并支持可重入、可中断和超时获取，在需要这些能力时比 synchronized 更灵活。但很多人用了很久，却不知道它的底层建立在 AQS 之上。 面试中 AQS 更是并发模块的必考题：state 变量有什么用？CLH 队列怎么工作？公平锁和非公平锁到底差在哪？这些问题看似是八股，实则是理解整个 JUC 并发工具包的钥匙。 ReentrantLock 本身几乎没有复杂逻辑，它的全部锁能力，都委托给了内部的 AQS 实现类。今天我们就从 ReentrantLock 切入，逐层拆解 AQS 的核心设计：state 同步状态、CLH 等待队列、公平与非公平实现，彻底搞懂显式锁的底层原理。  一、AQS 是什么？JUC 并发的基石AQS 全称 AbstractQueuedSynchronizer，抽象队列同步器，是 java.util.concurrent 包的核心骨架。 它本质上是一个抽象框架：用一个共享变量维护同步状态，再用一个近似 FIFO 的等待队列管理竞争失败的线程。基于这套框架，JDK 实现...</div></div></div></a><a class="pagination-related" href="/2025/07/30/gc-tuning-guide/" title="GC 调优实战：一次线上 OOM 的排查经历"><img class="cover" src="/img/java-series-02-gc-tuning.jpg" onerror="onerror=null;src='/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">GC 调优实战：一次线上 OOM 的排查经历</div></div><div class="info-2"><div class="info-item-1">前言凌晨两点，运维告警群突然弹出一连串红色预警：核心订单服务多个实例响应超时，K8s Pod 频繁自动重启，错误日志中反复出现 java.lang.OutOfMemoryError: Java heap space。 作为后端团队的核心开发，我紧急介入排查。整个过程从 GC 现象观察到堆内存定位，从收集器原理到参数调优落地，前后三小时彻底解决问题。 很多人觉得 GC 调优是”玄学”，靠背参数就能应付。但真实线上场景里，懂 GC 算法原理、会用原生工具定位问题，才是解决 OOM 的核心能力。本文就以这次实战为线索，系统梳理 GC 核心算法、主流收集器选型，以及 jstat、jmap 的实战用法。  一、故障初现：线上 OOM 的现场信息1.1 故障现象当时正值业务高峰期，监控平台显示：  接口平均响应时间从 50ms 飙升至 800ms，大量请求超时熔断 Pod 每 10 分钟左右触发一次自动重启，服务完全无法稳定承载流量 JVM 监控显示老年代内存占用持续走高，Full GC 频率远超正常水平  1.2 初步日志定位登录容器查看服务错误日志，核心报错非常明确： 1java.lan...</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/2025/07/20/class-loading-mechanism/" title="类加载机制：为什么你的代码会报 ClassNotFoundException"><img class="cover" src="/img/java-series-03-classloading.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2025-07-20</div><div class="info-item-2">类加载机制：为什么你的代码会报 ClassNotFoundException</div></div><div class="info-2"><div class="info-item-1">前言刚改完的代码本地跑得好好的，一上测试环境就抛出 java.lang.ClassNotFoundException；Maven 依赖明明已经引入，打包也没报错，翻遍 lib 目录也能找到对应 jar 包，可 JVM 就是说找不到类。 很多人遇到这类问题，第一反应都是”缺包了””依赖没打进去”。这当然是最常见原因，但并不是全部。真实线上场景里，类明明存在却依然加载失败，往往和类加载器隔离、双亲委派模型、线程上下文类加载器、容器自定义加载规则有关。 类加载是 Java 最核心的基础机制之一，也是面试高频考点，更是我们排查依赖冲突、容器隔离、插件化、热部署问题的底层依据。本文就从 ClassNotFoundException 切入，把类加载流程、双亲委派模型、自定义类加载器，以及打破双亲委派的典型场景一次讲透。  一、前置认知：一个类从源码到执行要走几步Java 源码会先被编译成 .class 字节码文件。JVM 运行时不会直接执行 .java 文件，而是通过类加载机制把描述类的数据从 Class 文件、jar 包、网络或其他来源加载到内存中，再完成校验、转换、解析和初始化，最终形成...</div></div></div></a><a class="pagination-related" href="/2025/07/30/gc-tuning-guide/" title="GC 调优实战：一次线上 OOM 的排查经历"><img class="cover" src="/img/java-series-02-gc-tuning.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2025-07-30</div><div class="info-item-2">GC 调优实战：一次线上 OOM 的排查经历</div></div><div class="info-2"><div class="info-item-1">前言凌晨两点，运维告警群突然弹出一连串红色预警：核心订单服务多个实例响应超时，K8s Pod 频繁自动重启，错误日志中反复出现 java.lang.OutOfMemoryError: Java heap space。 作为后端团队的核心开发，我紧急介入排查。整个过程从 GC 现象观察到堆内存定位，从收集器原理到参数调优落地，前后三小时彻底解决问题。 很多人觉得 GC 调优是”玄学”，靠背参数就能应付。但真实线上场景里，懂 GC 算法原理、会用原生工具定位问题，才是解决 OOM 的核心能力。本文就以这次实战为线索，系统梳理 GC 核心算法、主流收集器选型，以及 jstat、jmap 的实战用法。  一、故障初现：线上 OOM 的现场信息1.1 故障现象当时正值业务高峰期，监控平台显示：  接口平均响应时间从 50ms 飙升至 800ms，大量请求超时熔断 Pod 每 10 分钟左右触发一次自动重启，服务完全无法稳定承载流量 JVM 监控显示老年代内存占用持续走高，Full GC 频率远超正常水平  1.2 初步日志定位登录容器查看服务错误日志，核心报错非常明确： 1java.lan...</div></div></div></a><a class="pagination-related" href="/2025/07/22/jvm-memory-model/" title="JVM 运行时内存区域：你真的理解堆和栈吗？"><img class="cover" src="/img/java-series-01-jvm-memory.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2025-07-22</div><div class="info-item-2">JVM 运行时内存区域：你真的理解堆和栈吗？</div></div><div class="info-2"><div class="info-item-1">前言写了多年 Java 代码，new 了无数个对象，调用了数不清的方法，但被问到”JVM 内存里堆和栈有什么区别”时，很多人依然只能说出”堆存对象，栈存变量”。面试被追问方法区、程序计数器、对象创建流程时，更是容易卡壳。 JVM 运行时内存区域是 Java 工程师的基本功，它不仅是面试高频考点，更是我们排查内存溢出、理解 GC 机制、进行性能调优的底层基石。今天我们就系统梳理一遍 JVM 运行时数据区，把堆、栈、方法区、程序计数器讲透，再完整走一遍对象从加载到创建的全过程。  一、JVM 运行时数据区总览Java 虚拟机在执行 Java 程序的过程中，会把它管理的内存划分为若干个不同的数据区域。这些区域各有用途、创建销毁时间各不相同：有的随着虚拟机进程启动而存在，有的则依赖用户线程的启动和结束而建立和销毁。 按照线程共享和线程私有两大维度，可以划分为以下区域：  线程私有：随线程生而生，随线程灭而灭 程序计数器 Java 虚拟机栈 本地方法栈   线程共享：所有线程共享，随虚拟机启动而创建 Java 堆 方法区（JDK 8 后演变为元空间） 运行时常量池（方法区的一部分）    ...</div></div></div></a><a class="pagination-related" href="/2025/10/02/completablefuture-guide/" title="CompletableFuture 实战：异步编程不再痛苦"><img class="cover" src="/img/java-series-06-completable-future.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2025-10-02</div><div class="info-item-2">CompletableFuture 实战：异步编程不再痛苦</div></div><div class="info-2"><div class="info-item-1">前言在日常后端开发中，我们总在追求更快的接口响应、更高的系统吞吐量。一个常见的场景：一个接口要先后调用 3 个远程服务，每个耗时 200ms，串行下来光调用就需要 600ms，再加上业务逻辑，接口很容易超时。 很多人第一反应是「用多线程异步化」，但传统的 Future 用起来十分鸡肋：只能通过阻塞的 get() 拿结果，无法链式编排多个异步任务，异常处理也极其麻烦，写出来的代码又丑又难维护。 直到 Java 8 推出了 CompletableFuture，Java 才算真正拥有了优雅的异步编程能力。它支持链式调用、任务组合、异常处理、超时控制，能轻松应对各种复杂的异步编排场景。 今天我们就从 API 到实战，一次性讲透 CompletableFuture，让异步编程不再是代码里的痛点。  一、为什么我们需要 CompletableFuture？1.1 传统 Future 的三大痛点1. 结果获取只能阻塞 调用 get() 方法会一直阻塞，直到任务返回结果。本质上还是同步等待，没有发挥异步的价值。 12Future&lt;String&gt; future = executor.s...</div></div></div></a><a class="pagination-related" href="/2025/08/30/concurrenthashmap-guide/" title="ConcurrentHashMap 源码：它为什么是线程安全的"><img class="cover" src="/img/java-series-12-concurrent-hashmap.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2025-08-30</div><div class="info-item-2">ConcurrentHashMap 源码：它为什么是线程安全的</div></div><div class="info-2"><div class="info-item-1">前言在并发场景下，HashMap 会出现元素覆盖、丢失、计数不准等问题；JDK 7 的并发扩容还可能形成链表环。Hashtable 虽然线程安全，却主要依赖整表级 synchronized，并发写入容易形成明显竞争。 为了兼顾「线程安全」与「并发性能」，JDK 推出了 ConcurrentHashMap。它也是面试中的高频考点：分段锁是什么？JDK 1.8 为什么改用 CAS + synchronized？并发下 size() 怎么统计才准确？这些问题的背后，是一整套精细的并发控制思想。 今天我们就从 JDK 1.7 到 1.8 的演进入手，拆解 ConcurrentHashMap 的线程安全实现，把分段锁、CAS 桶锁、分散计数、并发扩容这些核心机制一次性讲透。  一、演进之路：从粗粒度锁到细粒度锁ConcurrentHashMap 的核心设计目标很明确：在保证线程安全的前提下，尽可能降低锁的粒度，减少锁竞争，提升并发吞吐量。    版本 核心实现 锁粒度 并发度 底层结构    JDK 1.7 分段锁（Segment） 锁整个分段 默认 16 个分段 分段数组 + 链表   ...</div></div></div></a><a class="pagination-related" href="/2026/06/02/slow-api-optimization-guide/" title="接口响应慢排查：从 3 秒优化到 200 毫秒"><img class="cover" src="/img/java-series-13-slow-api.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-06-02</div><div class="info-item-2">接口响应慢排查：从 3 秒优化到 200 毫秒</div></div><div class="info-2"><div class="info-item-1">前言上线前一切正常，上线后接口超时告警响个不停；压测时平均响应 3 秒，前端页面加载转圈，用户体验直线下降。接口慢是后端开发者最常遇到的性能问题，但很多人排查时全靠猜：一会儿加索引，一会儿加缓存，改了半天，耗时纹丝不动。 性能优化的核心原则永远是：先定位瓶颈，再动手优化。没有数据支撑的优化都是瞎忙活。 本文就以一次真实的订单列表接口优化为例，带你走完从 3000ms 到 200ms 的完整排查过程，覆盖三大核心工具：慢查询日志、全链路追踪、Arthas 火焰图，教你一套可复用的慢接口排查方法论。  一、故障初现：接口耗时远超预期1.1 现场现象本次优化的对象是用户侧的「订单列表查询接口」，上线后压测数据非常糟糕：  平均响应时间：3000ms P95 响应时间：5200ms 单并发下就已经超过 1s，10 并发直接超时 数据库 CPU 使用率居高不下  业务要求接口平均耗时必须控制在 300ms 以内，优化空间非常大。 1.2 排查整体思路很多人一上来就翻代码、加缓存，这是效率很低的做法。更稳妥的方式是先确认慢请求范围、并发量、P95&#x2F;P99、错误率以及上下游耗时，再按...</div></div></div></a></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">qjngbac</div><div class="author-info-description">一个正在学习的开发者</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">42</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">139</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/qjngbac"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/qjngbac" target="_blank" title="Github"><i class="fab fa-github"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到我的博客</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%89%8D%E8%A8%80"><span class="toc-number">1.</span> <span class="toc-text">前言</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%80%E3%80%81%E6%95%85%E9%9A%9C%E7%AC%AC%E4%B8%80%E7%8E%B0%E5%9C%BA%EF%BC%9A%E5%85%88%E6%AD%A2%E8%A1%80%EF%BC%8C%E5%86%8D%E6%8E%92%E6%9F%A5"><span class="toc-number">2.</span> <span class="toc-text">一、故障第一现场：先止血，再排查</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-1-%E7%AC%AC%E4%B8%80%E6%AD%A5%EF%BC%9A%E7%A1%AE%E8%AE%A4%E5%BC%82%E5%B8%B8%E7%B1%BB%E5%9E%8B"><span class="toc-number">2.1.</span> <span class="toc-text">1.1 第一步：确认异常类型</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#1-2-%E7%AC%AC%E4%BA%8C%E6%AD%A5%EF%BC%9A%E7%B4%A7%E6%80%A5%E6%AD%A2%E8%A1%80"><span class="toc-number">2.2.</span> <span class="toc-text">1.2 第二步：紧急止血</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#1-3-%E7%AC%AC%E4%B8%89%E6%AD%A5%EF%BC%9A%E4%BF%9D%E7%95%99%E7%8E%B0%E5%9C%BA"><span class="toc-number">2.3.</span> <span class="toc-text">1.3 第三步：保留现场</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%8C%E3%80%81%E8%8E%B7%E5%8F%96%E5%A0%86%E5%BF%AB%E7%85%A7%EF%BC%9A%E4%B8%89%E7%A7%8D-dump-%E6%8A%93%E5%8F%96%E6%96%B9%E5%BC%8F"><span class="toc-number">3.</span> <span class="toc-text">二、获取堆快照：三种 dump 抓取方式</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#2-1-%E6%96%B9%E5%BC%8F%E4%B8%80%EF%BC%9Ajmap-%E6%89%8B%E5%8A%A8%E5%AF%BC%E5%87%BA"><span class="toc-number">3.1.</span> <span class="toc-text">2.1 方式一：jmap 手动导出</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-2-%E6%96%B9%E5%BC%8F%E4%BA%8C%EF%BC%9AJVM-%E5%8F%82%E6%95%B0%E8%87%AA%E5%8A%A8%E5%AF%BC%E5%87%BA"><span class="toc-number">3.2.</span> <span class="toc-text">2.2 方式二：JVM 参数自动导出</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-3-%E6%96%B9%E5%BC%8F%E4%B8%89%EF%BC%9AArthas-%E5%9C%A8%E7%BA%BF%E5%AF%BC%E5%87%BA"><span class="toc-number">3.3.</span> <span class="toc-text">2.3 方式三：Arthas 在线导出</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-4-%E6%9F%A5%E7%9C%8B%E5%A0%86%E5%86%85%E5%AD%98%E6%A6%82%E5%86%B5%EF%BC%88%E4%B8%8D%E5%AF%BC%E5%87%BA-dump%EF%BC%89"><span class="toc-number">3.4.</span> <span class="toc-text">2.4 查看堆内存概况（不导出 dump）</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%89%E3%80%81MAT-%E6%B7%B1%E5%BA%A6%E5%88%86%E6%9E%90%EF%BC%9A%E5%AE%9A%E4%BD%8D%E5%86%85%E5%AD%98%E6%B3%84%E6%BC%8F%E7%9C%9F%E5%87%B6"><span class="toc-number">4.</span> <span class="toc-text">三、MAT 深度分析：定位内存泄漏真凶</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#3-1-MAT-%E6%A0%B8%E5%BF%83%E6%A6%82%E5%BF%B5"><span class="toc-number">4.1.</span> <span class="toc-text">3.1 MAT 核心概念</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-2-%E6%A0%87%E5%87%86%E6%8E%92%E6%9F%A5%E5%9B%9B%E6%AD%A5%E8%B5%B0"><span class="toc-number">4.2.</span> <span class="toc-text">3.2 标准排查四步走</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9B%9B%E3%80%81%E5%B8%B8%E8%A7%81%E5%86%85%E5%AD%98%E6%B3%84%E6%BC%8F%E4%BB%A3%E7%A0%81%E6%A8%A1%E5%BC%8F"><span class="toc-number">5.</span> <span class="toc-text">四、常见内存泄漏代码模式</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#4-1-%E9%9D%99%E6%80%81%E9%9B%86%E5%90%88%E6%97%A0%E7%95%8C%E5%A2%9E%E9%95%BF"><span class="toc-number">5.1.</span> <span class="toc-text">4.1 静态集合无界增长</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-2-%E9%95%BF%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F%E5%AF%B9%E8%B1%A1%E6%8C%81%E6%9C%89%E7%9F%AD%E7%94%9F%E5%91%BD%E5%91%A8%E6%9C%9F%E5%AF%B9%E8%B1%A1"><span class="toc-number">5.2.</span> <span class="toc-text">4.2 长生命周期对象持有短生命周期对象</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-3-%E8%BF%9E%E6%8E%A5-%E6%B5%81%E6%9C%AA%E5%85%B3%E9%97%AD"><span class="toc-number">5.3.</span> <span class="toc-text">4.3 连接&#x2F;流未关闭</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-4-%E7%9B%91%E5%90%AC%E5%99%A8-%E5%9B%9E%E8%B0%83%E6%9C%AA%E6%B3%A8%E9%94%80"><span class="toc-number">5.4.</span> <span class="toc-text">4.4 监听器&#x2F;回调未注销</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-5-ThreadLocal-%E6%9C%AA%E6%B8%85%E7%90%86"><span class="toc-number">5.5.</span> <span class="toc-text">4.5 ThreadLocal 未清理</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%94%E3%80%81%E5%B8%B8%E8%A7%81-OOM-%E4%B8%8E%E7%9B%B8%E5%85%B3%E9%94%99%E8%AF%AF%E5%9C%BA%E6%99%AF"><span class="toc-number">6.</span> <span class="toc-text">五、常见 OOM 与相关错误场景</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#5-1-Java-heap-space%EF%BC%88%E5%A0%86%E6%BA%A2%E5%87%BA%EF%BC%89"><span class="toc-number">6.1.</span> <span class="toc-text">5.1 Java heap space（堆溢出）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-2-GC-overhead-limit-exceeded"><span class="toc-number">6.2.</span> <span class="toc-text">5.2 GC overhead limit exceeded</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-3-Metaspace%EF%BC%88%E5%85%83%E7%A9%BA%E9%97%B4%E6%BA%A2%E5%87%BA%EF%BC%89"><span class="toc-number">6.3.</span> <span class="toc-text">5.3 Metaspace（元空间溢出）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-4-Direct-buffer-memory%EF%BC%88%E7%9B%B4%E6%8E%A5%E5%86%85%E5%AD%98%E6%BA%A2%E5%87%BA%EF%BC%89"><span class="toc-number">6.4.</span> <span class="toc-text">5.4 Direct buffer memory（直接内存溢出）</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-5-unable-to-create-new-native-thread"><span class="toc-number">6.5.</span> <span class="toc-text">5.5 unable to create new native thread</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-6-Requested-array-size-exceeds-VM-limit"><span class="toc-number">6.6.</span> <span class="toc-text">5.6 Requested array size exceeds VM limit</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-7-%E7%9B%B8%E5%85%B3%E4%BD%86%E4%B8%8D%E6%98%AF-OOM%EF%BC%9AStackOverflowError-%E4%B8%8E-OOMKilled"><span class="toc-number">6.7.</span> <span class="toc-text">5.7 相关但不是 OOM：StackOverflowError 与 OOMKilled</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%AD%E3%80%81JVM-%E5%86%85%E5%AD%98%E5%8F%82%E6%95%B0%E8%B0%83%E4%BC%98"><span class="toc-number">7.</span> <span class="toc-text">六、JVM 内存参数调优</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#6-1-%E5%A0%86%E5%86%85%E5%AD%98%E8%AE%BE%E7%BD%AE"><span class="toc-number">7.1.</span> <span class="toc-text">6.1 堆内存设置</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#6-2-GC-%E6%94%B6%E9%9B%86%E5%99%A8%E9%80%89%E6%8B%A9"><span class="toc-number">7.2.</span> <span class="toc-text">6.2 GC 收集器选择</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#6-3-%E8%87%AA%E5%8A%A8-dump-%E9%85%8D%E7%BD%AE"><span class="toc-number">7.3.</span> <span class="toc-text">6.3 自动 dump 配置</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#6-4-%E7%94%9F%E4%BA%A7%E7%8E%AF%E5%A2%83%E6%8E%A8%E8%8D%90%E9%85%8D%E7%BD%AE"><span class="toc-number">7.4.</span> <span class="toc-text">6.4 生产环境推荐配置</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%83%E3%80%81%E7%9B%91%E6%8E%A7%E5%91%8A%E8%AD%A6%E5%BB%BA%E8%AE%AE"><span class="toc-number">8.</span> <span class="toc-text">七、监控告警建议</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%AB%E3%80%81%E5%AE%8C%E6%95%B4%E6%8E%92%E6%9F%A5%E6%B5%81%E7%A8%8B%E6%80%BB%E7%BB%93"><span class="toc-number">9.</span> <span class="toc-text">八、完整排查流程总结</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#%E9%81%BF%E5%9D%91%E6%8F%90%E9%86%92"><span class="toc-number">9.1.</span> <span class="toc-text">避坑提醒</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B9%9D%E3%80%81%E9%9D%A2%E8%AF%95%E9%AB%98%E9%A2%91%E9%97%AE%E9%A2%98"><span class="toc-number">10.</span> <span class="toc-text">九、面试高频问题</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%86%99%E5%9C%A8%E6%9C%80%E5%90%8E"><span class="toc-number">11.</span> <span class="toc-text">写在最后</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"><img src="/../img/ai-10-ollama.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"/></a><div class="content"><a class="title" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成">Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成</a><time datetime="2026-07-22T02:00:00.000Z" title="发表于 2026-07-22 10:00:00">2026-07-22</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"><img src="/../img/ai-09-spring-ai.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"/></a><div class="content"><a class="title" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling">Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling</a><time datetime="2026-07-17T02:00:00.000Z" title="发表于 2026-07-17 10:00:00">2026-07-17</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"><img src="/../img/ai-08-vector-database.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"/></a><div class="content"><a class="title" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比">向量数据库选型实战：Chroma、Milvus 与 pgvector 对比</a><time datetime="2026-07-13T02:00:00.000Z" title="发表于 2026-07-13 10:00:00">2026-07-13</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度"><img src="/../img/ai-07-rag-evaluation.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 评估实战：Recall@K、MRR 与回答忠实度"/></a><div class="content"><a class="title" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度">RAG 评估实战：Recall@K、MRR 与回答忠实度</a><time datetime="2026-07-12T02:00:00.000Z" title="发表于 2026-07-12 10:00:00">2026-07-12</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"><img src="/../img/ai-06-rag-retrieval.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"/></a><div class="content"><a class="title" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker">RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker</a><time datetime="2026-07-09T02:00:00.000Z" title="发表于 2026-07-09 10:00:00">2026-07-09</time></div></div></div></div></div></div></main><footer id="footer"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2024 - 2026 By qjngbac</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 7.3.0</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.5.5</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.5.5"></script><script src="/js/main.js?v=5.5.5"></script><div class="js-pjax"></div><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

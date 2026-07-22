@@ -1,0 +1,517 @@
+<!DOCTYPE html><html lang="zh-CN" data-theme="light"><head><meta charset="UTF-8"><meta http-equiv="X-UA-Compatible" content="IE=edge"><meta name="viewport" content="width=device-width, initial-scale=1.0,viewport-fit=cover"><title>MySQL 索引原理：B+ 树为什么这么快 | Wait</title><meta name="author" content="qjngbac"><meta name="copyright" content="qjngbac"><meta name="format-detection" content="telephone=no"><meta name="theme-color" content="#ffffff"><meta name="description" content="前言做后端开发，几乎每天都在和索引打交道：慢查询加个索引，性能立刻提升好几倍。可很多人只知道「索引能提速」，却说不清背后的原理：  为什么数据库选 B+ 树做索引，而不用二叉树、哈希表？ 聚簇索引和非聚簇索引到底差在哪？什么是回表？ 联合索引为什么要遵循最左前缀原则？ 索引下推到底「推」了什么，为什么能提速？  索引从来不是什么玄学，它的所有特性、所有优化规则，都根植于底层的数据结构设计。看懂了">
+<meta property="og:type" content="article">
+<meta property="og:title" content="MySQL 索引原理：B+ 树为什么这么快">
+<meta property="og:url" content="https://qjngbac.github.io/2025/11/12/mysql-index-guide/index.html">
+<meta property="og:site_name" content="Wait">
+<meta property="og:description" content="前言做后端开发，几乎每天都在和索引打交道：慢查询加个索引，性能立刻提升好几倍。可很多人只知道「索引能提速」，却说不清背后的原理：  为什么数据库选 B+ 树做索引，而不用二叉树、哈希表？ 聚簇索引和非聚簇索引到底差在哪？什么是回表？ 联合索引为什么要遵循最左前缀原则？ 索引下推到底「推」了什么，为什么能提速？  索引从来不是什么玄学，它的所有特性、所有优化规则，都根植于底层的数据结构设计。看懂了">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://qjngbac.github.io/img/backend-01-mysql-index.jpg">
+<meta property="article:published_time" content="2025-11-12T06:00:00.000Z">
+<meta property="article:modified_time" content="2026-07-19T09:04:12.988Z">
+<meta property="article:author" content="qjngbac">
+<meta property="article:tag" content="后端">
+<meta property="article:tag" content="面试">
+<meta property="article:tag" content="MySQL">
+<meta property="article:tag" content="索引">
+<meta property="article:tag" content="B+树">
+<meta property="article:tag" content="数据库">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://qjngbac.github.io/img/backend-01-mysql-index.jpg"><script type="application/ld+json">{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "MySQL 索引原理：B+ 树为什么这么快",
+  "url": "https://qjngbac.github.io/2025/11/12/mysql-index-guide/",
+  "image": "https://qjngbac.github.io/img/backend-01-mysql-index.jpg",
+  "datePublished": "2025-11-12T06:00:00.000Z",
+  "dateModified": "2026-07-19T09:04:12.988Z",
+  "author": [
+    {
+      "@type": "Person",
+      "name": "qjngbac",
+      "url": "https://qjngbac.github.io"
+    }
+  ]
+}</script><link rel="shortcut icon" href="/img/favicon.png"><link rel="canonical" href="https://qjngbac.github.io/2025/11/12/mysql-index-guide/index.html"><link rel="preconnect" href="//cdn.jsdelivr.net"/><link rel="preconnect" href="//busuanzi.ibruce.info"/><link rel="stylesheet" href="/css/index.css?v=5.5.5"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@7.2.0/css/all.min.css"><script>
+    (() => {
+      
+    const saveToLocal = {
+      set: (key, value, ttl) => {
+        if (!ttl) return
+        const expiry = Date.now() + ttl * 86400000
+        localStorage.setItem(key, JSON.stringify({ value, expiry }))
+      },
+      get: key => {
+        const itemStr = localStorage.getItem(key)
+        if (!itemStr) return undefined
+        const { value, expiry } = JSON.parse(itemStr)
+        if (Date.now() > expiry) {
+          localStorage.removeItem(key)
+          return undefined
+        }
+        return value
+      }
+    }
+
+    window.btf = {
+      saveToLocal,
+      getScript: (url, attr = {}) => new Promise((resolve, reject) => {
+        const script = document.createElement('script')
+        script.src = url
+        script.async = true
+        Object.entries(attr).forEach(([key, val]) => script.setAttribute(key, val))
+        script.onload = script.onreadystatechange = () => {
+          if (!script.readyState || /loaded|complete/.test(script.readyState)) resolve()
+        }
+        script.onerror = reject
+        document.head.appendChild(script)
+      }),
+      getCSS: (url, id) => new Promise((resolve, reject) => {
+        const link = document.createElement('link')
+        link.rel = 'stylesheet'
+        link.href = url
+        if (id) link.id = id
+        link.onload = link.onreadystatechange = () => {
+          if (!link.readyState || /loaded|complete/.test(link.readyState)) resolve()
+        }
+        link.onerror = reject
+        document.head.appendChild(link)
+      }),
+      addGlobalFn: (key, fn, name = false, parent = window) => {
+        if (!false && key.startsWith('pjax')) return
+        const globalFn = parent.globalFn || {}
+        globalFn[key] = globalFn[key] || {}
+        globalFn[key][name || Object.keys(globalFn[key]).length] = fn
+        parent.globalFn = globalFn
+      }
+    }
+  
+      
+      const activateDarkMode = () => {
+        document.documentElement.setAttribute('data-theme', 'dark')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0d0d0d')
+        }
+      }
+      const activateLightMode = () => {
+        document.documentElement.setAttribute('data-theme', 'light')
+        if (document.querySelector('meta[name="theme-color"]') !== null) {
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#ffffff')
+        }
+      }
+
+      btf.activateDarkMode = activateDarkMode
+      btf.activateLightMode = activateLightMode
+
+      const theme = saveToLocal.get('theme')
+    
+          theme === 'dark' ? activateDarkMode() : theme === 'light' ? activateLightMode() : null
+        
+      
+      const asideStatus = saveToLocal.get('aside-status')
+      if (asideStatus !== undefined) {
+        document.documentElement.classList.toggle('hide-aside', asideStatus === 'hide')
+      }
+    
+      
+    const detectApple = () => {
+      if (/iPad|iPhone|iPod|Macintosh/.test(navigator.userAgent)) {
+        document.documentElement.classList.add('apple')
+      }
+    }
+    detectApple()
+  
+    })()
+  </script><script>const GLOBAL_CONFIG = {
+  root: '/',
+  algolia: undefined,
+  localSearch: undefined,
+  translate: undefined,
+  highlight: {"plugin":"highlight.js","highlightCopy":true,"highlightLang":true,"highlightHeightLimit":false,"highlightFullpage":false,"highlightMacStyle":false},
+  copy: {
+    success: '复制成功',
+    error: '复制失败',
+    noSupport: '浏览器不支持'
+  },
+  relativeDate: {
+    homepage: false,
+    post: true
+  },
+  runtime: '',
+  dateSuffix: {
+    just: '刚刚',
+    min: '分钟前',
+    hour: '小时前',
+    day: '天前',
+    month: '个月前'
+  },
+  copyright: undefined,
+  lightbox: 'null',
+  Snackbar: undefined,
+  infinitegrid: {
+    js: 'https://cdn.jsdelivr.net/npm/@egjs/infinitegrid@4.13.0/dist/infinitegrid.min.js',
+    buttonText: '加载更多'
+  },
+  isPhotoFigcaption: false,
+  islazyloadPlugin: false,
+  isAnchor: false,
+  percent: {
+    toc: true,
+    rightside: false,
+  },
+  autoDarkmode: false
+}</script><script id="config-diff">var GLOBAL_CONFIG_SITE = {
+  title: 'MySQL 索引原理：B+ 树为什么这么快',
+  isHighlightShrink: false,
+  isToc: true,
+  pageType: 'post'
+}</script><meta name="generator" content="Hexo 7.3.0"></head><body><div id="loading-box"><div class="loading-left-bg"></div><div class="loading-right-bg"></div><div class="spinner-box"><div class="configure-border-1"><div class="configure-core"></div></div><div class="configure-border-2"><div class="configure-core"></div></div><div class="loading-word">加载中...</div></div></div><script>(()=>{
+  const $loadingBox = document.getElementById('loading-box')
+  const $body = document.body
+  const preloader = {
+    endLoading: () => {
+      if ($loadingBox.classList.contains('loaded')) return
+      $body.style.overflow = ''
+      $loadingBox.classList.add('loaded')
+    },
+    initLoading: () => {
+      $body.style.overflow = 'hidden'
+      $loadingBox.classList.remove('loaded')
+    }
+  }
+
+  preloader.initLoading()
+
+  if (document.readyState === 'complete') {
+    preloader.endLoading()
+  } else {
+    window.addEventListener('load', preloader.endLoading)
+    document.addEventListener('DOMContentLoaded', preloader.endLoading)
+    // Add timeout protection: force end after 7 seconds
+    setTimeout(preloader.endLoading, 7000)
+  }
+
+  if (false) {
+    btf.addGlobalFn('pjaxSend', preloader.initLoading, 'preloader_init')
+    btf.addGlobalFn('pjaxComplete', preloader.endLoading, 'preloader_end')
+  }
+})()</script><div id="sidebar"><div id="menu-mask"></div><div id="sidebar-menus"><div class="avatar-img text-center"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="site-data text-center"><a href="/archives/"><div class="headline">文章</div><div class="length-num">42</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">139</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div></div></div><div class="post" id="body-wrap"><header class="post-bg" id="page-header" style="background-image: url(/img/backend-01-mysql-index.jpg);"><nav id="nav"><span id="blog-info"><a class="nav-site-title" href="/"><span class="site-name">Wait</span></a><a class="nav-page-title" href="/"><span class="site-name">MySQL 索引原理：B+ 树为什么这么快</span><span class="site-name"><i class="fa-solid fa-circle-arrow-left"></i><span>  返回首页</span></span></a></span><div id="menus"><div class="menus_items"><div class="menus_item"><a class="site-page" href="/"><i class="fa-fw fas fa-home"></i><span> 首页</span></a></div><div class="menus_item"><a class="site-page" href="/archives/"><i class="fa-fw fas fa-archive"></i><span> 归档</span></a></div><div class="menus_item"><a class="site-page" href="/tags/"><i class="fa-fw fas fa-tags"></i><span> 标签</span></a></div><div class="menus_item"><a class="site-page" href="/categories/"><i class="fa-fw fas fa-folder-open"></i><span> 分类</span></a></div><div class="menus_item"><a class="site-page" href="/about/"><i class="fa-fw fas fa-heart"></i><span> 关于</span></a></div></div><div id="toggle-menu"><span class="site-page"><i class="fas fa-bars fa-fw"></i></span></div></div></nav><div id="post-info"><h1 class="post-title">MySQL 索引原理：B+ 树为什么这么快</h1><div id="post-meta"><div class="meta-firstline"><span class="post-meta-date"><i class="far fa-calendar-alt fa-fw post-meta-icon"></i><span class="post-meta-label">发表于</span><time class="post-meta-date-created" datetime="2025-11-12T06:00:00.000Z" title="发表于 2025-11-12 14:00:00">2025-11-12</time><span class="post-meta-separator">|</span><i class="fas fa-history fa-fw post-meta-icon"></i><span class="post-meta-label">更新于</span><time class="post-meta-date-updated" datetime="2026-07-19T09:04:12.988Z" title="更新于 2026-07-19 17:04:12">2026-07-19</time></span><span class="post-meta-categories"><span class="post-meta-separator">|</span><i class="fas fa-inbox fa-fw post-meta-icon"></i><a class="post-meta-categories" href="/categories/%E5%90%8E%E7%AB%AF%E5%B7%A5%E7%A8%8B/">后端工程</a></span></div><div class="meta-secondline"><span class="post-meta-separator">|</span><span class="post-meta-pv-cv" id="" data-flag-title=""><i class="far fa-eye fa-fw post-meta-icon"></i><span class="post-meta-label">浏览量:</span><span id="busuanzi_value_page_pv"><i class="fa-solid fa-spinner fa-spin"></i></span></span></div></div></div></header><main class="layout" id="content-inner"><div id="post"><article class="container post-content" id="article-container"><h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>做后端开发，几乎每天都在和索引打交道：慢查询加个索引，性能立刻提升好几倍。可很多人只知道「索引能提速」，却说不清背后的原理：</p>
+<ul>
+<li>为什么数据库选 B+ 树做索引，而不用二叉树、哈希表？</li>
+<li>聚簇索引和非聚簇索引到底差在哪？什么是回表？</li>
+<li>联合索引为什么要遵循最左前缀原则？</li>
+<li>索引下推到底「推」了什么，为什么能提速？</li>
+</ul>
+<p>索引从来不是什么玄学，它的所有特性、所有优化规则，都根植于底层的数据结构设计。看懂了 B+ 树，你就能理解所有索引规则的来龙去脉，写 SQL、建索引时就能预判性能，而不是靠瞎试。</p>
+<p>今天我们从数据结构的底层逻辑出发，把 B+ 树结构、聚簇&#x2F;非聚簇索引、联合索引最左前缀、索引下推一次性讲透。</p>
+<hr>
+<h2 id="一、索引的本质：用排序换查找效率"><a href="#一、索引的本质：用排序换查找效率" class="headerlink" title="一、索引的本质：用排序换查找效率"></a>一、索引的本质：用排序换查找效率</h2><h3 id="1-1-没有索引的代价"><a href="#1-1-没有索引的代价" class="headerlink" title="1.1 没有索引的代价"></a>1.1 没有索引的代价</h3><p>没有可用索引时，查询通常只能走<strong>全表扫描</strong>：读取并检查候选记录，代价随数据页数量增长。是否慢到不可接受还取决于表大小、缓存命中率、返回比例和存储性能。</p>
+<p>百万级表上的频繁全表扫描往往会带来明显 IO 和 CPU 压力，但小表或需要返回大部分数据时，全表扫描也可能是优化器的合理选择。</p>
+<h3 id="1-2-索引的核心思想"><a href="#1-2-索引的核心思想" class="headerlink" title="1.2 索引的核心思想"></a>1.2 索引的核心思想</h3><p>对本文讨论的 InnoDB B+ 树索引而言，索引是一种<strong>按键值组织、用于快速定位记录的数据结构</strong>。并非所有索引都一定有序，例如哈希索引就不支持范围扫描。</p>
+<p>通过额外的存储空间和维护成本，换取查询效率的数量级提升。就像书的目录：翻目录虽然多了一步，但能直接定位到页码。</p>
+<!-- 配图 1：索引本质示意图 -->
+<!-- 插入位置：此处 -->
+
+<p><img src="/../img/mysql-index-concept.png" alt="索引本质"></p>
+<hr>
+<h2 id="二、为什么是-B-树？数据结构的权衡"><a href="#二、为什么是-B-树？数据结构的权衡" class="headerlink" title="二、为什么是 B+ 树？数据结构的权衡"></a>二、为什么是 B+ 树？数据结构的权衡</h2><h3 id="2-1-其他结构为什么被淘汰"><a href="#2-1-其他结构为什么被淘汰" class="headerlink" title="2.1 其他结构为什么被淘汰"></a>2.1 其他结构为什么被淘汰</h3><table>
+<thead>
+<tr>
+<th>数据结构</th>
+<th>查询复杂度</th>
+<th>为什么不适合做索引</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>二叉搜索树</td>
+<td>O(logn)~O(n)</td>
+<td>有序插入时退化成链表</td>
+</tr>
+<tr>
+<td>平衡二叉树(AVL&#x2F;红黑树)</td>
+<td>O(logn)</td>
+<td>树太高，百万数据约 20 层，IO 太多</td>
+</tr>
+<tr>
+<td>哈希表</td>
+<td>O(1)</td>
+<td>不支持范围查询、不支持排序</td>
+</tr>
+<tr>
+<td>B 树</td>
+<td>O(logn)</td>
+<td>非叶子节点也存记录，扇出通常低于 B+ 树，范围遍历也不如叶子链表直接</td>
+</tr>
+</tbody></table>
+<h3 id="2-2-各数据结构详细对比"><a href="#2-2-各数据结构详细对比" class="headerlink" title="2.2 各数据结构详细对比"></a>2.2 各数据结构详细对比</h3><p><strong>二叉搜索树：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">有序插入 1,2,3,4,5 后退化成链表：</span><br><span class="line">    1</span><br><span class="line">     \</span><br><span class="line">      2</span><br><span class="line">       \</span><br><span class="line">        3</span><br><span class="line">         \</span><br><span class="line">          4</span><br><span class="line">           \</span><br><span class="line">            5</span><br><span class="line">查询 5 需要 5 次比较，和链表一样</span><br></pre></td></tr></table></figure>
+
+<p><strong>平衡二叉树（红黑树）：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">        3</span><br><span class="line">       / \</span><br><span class="line">      2   4</span><br><span class="line">     /     \</span><br><span class="line">    1       5</span><br><span class="line"></span><br><span class="line">百万数据高度约为几十层量级</span><br><span class="line">即使上层节点可缓存，二叉结构的扇出仍远低于磁盘页友好的多路树</span><br></pre></td></tr></table></figure>
+
+<p><strong>B 树：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">        [30, 60]</span><br><span class="line">       /   |   \</span><br><span class="line">   [10,20] [40,50] [70,80]</span><br><span class="line"></span><br><span class="line">非叶子节点也存数据 → 单页能放的键少</span><br><span class="line">范围查询需要中序遍历 → 效率低</span><br></pre></td></tr></table></figure>
+
+<p><strong>B+ 树：</strong></p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">           [30, 60]              ← 非叶子节点：只存键和指针</span><br><span class="line">          /   |   \</span><br><span class="line">    [10,20] [40,50] [70,80]      ← 叶子节点：存完整数据</span><br><span class="line">      ↔      ↔       ↔          ← 叶子节点双向链表连接</span><br><span class="line"></span><br><span class="line">非叶子节点不存数据 → 单页能放上千个键</span><br><span class="line">叶子节点链表连接 → 范围查询极快</span><br></pre></td></tr></table></figure>
+
+<h3 id="2-3-B-树的结构设计"><a href="#2-3-B-树的结构设计" class="headerlink" title="2.3 B+ 树的结构设计"></a>2.3 B+ 树的结构设计</h3><p>B+ 树在 B 树基础上做了两处关键改进：</p>
+<ol>
+<li><p><strong>非叶子节点只存索引键和指针，不存数据</strong></p>
+<p>同样大小的磁盘页（16KB），可以放下更多索引键，树的高度极低。</p>
+</li>
+<li><p><strong>所有数据都存在叶子节点，叶子节点用双向链表串联</strong></p>
+<p>所有查询最终落到叶子节点，耗时稳定；范围查询顺着链表读即可。</p>
+</li>
+</ol>
+<h3 id="2-4-B-树到底有多快？"><a href="#2-4-B-树到底有多快？" class="headerlink" title="2.4 B+ 树到底有多快？"></a>2.4 B+ 树到底有多快？</h3><p>InnoDB 页默认 16KB。内部节点能容纳多少“键 + 子页指针”，以及叶子页能容纳多少行，都会受主键宽度、行大小、页头和页填充率影响，因此只能做数量级估算：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">假设内部节点扇出约 1000，叶子页平均容纳约 100 行：</span><br><span class="line">2 层（根 + 叶子）约可索引 10 万行</span><br><span class="line">3 层（根 + 内部节点 + 叶子）约可索引 1 亿行</span><br><span class="line"></span><br><span class="line">实际值会随表结构变化，不能简单把每一层都按“1000 条完整记录”相乘。</span><br></pre></td></tr></table></figure>
+
+<p><strong>千万甚至亿级数据，B+ 树高度通常也只有 3~4 层。一次查询只需要访问少量索引页，而且根节点和上层节点往往常驻内存。</strong></p>
+<!-- 配图 2：B+ 树结构图 -->
+<!-- 插入位置：此处 -->
+
+<p><img src="/../img/mysql-bplus-tree.png" alt="B+ 树结构"></p>
+<hr>
+<h2 id="三、聚簇索引-vs-非聚簇索引"><a href="#三、聚簇索引-vs-非聚簇索引" class="headerlink" title="三、聚簇索引 vs 非聚簇索引"></a>三、聚簇索引 vs 非聚簇索引</h2><h3 id="3-1-聚簇索引：索引即数据"><a href="#3-1-聚簇索引：索引即数据" class="headerlink" title="3.1 聚簇索引：索引即数据"></a>3.1 聚簇索引：索引即数据</h3><p>InnoDB 的主键索引就是聚簇索引。B+ 树的叶子节点直接存储完整的行数据。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">聚簇索引（主键索引）B+ 树：</span><br><span class="line"></span><br><span class="line">           [主键: 30, 60]</span><br><span class="line">          /      |      \</span><br><span class="line">    [10, 20]  [40, 50]  [70, 80]</span><br><span class="line">      ↓         ↓         ↓</span><br><span class="line">  完整行数据  完整行数据  完整行数据   ← 叶子节点存完整数据</span><br></pre></td></tr></table></figure>
+
+<p>特点：</p>
+<ul>
+<li>一张表只能有一个聚簇索引（数据只能按一种顺序排列）</li>
+<li>查询找到索引就找到数据，不需要回表</li>
+<li>叶子节点有序链表，范围查询高效</li>
+</ul>
+<blockquote>
+<p>如果表没有主键，InnoDB 会选择第一个所有列都非空的唯一索引作为聚簇索引；如果仍没有合适索引，才会生成 6 字节隐藏 <code>DB_ROW_ID</code>。</p>
+</blockquote>
+<h3 id="3-2-非聚簇索引（二级索引）：索引存主键"><a href="#3-2-非聚簇索引（二级索引）：索引存主键" class="headerlink" title="3.2 非聚簇索引（二级索引）：索引存主键"></a>3.2 非聚簇索引（二级索引）：索引存主键</h3><p>普通字段的索引是二级索引，叶子记录保存<strong>二级索引键 + 聚簇索引主键值</strong>，而不是完整行数据。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">二级索引（name 索引）B+ 树：</span><br><span class="line"></span><br><span class="line">           [name: 李四, 张三]</span><br><span class="line">          /        |        \</span><br><span class="line">    [王五]    [李四, 张三]    [赵六]</span><br><span class="line">      ↓           ↓           ↓</span><br><span class="line">   主键:50     主键:10,30    主键:70   ← 叶子节点存主键值</span><br></pre></td></tr></table></figure>
+
+<p><strong>回表</strong>：通过二级索引找到主键，再去聚簇索引查完整数据。</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">查询：SELECT * FROM user WHERE name = &#x27;张三&#x27;</span><br><span class="line"></span><br><span class="line">第一步：在 name 索引树上找到 &#x27;张三&#x27; → 主键 30</span><br><span class="line">第二步：拿着主键 30 去聚簇索引树上查 → 完整行数据</span><br><span class="line"></span><br><span class="line">这就是回表：走了两次 B+ 树查询</span><br></pre></td></tr></table></figure>
+
+<p><img src="/../img/mysql-clustered-vs-secondary.png" alt="聚簇索引 vs 二级索引"></p>
+<h3 id="3-3-覆盖索引：不用回表的最优解"><a href="#3-3-覆盖索引：不用回表的最优解" class="headerlink" title="3.3 覆盖索引：不用回表的最优解"></a>3.3 覆盖索引：不用回表的最优解</h3><p>如果查询字段全部在索引中，不需要回表：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 覆盖索引：name 索引已包含 name 字段</span></span><br><span class="line"><span class="keyword">SELECT</span> name <span class="keyword">FROM</span> <span class="keyword">user</span> <span class="keyword">WHERE</span> name <span class="operator">=</span> <span class="string">&#x27;张三&#x27;</span>;</span><br><span class="line"><span class="comment">-- EXPLAIN 显示 Extra: Using index</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- 非覆盖索引：需要回表查 age</span></span><br><span class="line"><span class="keyword">SELECT</span> name, age <span class="keyword">FROM</span> <span class="keyword">user</span> <span class="keyword">WHERE</span> name <span class="operator">=</span> <span class="string">&#x27;张三&#x27;</span>;</span><br><span class="line"><span class="comment">-- EXPLAIN 显示 Extra: NULL</span></span><br></pre></td></tr></table></figure>
+
+<p><strong>这就是不推荐 <code>SELECT *</code> 的原因之一</strong>：导致无法命中覆盖索引。</p>
+<h3 id="3-4-核心对比"><a href="#3-4-核心对比" class="headerlink" title="3.4 核心对比"></a>3.4 核心对比</h3><table>
+<thead>
+<tr>
+<th>维度</th>
+<th>聚簇索引（主键）</th>
+<th>二级索引（非聚簇）</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>叶子节点内容</td>
+<td>完整行数据</td>
+<td>二级索引键 + 主键值</td>
+</tr>
+<tr>
+<td>每张表数量</td>
+<td>只能一个</td>
+<td>可以多个</td>
+</tr>
+<tr>
+<td>是否需要回表</td>
+<td>不需要</td>
+<td>一般需要</td>
+</tr>
+<tr>
+<td>查询效率</td>
+<td>最高</td>
+<td>稍低</td>
+</tr>
+<tr>
+<td>物理排序</td>
+<td>决定数据存储顺序</td>
+<td>不影响</td>
+</tr>
+</tbody></table>
+<hr>
+<h2 id="四、联合索引与最左前缀原则"><a href="#四、联合索引与最左前缀原则" class="headerlink" title="四、联合索引与最左前缀原则"></a>四、联合索引与最左前缀原则</h2><h3 id="4-1-什么是联合索引"><a href="#4-1-什么是联合索引" class="headerlink" title="4.1 什么是联合索引"></a>4.1 什么是联合索引</h3><p>多个字段组合成一个索引，B+ 树按字段顺序排序：</p>
+<figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">CREATE</span> INDEX idx_a_b_c <span class="keyword">ON</span> t(a, b, c);</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">B+ 树排序规则：</span><br><span class="line">1. 先按 a 排序</span><br><span class="line">2. a 相同，按 b 排序</span><br><span class="line">3. a、b 都相同，按 c 排序</span><br><span class="line"></span><br><span class="line">示例数据：</span><br><span class="line">a=1, b=1, c=1</span><br><span class="line">a=1, b=1, c=3</span><br><span class="line">a=1, b=2, c=1</span><br><span class="line">a=2, b=1, c=2</span><br><span class="line">a=2, b=3, c=1</span><br></pre></td></tr></table></figure>
+
+<h3 id="4-2-最左前缀原则"><a href="#4-2-最左前缀原则" class="headerlink" title="4.2 最左前缀原则"></a>4.2 最左前缀原则</h3><p><strong>查询条件要尽量从索引最左侧字段开始连续匹配。</strong> 跳过中间字段后，后续字段通常不能再用于缩小索引扫描范围，但如果字段本身还在索引里，MySQL 仍可能借助索引下推做过滤。</p>
+<p>以 <code>idx(a,b,c)</code> 为例：</p>
+<table>
+<thead>
+<tr>
+<th>查询条件</th>
+<th>索引生效情况</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>WHERE a = 1</code></td>
+<td>✅ a 生效</td>
+</tr>
+<tr>
+<td><code>WHERE a = 1 AND b = 2</code></td>
+<td>✅ a、b 生效</td>
+</tr>
+<tr>
+<td><code>WHERE a = 1 AND b = 2 AND c = 3</code></td>
+<td>✅ a、b、c 全部生效</td>
+</tr>
+<tr>
+<td><code>WHERE b = 2</code></td>
+<td>❌ 通常无法有效利用该联合索引，跳过了 a</td>
+</tr>
+<tr>
+<td><code>WHERE b = 2 AND c = 3</code></td>
+<td>❌ 通常无法有效利用该联合索引</td>
+</tr>
+<tr>
+<td><code>WHERE a = 1 AND c = 3</code></td>
+<td>⚠️ a 用于定位，c 可能通过 ICP 过滤，但不能像连续前缀那样缩小扫描范围</td>
+</tr>
+<tr>
+<td><code>WHERE a &gt; 1 AND b = 2</code></td>
+<td>⚠️ a 用于范围扫描，b 通常不能继续缩小扫描范围</td>
+</tr>
+</tbody></table>
+<h3 id="4-3-为什么必须遵守最左前缀？"><a href="#4-3-为什么必须遵守最左前缀？" class="headerlink" title="4.3 为什么必须遵守最左前缀？"></a>4.3 为什么必须遵守最左前缀？</h3><p>答案在排序逻辑里：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">联合索引 (a, b, c) 的数据排列：</span><br><span class="line"></span><br><span class="line">a=1, b=1, c=1  ← a 全局有序</span><br><span class="line">a=1, b=1, c=3  ← a=1 时 b 有序</span><br><span class="line">a=1, b=2, c=1  ← a=1,b=2 时 c 有序</span><br><span class="line">a=1, b=2, c=5</span><br><span class="line">a=2, b=1, c=2  ← a=2 时 b 重新有序</span><br><span class="line">a=2, b=3, c=1</span><br><span class="line"></span><br><span class="line">只查 b=2：b 在全局是无序的（1,1,2,2,1,3），无法有效利用这个联合索引定位</span><br><span class="line">查 a=1 AND b=2：a=1 范围内 b 是有序的（1,2），可以利用索引定位</span><br></pre></td></tr></table></figure>
+
+<h3 id="4-4-联合索引设计原则"><a href="#4-4-联合索引设计原则" class="headerlink" title="4.4 联合索引设计原则"></a>4.4 联合索引设计原则</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 场景：WHERE status = 2 AND create_time &gt;= &#x27;2026-01-01&#x27; ORDER BY create_time DESC</span></span><br><span class="line"></span><br><span class="line"><span class="comment">-- ✅ 好的索引：等值在前，范围+排序在后</span></span><br><span class="line"><span class="keyword">CREATE</span> INDEX idx_status_time <span class="keyword">ON</span> t_order(status, create_time);</span><br><span class="line"></span><br><span class="line"><span class="comment">-- ❌ 不好的索引：范围字段放前面，排序字段无法利用</span></span><br><span class="line"><span class="keyword">CREATE</span> INDEX idx_time_status <span class="keyword">ON</span> t_order(create_time, status);</span><br></pre></td></tr></table></figure>
+
+<!-- 配图 3：联合索引排序示意图 -->
+<!-- 插入位置：此处 -->
+
+<p><img src="/../img/mysql-composite-index.png" alt="联合索引排序"></p>
+<hr>
+<h2 id="五、索引下推（ICP）"><a href="#五、索引下推（ICP）" class="headerlink" title="五、索引下推（ICP）"></a>五、索引下推（ICP）</h2><p>MySQL 5.6 引入的重要优化。</p>
+<h3 id="5-1-没有索引下推时"><a href="#5-1-没有索引下推时" class="headerlink" title="5.1 没有索引下推时"></a>5.1 没有索引下推时</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">1. 存储引擎根据最左前缀从索引中找匹配记录</span><br><span class="line">2. 把所有匹配记录的主键返回给 Server 层</span><br><span class="line">3. Server 层回表查完整数据，再用剩余条件过滤</span><br><span class="line"></span><br><span class="line">问题：索引里有的字段也要回表后才能过滤</span><br></pre></td></tr></table></figure>
+
+<h3 id="5-2-有索引下推时"><a href="#5-2-有索引下推时" class="headerlink" title="5.2 有索引下推时"></a>5.2 有索引下推时</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">1. 存储引擎遍历索引时，直接用索引里的字段做判断</span><br><span class="line">2. 不满足条件的记录直接跳过，不回表</span><br><span class="line">3. 只把符合条件的主键返回给 Server 层</span><br><span class="line"></span><br><span class="line">优化：在存储引擎层就过滤掉不满足的记录，减少回表次数</span><br></pre></td></tr></table></figure>
+
+<h3 id="5-3-实际例子"><a href="#5-3-实际例子" class="headerlink" title="5.3 实际例子"></a>5.3 实际例子</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">-- 联合索引 idx_name_age(name, age)</span></span><br><span class="line"><span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> <span class="keyword">user</span> <span class="keyword">WHERE</span> name <span class="keyword">LIKE</span> <span class="string">&#x27;李%&#x27;</span> <span class="keyword">AND</span> age <span class="operator">=</span> <span class="number">20</span>;</span><br></pre></td></tr></table></figure>
+
+<table>
+<thead>
+<tr>
+<th>方式</th>
+<th>流程</th>
+<th>回表次数</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>无 ICP</td>
+<td>找到所有姓李的（1000条）→ 全部回表 → Server 层过滤 age</td>
+<td>1000 次</td>
+</tr>
+<tr>
+<td>有 ICP</td>
+<td>找到姓李的 → 索引内判断 age&#x3D;20 → 只回表符合条件的</td>
+<td>50 次</td>
+</tr>
+</tbody></table>
+<p><strong>前提</strong>：过滤字段必须在当前联合索引中，且该条件不能直接作为连续前缀的一部分完成定位时，ICP 的收益才明显。</p>
+<h3 id="5-4-EXPLAIN-验证"><a href="#5-4-EXPLAIN-验证" class="headerlink" title="5.4 EXPLAIN 验证"></a>5.4 EXPLAIN 验证</h3><figure class="highlight sql"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">EXPLAIN <span class="keyword">SELECT</span> <span class="operator">*</span> <span class="keyword">FROM</span> <span class="keyword">user</span> <span class="keyword">WHERE</span> name <span class="keyword">LIKE</span> <span class="string">&#x27;李%&#x27;</span> <span class="keyword">AND</span> age <span class="operator">=</span> <span class="number">20</span>;</span><br></pre></td></tr></table></figure>
+
+<p>Extra 显示 <code>Using index condition</code> 表示使用了索引下推。</p>
+<hr>
+<h2 id="六、索引设计原则"><a href="#六、索引设计原则" class="headerlink" title="六、索引设计原则"></a>六、索引设计原则</h2><h3 id="6-1-什么时候该建索引"><a href="#6-1-什么时候该建索引" class="headerlink" title="6.1 什么时候该建索引"></a>6.1 什么时候该建索引</h3><table>
+<thead>
+<tr>
+<th>场景</th>
+<th>是否建索引</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>WHERE 条件频繁使用的字段</td>
+<td>✅ 建</td>
+</tr>
+<tr>
+<td>ORDER BY 排序字段</td>
+<td>✅ 建</td>
+</tr>
+<tr>
+<td>GROUP BY 分组字段</td>
+<td>✅ 建</td>
+</tr>
+<tr>
+<td>JOIN 连接字段</td>
+<td>✅ 建</td>
+</tr>
+<tr>
+<td>区分度低的字段（如性别）</td>
+<td>❌ 单独建收益低</td>
+</tr>
+<tr>
+<td>很少使用的字段</td>
+<td>❌ 不建</td>
+</tr>
+<tr>
+<td>数据量很小的表</td>
+<td>❌ 不建</td>
+</tr>
+</tbody></table>
+<h3 id="6-2-索引失效的常见场景"><a href="#6-2-索引失效的常见场景" class="headerlink" title="6.2 索引失效的常见场景"></a>6.2 索引失效的常见场景</h3><table>
+<thead>
+<tr>
+<th>场景</th>
+<th>错误写法</th>
+<th>正确写法</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>索引列用函数</td>
+<td><code>WHERE DATE(create_time) = &#39;2026-01-01&#39;</code></td>
+<td><code>WHERE create_time &gt;= &#39;2026-01-01&#39; AND create_time &lt; &#39;2026-01-02&#39;</code></td>
+</tr>
+<tr>
+<td>隐式类型转换</td>
+<td><code>WHERE order_no = 123456</code></td>
+<td><code>WHERE order_no = &#39;123456&#39;</code></td>
+</tr>
+<tr>
+<td>左模糊匹配</td>
+<td><code>LIKE &#39;%keyword&#39;</code></td>
+<td><code>LIKE &#39;keyword%&#39;</code></td>
+</tr>
+<tr>
+<td>OR 连接非索引字段</td>
+<td><code>WHERE a=1 OR b=2</code></td>
+<td>给 b 也加索引</td>
+</tr>
+</tbody></table>
+<h3 id="6-3-索引数量控制"><a href="#6-3-索引数量控制" class="headerlink" title="6.3 索引数量控制"></a>6.3 索引数量控制</h3><ul>
+<li>单表索引数量没有适用于所有业务的固定上限，应按核心查询、索引大小和写入压力取舍</li>
+<li>索引越多，写入越慢（每次 INSERT&#x2F;UPDATE&#x2F;DELETE 都要维护索引）</li>
+<li>索引越多，优化器选择越困难</li>
+</ul>
+<hr>
+<h2 id="七、面试高频问题"><a href="#七、面试高频问题" class="headerlink" title="七、面试高频问题"></a>七、面试高频问题</h2><p><strong>Q1：为什么 MySQL 用 B+ 树而不是红黑树？</strong></p>
+<p>红黑树是二叉结构，百万数据高度约为几十层量级；即使热点上层可以缓存，扇出仍很低。B+ 树让一个磁盘页容纳大量键和子页指针，常见大表也只有少量层级，范围查询还可以沿叶子页链表顺序读取。</p>
+<p><strong>Q2：聚簇索引和非聚簇索引的区别？</strong></p>
+<p>聚簇索引叶子节点存完整行数据，一张表只能有一个；InnoDB 二级索引叶子记录保存二级键和主键值，查询未被索引覆盖时需要回表。</p>
+<p><strong>Q3：什么是回表？怎么避免？</strong></p>
+<p>二级索引查到主键后，再去聚簇索引查完整数据。避免方式：使用覆盖索引，只查索引中包含的字段。</p>
+<p><strong>Q4：联合索引的最左前缀原则是什么？</strong></p>
+<p>查询条件要尽量从索引最左侧字段开始连续匹配。索引(a,b,c)，查 b 通常不能有效使用这个联合索引，查 a+b 走索引，查 a+c 通常主要用 a 定位，c 可能通过索引下推过滤。</p>
+<p><strong>Q5：什么是索引下推？</strong></p>
+<p>MySQL 5.6 的优化，把索引中包含的过滤条件下推到存储引擎层执行，减少回表次数。EXPLAIN 中 Extra 显示 <code>Using index condition</code>。</p>
+<p><strong>Q6：索引越多越好吗？</strong></p>
+<p>不是。索引占用空间并增加写入维护成本，冗余索引还会增加优化器评估负担。应根据真实查询和索引使用情况取舍，而不是套用固定数量。</p>
+<hr>
+<h2 id="写在最后"><a href="#写在最后" class="headerlink" title="写在最后"></a>写在最后</h2><p>B+ 树之所以能成为 MySQL 索引的终极答案，本质是围绕「磁盘 IO 是最大瓶颈」这个核心矛盾做的极致优化：</p>
+<ul>
+<li>用多路矮胖树结构，把 IO 次数压到最低</li>
+<li>用有序叶子链表，天然支持排序和范围查询</li>
+<li>用聚簇 + 二级索引的分层设计，平衡空间和查询效率</li>
+<li>用最左前缀、索引下推等优化，在现有结构上进一步榨取性能</li>
+</ul>
+<p>理解了这些底层逻辑，你就不用死记硬背各种索引规则。遇到慢查询时，能自己预判会不会走索引、为什么慢、该怎么优化，这才是底层知识真正的价值。</p>
+<hr>
+<blockquote>
+<p><strong>系列文章预告</strong>：</p>
+<ul>
+<li>下一篇：MySQL 事务与锁：MVCC 是怎么实现的</li>
+</ul>
+</blockquote>
+<p><em>如果觉得有帮助，欢迎点赞收藏，有问题欢迎评论区交流。</em></p>
+</article><div class="post-copyright"><div class="post-copyright__author"><span class="post-copyright-meta"><i class="fas fa-circle-user fa-fw"></i>文章作者: </span><span class="post-copyright-info"><a href="https://qjngbac.github.io">qjngbac</a></span></div><div class="post-copyright__type"><span class="post-copyright-meta"><i class="fas fa-square-arrow-up-right fa-fw"></i>文章链接: </span><span class="post-copyright-info"><a href="https://qjngbac.github.io/2025/11/12/mysql-index-guide/">https://qjngbac.github.io/2025/11/12/mysql-index-guide/</a></span></div><div class="post-copyright__notice"><span class="post-copyright-meta"><i class="fas fa-circle-exclamation fa-fw"></i>版权声明: </span><span class="post-copyright-info">本博客所有文章除特别声明外，均采用 <a href="https://creativecommons.org/licenses/by-nc-sa/4.0/" target="_blank">CC BY-NC-SA 4.0</a> 许可协议。转载请注明来源 <a href="https://qjngbac.github.io" target="_blank">Wait</a>！</span></div></div><div class="tag_share"><div class="post-meta__tag-list"><a class="post-meta__tags" href="/tags/%E5%90%8E%E7%AB%AF/">后端</a><a class="post-meta__tags" href="/tags/%E9%9D%A2%E8%AF%95/">面试</a><a class="post-meta__tags" href="/tags/MySQL/">MySQL</a><a class="post-meta__tags" href="/tags/%E7%B4%A2%E5%BC%95/">索引</a><a class="post-meta__tags" href="/tags/B-%E6%A0%91/">B+树</a><a class="post-meta__tags" href="/tags/%E6%95%B0%E6%8D%AE%E5%BA%93/">数据库</a></div><div class="post-share"><div class="social-share" data-image="/img/backend-01-mysql-index.jpg" data-sites="facebook,x,wechat,weibo,qq"></div><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/css/share.min.css" media="print" onload="this.media='all'"><script src="https://cdn.jsdelivr.net/npm/butterfly-extsrc@1.1.6/sharejs/dist/js/social-share.min.js" defer></script></div></div><nav class="pagination-post" id="pagination"><a class="pagination-related" href="/2025/11/19/sql-optimization-guide/" title="SQL 优化实战：一条 SQL 从 5 秒到 50 毫秒"><img class="cover" src="/img/java-series-15-sql-optimization.jpg" onerror="onerror=null;src='/img/404.jpg'" alt="cover of previous post"><div class="info"><div class="info-1"><div class="info-item-1">上一篇</div><div class="info-item-2">SQL 优化实战：一条 SQL 从 5 秒到 50 毫秒</div></div><div class="info-2"><div class="info-item-1">前言后台管理系统的订单列表页，一直是慢查询的重灾区。初期数据量小的时候一切正常，随着订单量积累到百万级，翻到后面几十页时，页面加载要转圈好几秒，接口直接超时。查日志发现核心查询 SQL 单条耗时达到 5 秒，已经严重影响运营使用。 SQL 优化不是靠瞎蒙索引，而是一套标准化的排查流程：先定位慢 SQL，再用 EXPLAIN 拆解执行计划，判断索引是否生效、扫描了多少行、有没有额外排序。找到瓶颈后针对性优化，往往能带来数量级的性能提升。 本文就以这条订单列表查询 SQL 为例，从 5 秒优化到 50 毫秒，完整覆盖 EXPLAIN 执行计划分析、索引失效场景、深分页优化 三大核心内容。  一、问题现场：慢 SQL 长什么样1.1 业务场景运营后台的订单列表，支持按创建时间、订单状态、用户 ID 筛选，按创建时间倒序排列，支持分页翻页。数据量约 120 万条。 原始 SQL： 123456SELECT id, order_no, user_id, status, amount, create_timeFROM t_orderWHERE status = 2   AND create_...</div></div></div></a><a class="pagination-related" href="/2025/11/02/spring-cloud-microservice-guide/" title="Spring Cloud 微服务实战：从零搭建一套微服务架构"><img class="cover" src="/img/java-series-09-spring-cloud.jpg" onerror="onerror=null;src='/img/404.jpg'" alt="cover of next post"><div class="info text-right"><div class="info-1"><div class="info-item-1">下一篇</div><div class="info-item-2">Spring Cloud 微服务实战：从零搭建一套微服务架构</div></div><div class="info-2"><div class="info-item-1">前言单体应用在业务初期开发高效、部署简单；随着业务与团队规模扩大，可能逐渐出现发布耦合、整体扩容成本和故障隔离困难等问题。微服务是一种可选的应对方式，但并非必然答案：边界清晰的模块化单体同样可能长期适用。 Spring Cloud Alibaba 为 Spring Cloud 应用提供 Nacos、Sentinel、Seata 等生态集成；Gateway 和 OpenFeign 则来自 Spring Cloud 自身。把这些组件组合起来，可以覆盖注册配置、网关路由、服务调用和流量治理，但身份认证、可观测性、部署、数据一致性等仍需单独设计。 本文就从零开始，一步步搭建一套可运行的微服务骨架，完整覆盖四大核心组件：Nacos 注册配置中心、Spring Cloud Gateway 网关、OpenFeign 声明式调用、Sentinel 流量治理，并附上实战配置与常见踩坑指南。  一、整体架构设计1.1 组件选型与分工   组件 角色 替代的传统方案 核心价值    Nacos 注册中心 + 配置中心 Eureka + Config 统一服务发现和配置管理   Spring Cloud...</div></div></div></a></nav><div class="relatedPosts"><div class="headline"><i class="fas fa-thumbs-up fa-fw"></i><span>相关推荐</span></div><div class="relatedPosts-list"><a class="pagination-related" href="/2025/11/22/mysql-mvcc-guide/" title="MySQL 事务与锁：MVCC 是怎么实现的"><img class="cover" src="/img/backend-02-mysql-mvcc.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2025-11-22</div><div class="info-item-2">MySQL 事务与锁：MVCC 是怎么实现的</div></div><div class="info-2"><div class="info-item-1">前言在并发场景下操作数据库，我们总会遇到各种反直觉的数据问题：刚插入的数据查不到、同一个事务两次查询同一条数据结果不一样、范围更新时莫名多出不存在的行。这些问题的本质，都和事务隔离性与锁机制息息相关。 而 MVCC（多版本并发控制） 就是 InnoDB 解决读写冲突、提升并发性能的核心武器。它让读操作不用加锁、写操作不阻塞读，在保证隔离性的同时，大幅提升了数据库的并发能力。 很多人听过 MVCC 的名字，却搞不清它到底怎么实现的：undo log 起什么作用？Read View 是怎么判断可见性的？行锁、间隙锁、临键锁又和 MVCC 是什么关系？ 今天我们就从 ACID 四大特性讲起，逐层深入，把隔离级别、undo 版本链、Read View 可见性、三类行锁一次性讲透。  一、事务的基石：ACID 四大特性事务是一组原子性的 SQL 操作，要么全部执行成功，要么全部失败回滚。    特性 含义 底层实现    原子性（Atomicity） 要么全成功，要么全回滚 undo log   一致性（Consistency） 事务前后满足业务规则与数据库约束 数据库约束、应用规则以及 ...</div></div></div></a><a class="pagination-related" href="/2025/12/07/sharding-guide/" title="分库分表实战：百万级表的水平拆分策略"><img class="cover" src="/img/backend-03-sharding.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2025-12-07</div><div class="info-item-2">分库分表实战：百万级表的水平拆分策略</div></div><div class="info-2"><div class="info-item-1">前言业务初期，单库单表简单高效。但随着业务增长，当订单表数据量突破千万、单表体积超过 20G 时，问题会集中爆发：查询越来越慢、索引体积膨胀、数据库连接数打满、单机存储逼近上限。加索引、优化 SQL 的收益越来越小，这时候分库分表就成了必然选择。 分库分表不是简单地把一张表拆成多张表，它涉及拆分策略选型、分片键设计、平滑扩容、分布式事务等一系列问题。选对了方案，系统容量和吞吐会明显提升；选错了分片键，后续会陷入跨库查询、数据倾斜的无尽泥潭。 本文就以最经典的订单表拆分为例，从拆分策略、分片键选型、ShardingSphere 落地到平滑扩容，完整讲透水平分库分表的实战全流程。  一、为什么需要分库分表？单库单表的四道天花板：    瓶颈 说明    性能瓶颈 热点数据与大范围扫描增加，Buffer Pool 命中、IO 与写入竞争逐渐恶化   存储瓶颈 磁盘空间逼近单机上限，大表 DDL 无法在线执行   连接瓶颈 单机连接数有限，业务量大时连接打满   并发瓶颈 单机 CPU、IO 有上限，无法横向扩展   什么时候该考虑分库分表？   观察信号 判断方式    容量增长 单机...</div></div></div></a><a class="pagination-related" href="/2025/11/19/sql-optimization-guide/" title="SQL 优化实战：一条 SQL 从 5 秒到 50 毫秒"><img class="cover" src="/img/java-series-15-sql-optimization.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2025-11-19</div><div class="info-item-2">SQL 优化实战：一条 SQL 从 5 秒到 50 毫秒</div></div><div class="info-2"><div class="info-item-1">前言后台管理系统的订单列表页，一直是慢查询的重灾区。初期数据量小的时候一切正常，随着订单量积累到百万级，翻到后面几十页时，页面加载要转圈好几秒，接口直接超时。查日志发现核心查询 SQL 单条耗时达到 5 秒，已经严重影响运营使用。 SQL 优化不是靠瞎蒙索引，而是一套标准化的排查流程：先定位慢 SQL，再用 EXPLAIN 拆解执行计划，判断索引是否生效、扫描了多少行、有没有额外排序。找到瓶颈后针对性优化，往往能带来数量级的性能提升。 本文就以这条订单列表查询 SQL 为例，从 5 秒优化到 50 毫秒，完整覆盖 EXPLAIN 执行计划分析、索引失效场景、深分页优化 三大核心内容。  一、问题现场：慢 SQL 长什么样1.1 业务场景运营后台的订单列表，支持按创建时间、订单状态、用户 ID 筛选，按创建时间倒序排列，支持分页翻页。数据量约 120 万条。 原始 SQL： 123456SELECT id, order_no, user_id, status, amount, create_timeFROM t_orderWHERE status = 2   AND create_...</div></div></div></a><a class="pagination-related" href="/2026/06/18/01-llm-api-engineering/" title="大模型 API 工程化实战：从 curl 到流式调用、重试与成本治理"><img class="cover" src="/../img/ai-01-llm-api.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-06-18</div><div class="info-item-2">大模型 API 工程化实战：从 curl 到流式调用、重试与成本治理</div></div><div class="info-2"><div class="info-item-1">前言很多人第一次接入大模型，只需要几行代码：传入一段文字，等待模型返回答案。但一旦把它放进真实后端系统，问题会立刻变多：请求超时怎么办？限流后是否重试？流式响应中途断开怎么处理？如何统计 Token 和费用？怎样在多个模型之间切换？日志里又该记录什么，哪些内容不能记录？ 因此，大模型 API 接入不能只停留在“能调用”。真正的工程目标是把不稳定、成本可变、响应时间较长的外部模型服务，封装成一个可超时、可重试、可观测、可降级、可替换的基础能力。 本文以 OpenAI Responses API 的通用调用方式为例，从 curl 开始，逐步搭建同步调用、流式输出、异常处理、统一网关与成本治理方案。示例中的模型名统一从环境变量读取，实际使用时应替换为账号当前可用的模型。  一、一次大模型请求到底包含什么大模型 API 本质上仍然是 HTTP API。一次请求通常包含四部分：    部分 作用 常见内容    URL 指定服务和接口 /v1/responses   Header 身份认证与请求格式 Authorization、Content-Type   Body 模型、输入和生成参数 ...</div></div></div></a><a class="pagination-related" href="/2025/07/20/class-loading-mechanism/" title="类加载机制：为什么你的代码会报 ClassNotFoundException"><img class="cover" src="/img/java-series-03-classloading.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2025-07-20</div><div class="info-item-2">类加载机制：为什么你的代码会报 ClassNotFoundException</div></div><div class="info-2"><div class="info-item-1">前言刚改完的代码本地跑得好好的，一上测试环境就抛出 java.lang.ClassNotFoundException；Maven 依赖明明已经引入，打包也没报错，翻遍 lib 目录也能找到对应 jar 包，可 JVM 就是说找不到类。 很多人遇到这类问题，第一反应都是”缺包了””依赖没打进去”。这当然是最常见原因，但并不是全部。真实线上场景里，类明明存在却依然加载失败，往往和类加载器隔离、双亲委派模型、线程上下文类加载器、容器自定义加载规则有关。 类加载是 Java 最核心的基础机制之一，也是面试高频考点，更是我们排查依赖冲突、容器隔离、插件化、热部署问题的底层依据。本文就从 ClassNotFoundException 切入，把类加载流程、双亲委派模型、自定义类加载器，以及打破双亲委派的典型场景一次讲透。  一、前置认知：一个类从源码到执行要走几步Java 源码会先被编译成 .class 字节码文件。JVM 运行时不会直接执行 .java 文件，而是通过类加载机制把描述类的数据从 Class 文件、jar 包、网络或其他来源加载到内存中，再完成校验、转换、解析和初始化，最终形成...</div></div></div></a><a class="pagination-related" href="/2026/01/19/cap-base-guide/" title="CAP 与 BASE 理论：分布式系统的基石"><img class="cover" src="/../img/backend-10-cap-base.jpg" alt="cover"><div class="info text-center"><div class="info-1"><div class="info-item-1"><i class="far fa-calendar-alt fa-fw"></i> 2026-01-19</div><div class="info-item-2">CAP 与 BASE 理论：分布式系统的基石</div></div><div class="info-2"><div class="info-item-1">前言做分布式系统开发，绕不开 CAP 和 BASE 这两大基础理论。很多人面试时能背出「三选二」，但真到做技术选型时，却搞不清什么时候该追求强一致、什么时候该接受最终一致，也说不清楚 BASE 理论到底指导了哪些工程实践。 实际上，CAP 不是刻板的选择题，而是告诉我们一个客观事实：分布式系统必须为网络分区做好准备，分区发生时需要在一致性和可用性之间权衡。而 BASE 则提供了一种常见的工程思路：在业务允许的范围内接受暂时不一致，通过补偿和收敛换取更高的可用性与可扩展性。 今天我们就从底层逻辑到工程实践，彻底讲透 CAP 三要素的取舍、BASE 三大核心，以及最终一致性的常见落地方案。  一、CAP 定理：分布式系统的「不可能三角」CAP 猜想由计算机科学家 Eric Brewer 于 2000 年提出，2002 年由 Seth Gilbert 和 Nancy Lynch 在异步网络模型下形式化证明。更准确的结论是：当网络分区发生时，分布式系统无法同时提供线性一致性和对所有非故障节点请求的可用响应。 1.1 三要素分别是什么我们先把每个概念的真实含义讲透，避免只背定义。 一致性（...</div></div></div></a></div></div></div><div class="aside-content" id="aside-content"><div class="card-widget card-info text-center"><div class="avatar-img"><img src="/img/butterfly-icon.png" onerror="this.onerror=null;this.src='/img/friend_404.gif'" alt="avatar"/></div><div class="author-info-name">qjngbac</div><div class="author-info-description">一个正在学习的开发者</div><div class="site-data"><a href="/archives/"><div class="headline">文章</div><div class="length-num">42</div></a><a href="/tags/"><div class="headline">标签</div><div class="length-num">139</div></a><a href="/categories/"><div class="headline">分类</div><div class="length-num">5</div></a></div><a id="card-info-btn" target="_blank" rel="noopener" href="https://github.com/qjngbac"><i class="fab fa-github"></i><span>Follow Me</span></a><div class="card-info-social-icons"><a class="social-icon" href="https://github.com/qjngbac" target="_blank" title="Github"><i class="fab fa-github"></i></a></div></div><div class="card-widget card-announcement"><div class="item-headline"><i class="fas fa-bullhorn fa-shake"></i><span>公告</span></div><div class="announcement_content">欢迎来到我的博客</div></div><div class="sticky_layout"><div class="card-widget" id="card-toc"><div class="item-headline"><i class="fas fa-stream"></i><span>目录</span><span class="toc-percentage"></span></div><div class="toc-content"><ol class="toc"><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%89%8D%E8%A8%80"><span class="toc-number">1.</span> <span class="toc-text">前言</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%80%E3%80%81%E7%B4%A2%E5%BC%95%E7%9A%84%E6%9C%AC%E8%B4%A8%EF%BC%9A%E7%94%A8%E6%8E%92%E5%BA%8F%E6%8D%A2%E6%9F%A5%E6%89%BE%E6%95%88%E7%8E%87"><span class="toc-number">2.</span> <span class="toc-text">一、索引的本质：用排序换查找效率</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#1-1-%E6%B2%A1%E6%9C%89%E7%B4%A2%E5%BC%95%E7%9A%84%E4%BB%A3%E4%BB%B7"><span class="toc-number">2.1.</span> <span class="toc-text">1.1 没有索引的代价</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#1-2-%E7%B4%A2%E5%BC%95%E7%9A%84%E6%A0%B8%E5%BF%83%E6%80%9D%E6%83%B3"><span class="toc-number">2.2.</span> <span class="toc-text">1.2 索引的核心思想</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%8C%E3%80%81%E4%B8%BA%E4%BB%80%E4%B9%88%E6%98%AF-B-%E6%A0%91%EF%BC%9F%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%E7%9A%84%E6%9D%83%E8%A1%A1"><span class="toc-number">3.</span> <span class="toc-text">二、为什么是 B+ 树？数据结构的权衡</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#2-1-%E5%85%B6%E4%BB%96%E7%BB%93%E6%9E%84%E4%B8%BA%E4%BB%80%E4%B9%88%E8%A2%AB%E6%B7%98%E6%B1%B0"><span class="toc-number">3.1.</span> <span class="toc-text">2.1 其他结构为什么被淘汰</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-2-%E5%90%84%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84%E8%AF%A6%E7%BB%86%E5%AF%B9%E6%AF%94"><span class="toc-number">3.2.</span> <span class="toc-text">2.2 各数据结构详细对比</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-3-B-%E6%A0%91%E7%9A%84%E7%BB%93%E6%9E%84%E8%AE%BE%E8%AE%A1"><span class="toc-number">3.3.</span> <span class="toc-text">2.3 B+ 树的结构设计</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#2-4-B-%E6%A0%91%E5%88%B0%E5%BA%95%E6%9C%89%E5%A4%9A%E5%BF%AB%EF%BC%9F"><span class="toc-number">3.4.</span> <span class="toc-text">2.4 B+ 树到底有多快？</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%89%E3%80%81%E8%81%9A%E7%B0%87%E7%B4%A2%E5%BC%95-vs-%E9%9D%9E%E8%81%9A%E7%B0%87%E7%B4%A2%E5%BC%95"><span class="toc-number">4.</span> <span class="toc-text">三、聚簇索引 vs 非聚簇索引</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#3-1-%E8%81%9A%E7%B0%87%E7%B4%A2%E5%BC%95%EF%BC%9A%E7%B4%A2%E5%BC%95%E5%8D%B3%E6%95%B0%E6%8D%AE"><span class="toc-number">4.1.</span> <span class="toc-text">3.1 聚簇索引：索引即数据</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-2-%E9%9D%9E%E8%81%9A%E7%B0%87%E7%B4%A2%E5%BC%95%EF%BC%88%E4%BA%8C%E7%BA%A7%E7%B4%A2%E5%BC%95%EF%BC%89%EF%BC%9A%E7%B4%A2%E5%BC%95%E5%AD%98%E4%B8%BB%E9%94%AE"><span class="toc-number">4.2.</span> <span class="toc-text">3.2 非聚簇索引（二级索引）：索引存主键</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-3-%E8%A6%86%E7%9B%96%E7%B4%A2%E5%BC%95%EF%BC%9A%E4%B8%8D%E7%94%A8%E5%9B%9E%E8%A1%A8%E7%9A%84%E6%9C%80%E4%BC%98%E8%A7%A3"><span class="toc-number">4.3.</span> <span class="toc-text">3.3 覆盖索引：不用回表的最优解</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#3-4-%E6%A0%B8%E5%BF%83%E5%AF%B9%E6%AF%94"><span class="toc-number">4.4.</span> <span class="toc-text">3.4 核心对比</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%9B%9B%E3%80%81%E8%81%94%E5%90%88%E7%B4%A2%E5%BC%95%E4%B8%8E%E6%9C%80%E5%B7%A6%E5%89%8D%E7%BC%80%E5%8E%9F%E5%88%99"><span class="toc-number">5.</span> <span class="toc-text">四、联合索引与最左前缀原则</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#4-1-%E4%BB%80%E4%B9%88%E6%98%AF%E8%81%94%E5%90%88%E7%B4%A2%E5%BC%95"><span class="toc-number">5.1.</span> <span class="toc-text">4.1 什么是联合索引</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-2-%E6%9C%80%E5%B7%A6%E5%89%8D%E7%BC%80%E5%8E%9F%E5%88%99"><span class="toc-number">5.2.</span> <span class="toc-text">4.2 最左前缀原则</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-3-%E4%B8%BA%E4%BB%80%E4%B9%88%E5%BF%85%E9%A1%BB%E9%81%B5%E5%AE%88%E6%9C%80%E5%B7%A6%E5%89%8D%E7%BC%80%EF%BC%9F"><span class="toc-number">5.3.</span> <span class="toc-text">4.3 为什么必须遵守最左前缀？</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#4-4-%E8%81%94%E5%90%88%E7%B4%A2%E5%BC%95%E8%AE%BE%E8%AE%A1%E5%8E%9F%E5%88%99"><span class="toc-number">5.4.</span> <span class="toc-text">4.4 联合索引设计原则</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%BA%94%E3%80%81%E7%B4%A2%E5%BC%95%E4%B8%8B%E6%8E%A8%EF%BC%88ICP%EF%BC%89"><span class="toc-number">6.</span> <span class="toc-text">五、索引下推（ICP）</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#5-1-%E6%B2%A1%E6%9C%89%E7%B4%A2%E5%BC%95%E4%B8%8B%E6%8E%A8%E6%97%B6"><span class="toc-number">6.1.</span> <span class="toc-text">5.1 没有索引下推时</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-2-%E6%9C%89%E7%B4%A2%E5%BC%95%E4%B8%8B%E6%8E%A8%E6%97%B6"><span class="toc-number">6.2.</span> <span class="toc-text">5.2 有索引下推时</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-3-%E5%AE%9E%E9%99%85%E4%BE%8B%E5%AD%90"><span class="toc-number">6.3.</span> <span class="toc-text">5.3 实际例子</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#5-4-EXPLAIN-%E9%AA%8C%E8%AF%81"><span class="toc-number">6.4.</span> <span class="toc-text">5.4 EXPLAIN 验证</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%85%AD%E3%80%81%E7%B4%A2%E5%BC%95%E8%AE%BE%E8%AE%A1%E5%8E%9F%E5%88%99"><span class="toc-number">7.</span> <span class="toc-text">六、索引设计原则</span></a><ol class="toc-child"><li class="toc-item toc-level-3"><a class="toc-link" href="#6-1-%E4%BB%80%E4%B9%88%E6%97%B6%E5%80%99%E8%AF%A5%E5%BB%BA%E7%B4%A2%E5%BC%95"><span class="toc-number">7.1.</span> <span class="toc-text">6.1 什么时候该建索引</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#6-2-%E7%B4%A2%E5%BC%95%E5%A4%B1%E6%95%88%E7%9A%84%E5%B8%B8%E8%A7%81%E5%9C%BA%E6%99%AF"><span class="toc-number">7.2.</span> <span class="toc-text">6.2 索引失效的常见场景</span></a></li><li class="toc-item toc-level-3"><a class="toc-link" href="#6-3-%E7%B4%A2%E5%BC%95%E6%95%B0%E9%87%8F%E6%8E%A7%E5%88%B6"><span class="toc-number">7.3.</span> <span class="toc-text">6.3 索引数量控制</span></a></li></ol></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E4%B8%83%E3%80%81%E9%9D%A2%E8%AF%95%E9%AB%98%E9%A2%91%E9%97%AE%E9%A2%98"><span class="toc-number">8.</span> <span class="toc-text">七、面试高频问题</span></a></li><li class="toc-item toc-level-2"><a class="toc-link" href="#%E5%86%99%E5%9C%A8%E6%9C%80%E5%90%8E"><span class="toc-number">9.</span> <span class="toc-text">写在最后</span></a></li></ol></div></div><div class="card-widget card-recent-post"><div class="item-headline"><i class="fas fa-history"></i><span>最新文章</span></div><div class="aside-list"><div class="aside-list-item"><a class="thumbnail" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"><img src="/../img/ai-10-ollama.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成"/></a><div class="content"><a class="title" href="/2026/07/22/10-ollama-local-llm/" title="Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成">Ollama 本地部署大模型：模型选择、API 调用与 Spring Boot 集成</a><time datetime="2026-07-22T02:00:00.000Z" title="发表于 2026-07-22 10:00:00">2026-07-22</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"><img src="/../img/ai-09-spring-ai.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling"/></a><div class="content"><a class="title" href="/2026/07/17/09-spring-ai/" title="Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling">Spring AI 实战：Java 应用接入大模型、RAG 与 Tool Calling</a><time datetime="2026-07-17T02:00:00.000Z" title="发表于 2026-07-17 10:00:00">2026-07-17</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"><img src="/../img/ai-08-vector-database.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比"/></a><div class="content"><a class="title" href="/2026/07/13/08-vector-database-comparison/" title="向量数据库选型实战：Chroma、Milvus 与 pgvector 对比">向量数据库选型实战：Chroma、Milvus 与 pgvector 对比</a><time datetime="2026-07-13T02:00:00.000Z" title="发表于 2026-07-13 10:00:00">2026-07-13</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度"><img src="/../img/ai-07-rag-evaluation.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 评估实战：Recall@K、MRR 与回答忠实度"/></a><div class="content"><a class="title" href="/2026/07/12/07-rag-evaluation/" title="RAG 评估实战：Recall@K、MRR 与回答忠实度">RAG 评估实战：Recall@K、MRR 与回答忠实度</a><time datetime="2026-07-12T02:00:00.000Z" title="发表于 2026-07-12 10:00:00">2026-07-12</time></div></div><div class="aside-list-item"><a class="thumbnail" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"><img src="/../img/ai-06-rag-retrieval.jpg" onerror="this.onerror=null;this.src='/img/404.jpg'" alt="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker"/></a><div class="content"><a class="title" href="/2026/07/09/06-rag-retrieval-optimization/" title="RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker">RAG 检索优化：Query Rewrite、混合检索、RRF 与 Reranker</a><time datetime="2026-07-09T02:00:00.000Z" title="发表于 2026-07-09 10:00:00">2026-07-09</time></div></div></div></div></div></div></main><footer id="footer"><div class="footer-other"><div class="footer-copyright"><span class="copyright">&copy;&nbsp;2024 - 2026 By qjngbac</span><span class="framework-info"><span>框架 </span><a target="_blank" rel="noopener" href="https://hexo.io">Hexo 7.3.0</a><span class="footer-separator">|</span><span>主题 </span><a target="_blank" rel="noopener" href="https://github.com/jerryc127/hexo-theme-butterfly">Butterfly 5.5.5</a></span></div></div></footer></div><div id="rightside"><div id="rightside-config-hide"><button id="readmode" type="button" title="阅读模式"><i class="fas fa-book-open"></i></button><button id="darkmode" type="button" title="日间和夜间模式切换"><i class="fas fa-adjust"></i></button><button id="hide-aside-btn" type="button" title="单栏和双栏切换"><i class="fas fa-arrows-alt-h"></i></button></div><div id="rightside-config-show"><button id="rightside-config" type="button" title="设置"><i class="fas fa-cog fa-spin"></i></button><button class="close" id="mobile-toc-button" type="button" title="目录"><i class="fas fa-list-ul"></i></button><button id="go-up" type="button" title="回到顶部"><span class="scroll-percent"></span><i class="fas fa-arrow-up"></i></button></div></div><div><script src="/js/utils.js?v=5.5.5"></script><script src="/js/main.js?v=5.5.5"></script><div class="js-pjax"></div><script async data-pjax src="//busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script></div></body></html>

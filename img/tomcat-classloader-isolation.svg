@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="430" viewBox="0 0 960 430" role="img" aria-labelledby="title desc">
+  <title id="title">Tomcat class loader isolation</title>
+  <desc id="desc">A diagram showing common class loaders above two isolated web application class loaders.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0,0 L10,5 L0,10 Z" fill="#64748b"/>
+    </marker>
+  </defs>
+  <rect width="960" height="430" rx="18" fill="#f8fafc"/>
+  <text x="40" y="44" font-family="Arial, sans-serif" font-size="24" font-weight="700" fill="#0f172a">Tomcat 类加载隔离</text>
+  <text x="40" y="72" font-family="Arial, sans-serif" font-size="14" fill="#475569">Web 应用类通常本地优先；Java、Servlet API、Tomcat 与共享类仍由上层优先加载。</text>
+  <g font-family="Arial, sans-serif" text-anchor="middle">
+    <rect x="310" y="98" width="340" height="62" rx="12" fill="#dbeafe" stroke="#2563eb" stroke-width="2"/>
+    <text x="480" y="124" font-size="18" font-weight="700" fill="#1e3a8a">Common ClassLoader</text>
+    <text x="480" y="146" font-size="13" fill="#1e40af">Tomcat 公共类；可按配置加入共享依赖</text>
+    <rect x="140" y="230" width="280" height="86" rx="12" fill="#dcfce7" stroke="#16a34a" stroke-width="2"/>
+    <text x="280" y="260" font-size="18" font-weight="700" fill="#14532d">WebAppClassLoader A</text>
+    <text x="280" y="284" font-size="13" fill="#166534">WEB-INF/classes</text>
+    <text x="280" y="304" font-size="13" fill="#166534">WEB-INF/lib/app-a.jar</text>
+    <rect x="540" y="230" width="280" height="86" rx="12" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+    <text x="680" y="260" font-size="18" font-weight="700" fill="#78350f">WebAppClassLoader B</text>
+    <text x="680" y="284" font-size="13" fill="#92400e">WEB-INF/classes</text>
+    <text x="680" y="304" font-size="13" fill="#92400e">WEB-INF/lib/app-b.jar</text>
+    <rect x="150" y="354" width="260" height="42" rx="8" fill="#f1f5f9" stroke="#94a3b8"/>
+    <text x="280" y="381" font-size="13" fill="#334155">App A 可使用 dependency v1</text>
+    <rect x="550" y="354" width="260" height="42" rx="8" fill="#f1f5f9" stroke="#94a3b8"/>
+    <text x="680" y="381" font-size="13" fill="#334155">App B 可使用 dependency v2</text>
+  </g>
+  <g stroke="#64748b" stroke-width="2.5" fill="none" marker-end="url(#arrow)">
+    <path d="M410 160 C360 184,320 198,290 228"/>
+    <path d="M550 160 C600 184,640 198,670 228"/>
+  </g>
+  <line x1="480" y1="220" x2="480" y2="330" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="8 8"/>
+  <text x="480" y="348" font-family="Arial, sans-serif" font-size="13" text-anchor="middle" fill="#64748b">应用之间默认隔离</text>
+</svg>
